@@ -24,7 +24,11 @@ export async function call(name, data) {
     const result = await httpsCallable(functions, name)(data);
     return result.data;
   } catch (err) {
-    throw new Error(err.message || 'Something went wrong. Please try again.');
+    // Server crashes come back as code "internal"; their message isn't meant for people.
+    const message = err.code === 'functions/internal' || !err.message
+      ? 'Something went wrong on our end. Please try again in a minute.'
+      : err.message;
+    throw new Error(message);
   }
 }
 
