@@ -13,15 +13,28 @@
 <body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
   <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
 
-  <main class="max-w-4xl mx-auto px-4 py-10">
+  <main class="max-w-6xl mx-auto px-4 py-10">
     <h1 class="font-serif text-3xl sm:text-4xl font-bold">My Results</h1>
     <p class="mt-2 text-ink-600">Every exam you've submitted, newest first.</p>
     <div data-list class="mt-8"><p class="text-ink-500 text-sm">Loading…</p></div>
+
+    <section data-all-missed class="hidden mt-12">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 class="font-serif text-2xl font-bold">All missed questions <span data-missed-count class="text-ink-400 text-lg"></span></h2>
+          <p class="mt-1 text-sm text-ink-600">Every miss from every exam in one place. Click a column heading to sort; sorting by performance indicator shows what you keep missing.</p>
+        </div>
+        <button data-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2.5 text-sm font-medium hover:bg-ink-800 disabled:opacity-60">⬇ Download spreadsheet</button>
+      </div>
+      <p class="mt-2 text-xs text-ink-500">The download opens in Excel, Numbers, or Google Sheets (in Google Drive: New → File upload).</p>
+      <div data-missed-table class="mt-4"></div>
+    </section>
   </main>
 
   <script type="module">
     import { collection, doc, getDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-    import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText } from './js/app.js';
+    import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText, show } from './js/app.js';
+    import { missedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
 
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'results' });
@@ -69,6 +82,31 @@
             </tbody>
           </table>
         </div>`;
+
+      const rows = missedRows(attempts);
+      const section = document.querySelector('[data-all-missed]');
+      document.querySelector('[data-missed-count]').textContent = `(${rows.length})`;
+      if (rows.length) {
+        renderSortableTable(document.querySelector('[data-missed-table]'), rows, {
+          columns: ['date', 'exam', 'q', 'yourAnswer', 'correctAnswer', 'area', 'code', 'source'],
+          sortBy: 'code',
+          minWidth: 900,
+        });
+      }
+      show(section, true);
+
+      const name = `${profile.firstName} ${profile.lastName}`;
+      const downloadButton = document.querySelector('[data-download]');
+      downloadButton.addEventListener('click', async () => {
+        downloadButton.disabled = true;
+        try {
+          await downloadResults({ studentName: name, attempts, fileName: exportFileName(name) });
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          downloadButton.disabled = false;
+        }
+      });
     }
   </script>
 </body>
