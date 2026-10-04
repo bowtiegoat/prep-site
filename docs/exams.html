@@ -18,6 +18,8 @@
     <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">Your cluster exams</h1>
     <p data-event class="mt-2 text-ink-600"></p>
 
+    <div data-resources class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+
     <div class="mt-6 rounded-xl bg-white border border-ink-200 p-5 text-sm text-ink-700">
       <strong>How it works:</strong> Have your printed exam ready, pick it below, and bubble in your answers here.
       You get 90 minutes, like the real thing. Nothing is recorded until you click <strong>Submit</strong>,
@@ -34,6 +36,7 @@
     import { db, requireUser, renderHeader, esc, formatDate, compareExams } from './js/app.js';
     import { draftKey } from './js/drafts.js';
     import { EVENTS } from './js/events.js';
+    import { EVENT_LINKS } from './js/event-links.js';
 
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'exams' });
@@ -41,6 +44,24 @@
     document.querySelector('[data-greeting]').textContent = `Hi, ${profile.firstName}`;
     document.querySelector('[data-event]').innerHTML =
       `${esc(profile.eventName)} (${esc(profile.eventCode)}) · ${esc(profile.cluster)} cluster · <a href="profile.html" class="text-blue-600 underline">Change event</a>`;
+
+    // Quick links for the student's event: DECA page, guidelines, DECA+.
+    const event = EVENTS.find((e) => e.code === profile.eventCode);
+    const links = EVENT_LINKS[profile.eventCode] || {};
+    const resources = [
+      { href: event?.url, icon: '🏛️', title: 'DECA event page', text: `The official ${event?.event || 'event'} overview from DECA.` },
+      { href: links.guidelines, icon: '📄', title: 'Event guidelines', text: 'Rules, format, and scoring for this year (PDF).' },
+      { href: links.decaPlus, icon: '⭐', title: 'DECA+ resources', text: "Practice materials. Sign in with your chapter's DECA+ account." },
+    ].filter((r) => r.href);
+    document.querySelector('[data-resources]').innerHTML = resources.map((r) => `
+      <a href="${esc(r.href)}" target="_blank" rel="noopener noreferrer"
+        class="group flex gap-3 rounded-xl border border-ink-200 bg-white p-4 hover:border-blue-500 hover:shadow-sm">
+        <span class="text-2xl leading-none" aria-hidden="true">${r.icon}</span>
+        <span>
+          <span class="flex items-center gap-1 font-semibold text-ink-900 group-hover:text-blue-600">${esc(r.title)} <span aria-hidden="true" class="text-xs">↗</span></span>
+          <span class="block mt-0.5 text-xs text-ink-500">${esc(r.text)}</span>
+        </span>
+      </a>`).join('');
 
     const [examSnap, attemptSnap] = await Promise.all([
       getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))),
