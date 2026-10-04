@@ -62,11 +62,16 @@ const COLUMNS = {
 };
 
 // Renders a table whose column headers sort it. Click again to reverse.
-export function renderSortableTable(container, rows, { columns, sortBy, minWidth = 720 }) {
+// Returns { update(rows) } to swap in new rows while keeping the sort.
+export function renderSortableTable(container, rows, { columns, sortBy, minWidth = 720, emptyText = 'Nothing to show.' }) {
   let key = sortBy;
   let dir = 1;
 
   function draw() {
+    if (!rows.length) {
+      container.innerHTML = `<p class="rounded-xl bg-white border border-ink-200 px-4 py-6 text-sm text-ink-500">${esc(emptyText)}</p>`;
+      return;
+    }
     const column = COLUMNS[key];
     const sorted = [...rows].sort((a, b) => {
       const x = column.value(a);
@@ -100,6 +105,12 @@ export function renderSortableTable(container, rows, { columns, sortBy, minWidth
     draw();
   });
   draw();
+  return {
+    update(newRows) {
+      rows = newRows;
+      draw();
+    },
+  };
 }
 
 // ---------- Spreadsheet download ----------

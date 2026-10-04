@@ -20,15 +20,20 @@
 
     <form data-form class="mt-8 bg-white rounded-2xl border border-ink-200 p-6 space-y-4">
       <h2 class="font-semibold text-lg">Change your event</h2>
-      <p class="text-sm text-ink-600">
-        ⚠️ Changing your event <strong>starts your progress over</strong>. Your exam list and My Results will be empty,
-        and you can take exams again under your new event.
-      </p>
       <select name="eventCode" required class="w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
-      <label class="flex items-start gap-2 text-sm text-ink-700">
-        <input type="checkbox" name="confirm" required class="mt-0.5" />
-        I understand this starts my progress over.
-      </label>
+      <p data-cluster-note class="hidden text-sm text-ink-700 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3"></p>
+
+      <fieldset data-choices class="hidden space-y-2">
+        <legend class="text-sm font-medium text-ink-700 mb-2">What should happen to your exam results?</legend>
+        <label class="flex items-start gap-3 rounded-lg border border-ink-200 p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50/50">
+          <input type="radio" name="keep" value="yes" checked class="mt-1" />
+          <span class="text-sm"><strong>Keep my results</strong> (recommended)<br /><span data-keep-detail class="text-ink-600"></span></span>
+        </label>
+        <label class="flex items-start gap-3 rounded-lg border border-ink-200 p-3 cursor-pointer has-[:checked]:border-rose-400 has-[:checked]:bg-rose-50/50">
+          <input type="radio" name="keep" value="no" class="mt-1" />
+          <span class="text-sm"><strong>Start over</strong><br /><span class="text-ink-600">Your exams list and My Results start empty, and you can take every exam again. Your advisor can still see your old results.</span></span>
+        </label>
+      </fieldset>
       <p data-error class="hidden rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
       <button type="submit" class="w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800 disabled:opacity-60">Change event</button>
     </form>
@@ -37,6 +42,7 @@
   <script type="module">
     import { requireUser, renderHeader, call, esc, show } from './js/app.js';
     import { eventOptionsHtml } from './js/event-picker.js';
+    import { EVENTS } from './js/events.js';
 
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'profile' });
@@ -55,13 +61,37 @@
     const errorBox = form.querySelector('[data-error]');
     form.eventCode.innerHTML = eventOptionsHtml(profile.eventCode);
 
+    // Explain what happens for the chosen event, based on whether its cluster
+    // exam is the same as the current one.
+    function updateChoices() {
+      const event = EVENTS.find((e) => e.code === form.eventCode.value);
+      const changing = event && event.code !== profile.eventCode;
+      show(form.querySelector('[data-cluster-note]'), changing);
+      show(form.querySelector('[data-choices]'), changing);
+      if (!changing) return;
+      const same = event.cluster === profile.cluster;
+      form.querySelector('[data-cluster-note]').innerHTML = same
+        ? `<strong>${esc(event.event)}</strong> uses the same <strong>${esc(event.cluster)}</strong> exam as your current event.`
+        : `<strong>${esc(event.event)}</strong> uses the <strong>${esc(event.cluster)}</strong> exam instead of <strong>${esc(profile.cluster)}</strong>.`;
+      form.querySelector('[data-keep-detail]').textContent = same
+        ? "Everything stays as it is. Exams you've already taken stay completed."
+        : `Your ${profile.cluster} exams move to the bottom of your Exams page under "${profile.eventName}," and they stay in My Results.`;
+    }
+    form.eventCode.addEventListener('change', updateChoices);
+    updateChoices();
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       show(errorBox, false);
       const button = form.querySelector('button[type=submit]');
       button.disabled = true;
       try {
-        await call('changeEvent', { eventCode: form.eventCode.value });
+        const keepResults = form.keep.value !== 'no';
+        if (!keepResults && !confirm('Start over? Your exams list and My Results will be empty. This can\'t be undone.')) {
+          button.disabled = false;
+          return;
+        }
+        await call('changeEvent', { eventCode: form.eventCode.value, keepResults });
         location.replace('exams.html');
       } catch (err) {
         errorBox.textContent = err.message;

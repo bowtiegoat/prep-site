@@ -22,7 +22,7 @@
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 class="font-serif text-2xl font-bold">All missed questions <span data-missed-count class="text-ink-400 text-lg"></span></h2>
-          <p class="mt-1 text-sm text-ink-600">Every miss from every exam in one place. Click a column heading to sort; sorting by performance indicator shows what you keep missing.</p>
+          <p class="mt-1 text-sm text-ink-600">Every miss from the exams switched on above, in one place. Click a column heading to sort; sorting by performance indicator shows what you keep missing.</p>
         </div>
         <button data-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2.5 text-sm font-medium hover:bg-ink-800 disabled:opacity-60">⬇ Download spreadsheet</button>
       </div>
@@ -32,7 +32,9 @@
   </main>
 
   <script type="module">
-    import { collection, doc, getDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import {
+      collection, doc, getDoc, getDocs, query, where, updateDoc, arrayUnion, arrayRemove,
+    } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText, show } from './js/app.js';
     import { missedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
 
@@ -44,6 +46,9 @@
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((a) => a.track === profile.track)
       .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+    // Exams the student switched off; saved on their account so it sticks.
+    const excluded = new Set(profile.excludedAttempts || []);
+    const included = () => attempts.filter((a) => !excluded.has(a.id));
 
     const list = document.querySelector('[data-list]');
     if (!attempts.length) {
@@ -62,9 +67,10 @@
       }));
       list.innerHTML = `
         <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
-          <table class="w-full min-w-[560px] text-sm">
+          <table class="w-full min-w-[640px] text-sm">
             <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
-              <th class="py-3 px-4">Date</th><th class="py-3 px-4">Exam</th><th class="py-3 px-4">Score</th><th class="py-3 px-4">Rank now</th><th></th>
+              <th class="py-3 px-4">Date</th><th class="py-3 px-4">Exam</th><th class="py-3 px-4">Score</th><th class="py-3 px-4">Rank now</th>
+              <th class="py-3 px-4">In missed list</th><th></th>
             </tr></thead>
             <tbody>
               ${attempts.map((a) => {
@@ -76,31 +82,60 @@
                     <td class="py-3 px-4"><span class="font-medium">${esc(a.examLabel)}</span><br /><span class="text-xs text-ink-500">${esc(a.cluster)} · ${esc(a.examSubtitle)}</span></td>
                     <td class="py-3 px-4 font-semibold tabular-nums">${a.correct} / ${a.total}</td>
                     <td class="py-3 px-4 text-ink-600">${esc(rank)}</td>
+                    <td class="py-3 px-4">
+                      <label class="inline-flex items-center cursor-pointer" title="Include this exam in All missed questions">
+                        <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} />
+                        <span class="relative w-10 h-6 rounded-full bg-ink-200 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400
+                          after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-4"></span>
+                        <span class="sr-only">Include ${esc(a.examLabel)} in All missed questions</span>
+                      </label>
+                    </td>
                     <td class="py-3 px-4 text-right"><a href="result.html?id=${encodeURIComponent(a.id)}" class="text-blue-600 font-medium whitespace-nowrap">Details →</a></td>
                   </tr>`;
               }).join('')}
             </tbody>
           </table>
-        </div>`;
+        </div>
+        <p class="mt-2 text-xs text-ink-500">Switch an exam off to leave it out of All missed questions and the download. Your choices are saved.</p>`;
 
-      const rows = missedRows(attempts);
-      const section = document.querySelector('[data-all-missed]');
-      document.querySelector('[data-missed-count]').textContent = `(${rows.length})`;
-      if (rows.length) {
-        renderSortableTable(document.querySelector('[data-missed-table]'), rows, {
-          columns: ['date', 'exam', 'q', 'yourAnswer', 'correctAnswer', 'area', 'code', 'source'],
-          sortBy: 'code',
-          minWidth: 900,
-        });
+      const table = renderSortableTable(document.querySelector('[data-missed-table]'), missedRows(included()), {
+        columns: ['date', 'exam', 'q', 'yourAnswer', 'correctAnswer', 'area', 'code', 'source'],
+        sortBy: 'code',
+        minWidth: 900,
+        emptyText: 'Switch on an exam above to see its missed questions here.',
+      });
+      function refreshMissed() {
+        const rows = missedRows(included());
+        document.querySelector('[data-missed-count]').textContent = `(${rows.length})`;
+        table.update(rows);
       }
-      show(section, true);
+      refreshMissed();
+      show(document.querySelector('[data-all-missed]'), true);
+
+      list.addEventListener('change', async (e) => {
+        const toggle = e.target.closest('[data-include]');
+        if (!toggle) return;
+        const id = toggle.dataset.include;
+        if (toggle.checked) excluded.delete(id); else excluded.add(id);
+        refreshMissed();
+        try {
+          await updateDoc(doc(db, 'users', user.uid), { excludedAttempts: toggle.checked ? arrayRemove(id) : arrayUnion(id) });
+        } catch {
+          toggle.checked = !toggle.checked;
+          if (toggle.checked) excluded.delete(id); else excluded.add(id);
+          refreshMissed();
+          alert("Couldn't save that change. Please try again.");
+        }
+      });
 
       const name = `${profile.firstName} ${profile.lastName}`;
       const downloadButton = document.querySelector('[data-download]');
       downloadButton.addEventListener('click', async () => {
+        const chosen = included();
+        if (!chosen.length) { alert('Switch on at least one exam to download.'); return; }
         downloadButton.disabled = true;
         try {
-          await downloadResults({ studentName: name, attempts, fileName: exportFileName(name) });
+          await downloadResults({ studentName: name, attempts: chosen, fileName: exportFileName(name) });
         } catch (err) {
           alert(err.message);
         } finally {

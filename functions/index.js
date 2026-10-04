@@ -83,11 +83,12 @@ exports.joinSchool = onCall(CALLABLE, async (req) => {
   return { ok: true };
 });
 
-// Changing events starts the student over (a new "track"). Old attempts stay
-// in the database for the admin.
+// Changing events either keeps the student's results (same "track") or starts
+// them over (a new track). Started-over attempts stay in the database for the admin.
 exports.changeEvent = onCall(CALLABLE, async (req) => {
   const auth = requireUser(req);
-  const event = EVENTS.find((e) => e.code === (req.data || {}).eventCode);
+  const { eventCode, keepResults } = req.data || {};
+  const event = EVENTS.find((e) => e.code === eventCode);
   if (!event) throw invalid('Please pick your event.');
   const userRef = db.doc(`users/${auth.uid}`);
   return db.runTransaction(async (tx) => {
@@ -95,13 +96,14 @@ exports.changeEvent = onCall(CALLABLE, async (req) => {
     if (!snap.exists) throw new HttpsError('failed-precondition', 'Finish signing up first.');
     const user = snap.data();
     if (user.eventCode === event.code) throw invalid("That's already your event.");
-    const track = (user.track || 1) + 1;
+    const keep = keepResults !== false;
+    const track = keep ? (user.track || 1) : (user.track || 1) + 1;
     tx.update(userRef, {
       eventCode: event.code,
       eventName: event.event,
       cluster: event.cluster,
       track,
-      eventHistory: FieldValue.arrayUnion({ eventCode: event.code, track, at: new Date() }),
+      eventHistory: FieldValue.arrayUnion({ eventCode: event.code, track, keptResults: keep, at: new Date() }),
     });
     return { ok: true, track };
   });

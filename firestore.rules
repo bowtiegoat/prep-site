@@ -45,6 +45,12 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      // Students may only change which attempts are left out of their
+      // "All missed questions" table.
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts'])
+        && request.resource.data.excludedAttempts is list
+        && request.resource.data.excludedAttempts.size() <= 1000;
     }
 
     // resource == null lets a student check whether they've taken an exam yet.
