@@ -15,12 +15,14 @@
 
   <main class="max-w-4xl mx-auto px-4 py-10">
     <p data-greeting class="text-sm font-semibold uppercase tracking-[0.15em] text-blue-600"></p>
-    <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">Your cluster exams</h1>
+    <h1 data-event-title class="mt-2 font-serif text-3xl sm:text-4xl font-bold"></h1>
     <p data-event class="mt-2 text-ink-600"></p>
 
     <div data-resources class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
 
-    <div class="mt-6 rounded-xl bg-white border border-ink-200 p-5 text-sm text-ink-700">
+    <h2 class="mt-12 font-serif text-2xl sm:text-3xl font-bold">Your cluster exams</h2>
+
+    <div class="mt-4 rounded-xl bg-white border border-ink-200 p-5 text-sm text-ink-700">
       <strong>How it works:</strong> Have your printed exam ready, pick it below, and bubble in your answers here.
       You get 90 minutes, like the real thing. Nothing is recorded until you click <strong>Submit</strong>,
       and each exam can only be submitted once.
@@ -42,8 +44,9 @@
     renderHeader({ user, profile, active: 'exams' });
 
     document.querySelector('[data-greeting]').textContent = `Hi, ${profile.firstName}`;
+    document.querySelector('[data-event-title]').textContent = profile.eventName;
     document.querySelector('[data-event]').innerHTML =
-      `${esc(profile.eventName)} (${esc(profile.eventCode)}) · ${esc(profile.cluster)} cluster · <a href="profile.html" class="text-blue-600 underline">Change event</a>`;
+      `${esc(profile.eventCode)} · ${esc(profile.cluster)} cluster · <a href="profile.html" class="text-blue-600 underline">Change event</a>`;
 
     // Quick links for the student's event: DECA page, guidelines, DECA+.
     const event = EVENTS.find((e) => e.code === profile.eventCode);
