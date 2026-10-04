@@ -5,3 +5,6 @@ node_modules/
 
 # Private planning notes (repo is public for GitHub Pages)
 PLAN-v1.0.md
+
+# Local preview build (scripts/build-preview.mjs)
+.preview/
