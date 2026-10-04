@@ -80,7 +80,7 @@
     import {
       collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-    import { db, requireUser, renderHeader, esc, show, formatDate, compareExams } from './js/app.js';
+    import { db, requireUser, renderHeader, call, esc, show, formatDate, compareExams } from './js/app.js';
     import { CLUSTERS } from './js/events.js';
     import { parseExamRows } from './js/exam-import.js';
 
@@ -286,7 +286,10 @@
     });
 
     // ---------- Students ----------
+    const openHistories = new Set();
     function renderStudents() {
+      openHistories.clear();
+      document.querySelectorAll('[data-students] details[open]').forEach((d) => openHistories.add(d.dataset.studentId));
       const students = data.users
         .filter((u) => u.role === 'student')
         .sort((a, b) => schoolName(a.schoolId).localeCompare(schoolName(b.schoolId)) || a.lastName.localeCompare(b.lastName));
@@ -294,7 +297,10 @@
         const mine = data.attempts.filter((a) => a.uid === u.id).sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
         const current = mine.filter((a) => a.track === u.track);
         const detail = mine.map((a) => `
-          <li>${esc(formatDate(a.submittedAt))} · ${esc(a.cluster)} ${esc(a.examLabel)} · <strong>${a.correct}/${a.total}</strong>${a.track !== u.track ? ' <span class="text-ink-400">(before event change)</span>' : ''}</li>`).join('');
+          <li class="flex items-baseline justify-between gap-3">
+            <span>${esc(formatDate(a.submittedAt))} · ${esc(a.cluster)} ${esc(a.examLabel)} · <strong>${a.correct}/${a.total}</strong>${a.track !== u.track ? ' <span class="text-ink-400">(before event change)</span>' : ''}</span>
+            ${button(`data-delete-attempt="${esc(a.id)}" data-student="${esc(`${u.firstName} ${u.lastName}`)}" data-exam="${esc(`${a.examLabel} (${a.correct}/${a.total})`)}"`, 'Delete', 'text-rose-600')}
+          </li>`).join('');
         return `
           <tr class="border-t border-ink-100 align-top">
             <td class="py-3 px-4"><span class="font-medium">${esc(u.lastName)}, ${esc(u.firstName)}</span><br /><span class="text-xs text-ink-500">${esc(u.email)}</span></td>
@@ -302,10 +308,26 @@
             <td class="py-3 px-4">${esc(u.eventCode)}${u.track > 1 ? ` <span class="text-xs text-ink-400">(changed ${u.track - 1}×)</span>` : ''}</td>
             <td class="py-3 px-4">${current.length}</td>
             <td class="py-3 px-4">${mine[0] ? esc(formatDate(mine[0].submittedAt)) : '—'}</td>
-            <td class="py-3 px-4 text-right">${mine.length ? `<details><summary class="cursor-pointer text-blue-600 font-medium">History</summary><ul class="mt-2 text-left text-xs space-y-1">${detail}</ul></details>` : ''}</td>
+            <td class="py-3 px-4 text-right">${mine.length ? `<details data-student-id="${esc(u.id)}" ${openHistories.has(u.id) ? 'open' : ''}><summary class="cursor-pointer text-blue-600 font-medium">History</summary><ul class="mt-2 text-left text-xs space-y-2 min-w-[18rem]">${detail}</ul></details>` : ''}</td>
           </tr>`;
       }), 'No students have joined yet.');
     }
+
+    $('[data-students]').addEventListener('click', async (e) => {
+      const target = e.target.closest('[data-delete-attempt]');
+      if (!target) return;
+      const { deleteAttempt: id, student, exam } = target.dataset;
+      if (!confirm(`Delete ${student}'s ${exam} attempt?\n\nThey'll be able to take this exam again, and it's removed from the site averages and rankings. A copy is kept for your records.`)) return;
+      target.disabled = true;
+      try {
+        await call('deleteAttempt', { attemptId: id });
+        flash(`Deleted ${student}'s ${exam} attempt.`);
+        await load();
+      } catch (err) {
+        flash(err.message, false);
+        target.disabled = false;
+      }
+    });
 
     // ---------- Tabs ----------
     function selectTab(name) {

@@ -55,5 +55,10 @@ service cloud.firestore {
     match /statsEntries/{entryId} {
       allow read: if isAdmin();
     }
+
+    // Copies of attempts deleted by the admin or an advisor.
+    match /deletedAttempts/{attemptId} {
+      allow read: if isAdmin();
+    }
   }
 }

@@ -6,7 +6,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const EVENTS = require('./events');
-const { grade, summarize, addToStats } = require('./grading');
+const { grade, summarize, addToStats, removeFromStats } = require('./grading');
 
 initializeApp();
 const db = getFirestore();
@@ -15,7 +15,8 @@ setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 // Callable functions must be reachable by anyone; each one checks sign-in itself.
 const CALLABLE = { invoker: 'public' };
 
-const ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,200}$/;
+const ADMIN_EMAIL = 'justin@thebowtiegoat.com';
 
 function requireUser(req) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in first.');
@@ -156,4 +157,52 @@ exports.submitAttempt = onCall(CALLABLE, async (req) => {
     });
   });
   return { attemptId };
+});
+
+// Admin, or an advisor at the student's school, can delete an attempt. The
+// student can then take that exam again. A copy is kept in deletedAttempts.
+exports.deleteAttempt = onCall(CALLABLE, async (req) => {
+  const auth = requireUser(req);
+  const { attemptId } = req.data || {};
+  if (typeof attemptId !== 'string' || !ID_PATTERN.test(attemptId)) throw invalid('Unknown attempt.');
+  const email = (auth.token.email || '').toLowerCase();
+  const verified = auth.token.email_verified === true;
+  const attemptRef = db.doc(`attempts/${attemptId}`);
+
+  const first = await attemptRef.get();
+  if (!first.exists) throw new HttpsError('not-found', 'That attempt was already deleted.');
+  let role = null;
+  if (verified && email === ADMIN_EMAIL) {
+    role = 'admin';
+  } else if (verified && email) {
+    const advisor = await db.collection('advisors')
+      .where('email', '==', email)
+      .where('schoolId', '==', first.data().schoolId)
+      .limit(1)
+      .get();
+    if (!advisor.empty) role = 'advisor';
+  }
+  if (!role) throw new HttpsError('permission-denied', "You can only delete attempts from your own school's students.");
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(attemptRef);
+    if (!snap.exists) return;
+    const attempt = snap.data();
+    const statsRef = db.doc(`examStats/${attempt.examId}`);
+    const entryRef = db.doc(`statsEntries/${attempt.examId}_${attempt.uid}`);
+    const [statsSnap, entrySnap] = await Promise.all([tx.get(statsRef), tx.get(entryRef)]);
+
+    if (statsSnap.exists && entrySnap.exists && entrySnap.data().attemptId === attemptId) {
+      tx.set(statsRef, { ...removeFromStats(statsSnap.data(), attempt.correct), updatedAt: FieldValue.serverTimestamp() });
+      tx.delete(entryRef);
+    }
+    tx.set(db.doc(`deletedAttempts/${attemptId}`), {
+      ...attempt,
+      deletedBy: email,
+      deletedByRole: role,
+      deletedAt: FieldValue.serverTimestamp(),
+    });
+    tx.delete(attemptRef);
+  });
+  return { ok: true };
 });

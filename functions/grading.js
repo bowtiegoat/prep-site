@@ -57,4 +57,16 @@ function addToStats(stats, correct, total) {
   };
 }
 
-module.exports = { CHOICES, grade, percentile, summarize, addToStats };
+// Removes one first attempt from an exam's stats (returns a new object).
+function removeFromStats(stats, correct) {
+  const histogram = [...(stats.histogram || [])];
+  if (histogram[correct] > 0) histogram[correct] -= 1;
+  return {
+    total: stats.total,
+    takers: Math.max(0, (stats.takers || 0) - 1),
+    sumCorrect: Math.max(0, (stats.sumCorrect || 0) - correct),
+    histogram,
+  };
+}
+
+module.exports = { CHOICES, grade, percentile, summarize, addToStats, removeFromStats };

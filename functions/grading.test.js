@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { grade, percentile, summarize, addToStats } = require('./grading');
+const { grade, percentile, summarize, addToStats, removeFromStats } = require('./grading');
 
 const key = [
   { q: 1, answer: 'A', code: 'PI:001', indicator: 'Pricing', source: 'LAP' },
@@ -35,4 +35,10 @@ test('addToStats and summarize', () => {
   s = addToStats(s, 3, 3);
   assert.deepStrictEqual(s, { total: 3, takers: 2, sumCorrect: 5, histogram: [0, 0, 1, 1] });
   assert.deepStrictEqual(summarize(s, 3), { takers: 2, averageCorrect: 2.5, percentile: 75 });
+});
+
+test('removeFromStats undoes addToStats', () => {
+  const before = addToStats(null, 2, 3);
+  const after = removeFromStats(addToStats(before, 3, 3), 3);
+  assert.deepStrictEqual(after, before);
 });
