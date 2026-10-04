@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Answer Sheet | BowtieGOAT Exam Tracker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-6xl mx-auto px-4 pb-16">
+    <p data-loading class="py-10 text-ink-500 text-sm">Loading exam…</p>
+    <p data-error class="hidden mt-8 rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
+
+    <!-- Before starting -->
+    <section data-intro class="hidden max-w-xl mx-auto py-10">
+      <a href="exams.html" class="text-sm text-blue-600">← All exams</a>
+      <h1 class="mt-3 font-serif text-3xl font-bold" data-title></h1>
+      <p class="mt-1 text-ink-500" data-subtitle></p>
+      <div class="mt-6 bg-white rounded-2xl border border-ink-200 p-6 space-y-3 text-ink-700">
+        <p>📄 <strong>Have your printed exam ready.</strong> You'll bubble in your answers here.</p>
+        <p>⏱️ <strong>You get 90 minutes</strong>, the same as the real exam. The timer keeps you honest, but it won't lock you out.</p>
+        <p>💾 Your answers are saved <strong>on this device</strong> as you go, so a refresh won't erase them.</p>
+        <p>✅ <strong>Nothing is recorded until you click Submit</strong>, and you can only submit this exam once.</p>
+      </div>
+      <button data-start class="mt-6 w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800">Start the timer</button>
+    </section>
+
+    <!-- Answer sheet -->
+    <section data-sheet class="hidden">
+      <div class="sticky top-0 z-10 -mx-4 px-4 py-3 bg-cream-50/95 backdrop-blur border-b border-ink-200 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div class="mr-auto">
+          <p class="font-semibold" data-sheet-title></p>
+          <p class="text-xs text-ink-500"><span data-answered>0</span> of <span data-count></span> answered</p>
+        </div>
+        <div class="text-right">
+          <p data-timer class="font-mono text-2xl font-semibold tabular-nums">90:00</p>
+          <p data-timer-label class="text-xs text-ink-500">time left</p>
+        </div>
+        <button data-open-submit class="rounded-lg bg-blue-600 text-white px-5 py-2.5 font-medium hover:bg-blue-700">Submit</button>
+      </div>
+
+      <form data-answers class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6"></form>
+
+      <div class="mt-10 text-center">
+        <button data-open-submit class="rounded-lg bg-blue-600 text-white px-8 py-3 font-medium hover:bg-blue-700">Submit my answers</button>
+        <p class="mt-3 text-xs text-ink-500">Tip: click a filled bubble again to clear it.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Submit confirmation -->
+  <div data-modal class="hidden fixed inset-0 z-20 bg-ink-950/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+      <h2 class="font-serif text-2xl font-bold">Submit your answers?</h2>
+      <p data-blank-note class="mt-3 text-sm text-ink-700"></p>
+      <p class="mt-3 text-sm text-ink-700">You <strong>can't retake</strong> this exam after submitting.</p>
+      <p data-submit-error class="hidden mt-3 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700"></p>
+      <div class="mt-6 flex gap-3 justify-end">
+        <button data-cancel class="rounded-lg px-4 py-2.5 text-ink-700 hover:bg-ink-100">Keep working</button>
+        <button data-confirm class="rounded-lg bg-blue-600 text-white px-5 py-2.5 font-medium hover:bg-blue-700 disabled:opacity-60">Submit for grading</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { db, requireUser, renderHeader, call, esc, show, EXAM_MINUTES } from './js/app.js';
+    import { draftKey, loadDraft, saveDraft, clearDraft } from './js/drafts.js';
+
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => [...document.querySelectorAll(sel)];
+    const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'exams' });
+
+    function fail(message) {
+      show($('[data-loading]'), false);
+      $('[data-error]').innerHTML = `${esc(message)} <a href="exams.html" class="underline">Back to exams</a>`;
+      show($('[data-error]'), true);
+    }
+
+    const examId = new URLSearchParams(location.search).get('id') || '';
+    const attemptId = `${user.uid}_${profile.track}_${examId}`;
+    let examSnap, attemptSnap;
+    try {
+      [examSnap, attemptSnap] = await Promise.all([
+        getDoc(doc(db, 'exams', examId)),
+        getDoc(doc(db, 'attempts', attemptId)),
+      ]);
+    } catch {
+      examSnap = null;
+    }
+    if (attemptSnap?.exists()) {
+      location.replace(`result.html?id=${encodeURIComponent(attemptId)}`);
+      await new Promise(() => {});
+    }
+    if (!examSnap?.exists()) {
+      fail("We couldn't find that exam.");
+      await new Promise(() => {});
+    }
+    const exam = examSnap.data();
+    if (exam.cluster !== profile.cluster) {
+      fail("That exam isn't part of your event's cluster.");
+      await new Promise(() => {});
+    }
+
+    const count = exam.questionCount;
+    const key = draftKey(user.uid, profile.track, examId);
+    let draft = loadDraft(key);
+    if (draft && draft.answers.length !== count) draft = null;
+
+    document.title = `${exam.label} | BowtieGOAT Exam Tracker`;
+    $('[data-title]').textContent = `${exam.cluster} · ${exam.label}`;
+    $('[data-subtitle]').textContent = exam.subtitle;
+    $('[data-sheet-title]').textContent = `${exam.cluster} · ${exam.label} · ${exam.subtitle}`;
+    $('[data-count]').textContent = count;
+    show($('[data-loading]'), false);
+
+    if (draft) startSheet();
+    else show($('[data-intro]'), true);
+
+    $('[data-start]').addEventListener('click', () => {
+      draft = { startedAt: Date.now(), answers: Array(count).fill(null) };
+      saveDraft(key, draft);
+      show($('[data-intro]'), false);
+      startSheet();
+    });
+
+    function startSheet() {
+      buildSheet();
+      show($('[data-sheet]'), true);
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    // Four columns of questions, like a paper bubble sheet.
+    function buildSheet() {
+      const perColumn = Math.ceil(count / 4);
+      const columns = [];
+      for (let c = 0; c < 4; c += 1) {
+        const rows = [];
+        for (let i = c * perColumn; i < Math.min(count, (c + 1) * perColumn); i += 1) {
+          rows.push(`
+            <div class="flex items-center gap-2 py-1" role="radiogroup" aria-label="Question ${i + 1}">
+              <span class="w-8 text-right text-sm font-semibold text-ink-500 tabular-nums">${i + 1}</span>
+              ${['A', 'B', 'C', 'D'].map((choice) => `
+                <label class="bubble relative">
+                  <input type="radio" name="q${i}" value="${choice}" ${draft.answers[i] === choice ? 'checked' : ''} />
+                  <span aria-hidden="true">${choice}</span>
+                  <span class="sr-only">Question ${i + 1}, ${choice}</span>
+                </label>`).join('')}
+            </div>`);
+        }
+        columns.push(`<div class="space-y-0.5 ${c > 0 ? 'lg:border-l lg:border-ink-200 lg:pl-6' : ''}">${rows.join('')}</div>`);
+      }
+      const form = $('[data-answers]');
+      form.innerHTML = columns.join('');
+
+      // Clicking a filled bubble clears it.
+      let wasChecked = false;
+      form.addEventListener('pointerdown', (e) => {
+        const input = e.target.closest('label.bubble')?.querySelector('input');
+        wasChecked = !!input?.checked;
+      });
+      form.addEventListener('click', (e) => {
+        const input = e.target.closest('label.bubble')?.querySelector('input');
+        if (!input || e.target !== input) return;
+        if (wasChecked) input.checked = false;
+        wasChecked = false;
+        record(input);
+      });
+      form.addEventListener('change', (e) => record(e.target));
+      updateAnswered();
+    }
+
+    function record(input) {
+      const i = Number(input.name.slice(1));
+      const checked = $(`input[name="q${i}"]:checked`);
+      draft.answers[i] = checked ? checked.value : null;
+      saveDraft(key, draft);
+      updateAnswered();
+    }
+
+    function updateAnswered() {
+      $('[data-answered]').textContent = draft.answers.filter(Boolean).length;
+    }
+
+    function clock(ms) {
+      const total = Math.floor(ms / 1000);
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = String(total % 60).padStart(2, '0');
+      return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+    }
+
+    function tick() {
+      const left = draft.startedAt + EXAM_MINUTES * 60000 - Date.now();
+      const timer = $('[data-timer]');
+      const label = $('[data-timer-label]');
+      if (left > 0) {
+        timer.textContent = clock(left);
+        timer.classList.toggle('text-rose-600', left < 5 * 60000);
+        label.textContent = 'time left';
+      } else {
+        timer.textContent = `+${clock(-left)}`;
+        timer.classList.add('text-rose-600');
+        label.textContent = "time's up · over the limit";
+      }
+    }
+
+    // Submit
+    const modal = $('[data-modal]');
+    $$('[data-open-submit]').forEach((button) => button.addEventListener('click', () => {
+      const blanks = draft.answers.map((a, i) => (a ? null : i + 1)).filter(Boolean);
+      $('[data-blank-note]').innerHTML = blanks.length
+        ? `⚠️ You left <strong>${blanks.length}</strong> question${blanks.length === 1 ? '' : 's'} blank: ${blanks.slice(0, 20).join(', ')}${blanks.length > 20 ? '…' : ''}. Blank answers count as wrong.`
+        : 'You answered every question. 🎉';
+      show($('[data-submit-error]'), false);
+      show(modal, true);
+    }));
+    $('[data-cancel]').addEventListener('click', () => show(modal, false));
+    $('[data-confirm]').addEventListener('click', async (e) => {
+      const button = e.currentTarget;
+      button.disabled = true;
+      button.textContent = 'Grading…';
+      try {
+        const result = await call('submitAttempt', { examId, answers: draft.answers, startedAt: draft.startedAt });
+        clearDraft(key);
+        location.replace(`result.html?id=${encodeURIComponent(result.attemptId)}&new=1`);
+      } catch (err) {
+        if (/already submitted/i.test(err.message)) {
+          clearDraft(key);
+          location.replace(`result.html?id=${encodeURIComponent(attemptId)}`);
+          return;
+        }
+        $('[data-submit-error]').textContent = `${err.message} Your answers are still saved on this device.`;
+        show($('[data-submit-error]'), true);
+        button.disabled = false;
+        button.textContent = 'Submit for grading';
+      }
+    });
+  </script>
+</body>
+</html>

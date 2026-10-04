@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin | BowtieGOAT Exam Tracker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <h1 class="font-serif text-3xl sm:text-4xl font-bold">Admin</h1>
+
+    <nav class="mt-6 flex gap-2 border-b border-ink-200 overflow-x-auto" data-tabs>
+      <button data-tab="schools" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Schools</button>
+      <button data-tab="advisors" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Advisors</button>
+      <button data-tab="exams" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Exams</button>
+      <button data-tab="students" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Students</button>
+    </nav>
+
+    <p data-flash class="hidden mt-6 rounded-lg px-4 py-3 text-sm"></p>
+
+    <!-- Schools -->
+    <section data-panel="schools" class="hidden mt-6 space-y-6">
+      <form data-school-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-3 items-end">
+        <label class="block"><span class="text-sm font-medium text-ink-700">School name</span>
+          <input name="schoolName" required maxlength="100" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <label class="block"><span class="text-sm font-medium text-ink-700">State</span>
+          <input name="state" required maxlength="30" placeholder="PA" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Add school</button>
+      </form>
+      <div data-schools></div>
+    </section>
+
+    <!-- Advisors -->
+    <section data-panel="advisors" class="hidden mt-6 space-y-6">
+      <p class="text-sm text-ink-600">Advisors are recorded here now. Their own page (seeing their students' results) comes in a later version.</p>
+      <form data-advisor-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+        <label class="block"><span class="text-sm font-medium text-ink-700">Name</span>
+          <input name="advisorName" required maxlength="80" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <label class="block"><span class="text-sm font-medium text-ink-700">Email</span>
+          <input name="email" type="email" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <label class="block"><span class="text-sm font-medium text-ink-700">School</span>
+          <select name="schoolId" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 bg-white"></select></label>
+        <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Add advisor</button>
+      </form>
+      <div data-advisors></div>
+    </section>
+
+    <!-- Exams -->
+    <section data-panel="exams" class="hidden mt-6 space-y-6">
+      <form data-upload-form class="bg-white rounded-2xl border border-ink-200 p-5 space-y-4">
+        <h2 class="font-semibold text-lg">Upload an exam spreadsheet</h2>
+        <p class="text-sm text-ink-600">Columns: <code>Level, Year, Test #, Q#, Answer, Code, Source</code> (like <em>Marketing Exam Tracker.xlsx</em>). Uploading an exam again replaces its answer key; students' past results are kept as they were.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block"><span class="text-sm font-medium text-ink-700">Cluster</span>
+            <select name="cluster" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 bg-white"></select></label>
+          <label class="block"><span class="text-sm font-medium text-ink-700">Spreadsheet (.xlsx or .csv)</span>
+            <input name="file" type="file" required accept=".xlsx,.xls,.csv" class="mt-1 w-full text-sm" /></label>
+        </div>
+        <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Check spreadsheet</button>
+        <div data-preview></div>
+      </form>
+      <div data-exams></div>
+    </section>
+
+    <!-- Students -->
+    <section data-panel="students" class="hidden mt-6">
+      <div data-students></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import {
+      collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
+    } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { db, requireUser, renderHeader, esc, show, formatDate, compareExams } from './js/app.js';
+    import { CLUSTERS } from './js/events.js';
+    import { parseExamRows } from './js/exam-import.js';
+
+    const { user } = await requireUser({ adminOnly: true });
+    renderHeader({ user, profile: null, active: 'admin' });
+
+    const $ = (sel) => document.querySelector(sel);
+    const table = (head, rows, empty) => rows.length ? `
+      <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">${head.map((h) => `<th class="py-3 px-4">${h}</th>`).join('')}</tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table>
+      </div>` : `<p class="text-sm text-ink-500">${empty}</p>`;
+    const button = (attrs, label, tone = 'text-blue-600') => `<button ${attrs} class="${tone} font-medium hover:underline whitespace-nowrap">${label}</button>`;
+
+    function flash(message, ok = true) {
+      const box = $('[data-flash]');
+      box.textContent = message;
+      box.className = `mt-6 rounded-lg px-4 py-3 text-sm ${ok ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-rose-50 border border-rose-200 text-rose-700'}`;
+      clearTimeout(flash.timer);
+      flash.timer = setTimeout(() => show(box, false), 6000);
+    }
+
+    window.addEventListener('unhandledrejection', (e) => flash(`Something went wrong: ${e.reason?.message || e.reason}`, false));
+
+    // Unambiguous characters (no 0/O, 1/I/L).
+    function newCode() {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      const bytes = crypto.getRandomValues(new Uint8Array(6));
+      return [...bytes].map((b) => chars[b % chars.length]).join('');
+    }
+
+    // ---------- Data ----------
+    let data = {};
+    async function load() {
+      const read = async (name) => (await getDocs(collection(db, name))).docs.map((d) => ({ id: d.id, ...d.data() }));
+      const [schools, codes, advisors, exams, stats, users, attempts] = await Promise.all(
+        ['schools', 'schoolCodes', 'advisors', 'exams', 'examStats', 'users', 'attempts'].map(read));
+      data = {
+        schools: schools.sort((a, b) => (a.state || '').localeCompare(b.state || '') || a.name.localeCompare(b.name)),
+        codes: new Map(codes.map((c) => [c.id, c.code])),
+        advisors, exams: exams.sort((a, b) => a.cluster.localeCompare(b.cluster) || compareExams(a, b)),
+        stats: new Map(stats.map((s) => [s.id, s])), users, attempts,
+      };
+      renderAll();
+    }
+    const schoolName = (id) => data.schools.find((s) => s.id === id)?.name || '(deleted school)';
+
+    function renderAll() {
+      renderSchools();
+      renderAdvisors();
+      renderExams();
+      renderStudents();
+    }
+
+    // ---------- Schools ----------
+    function renderSchools() {
+      $('[data-schools]').innerHTML = table(['School', 'State', 'Code', 'Students', 'Status', ''], data.schools.map((s) => `
+        <tr class="border-t border-ink-100">
+          <td class="py-3 px-4 font-medium">${esc(s.name)}</td>
+          <td class="py-3 px-4">${esc(s.state)}</td>
+          <td class="py-3 px-4 font-mono tracking-widest">${esc(data.codes.get(s.id) || '—')}</td>
+          <td class="py-3 px-4">${data.users.filter((u) => u.schoolId === s.id).length}</td>
+          <td class="py-3 px-4">${s.active === false ? '<span class="text-ink-400">Hidden</span>' : 'Active'}</td>
+          <td class="py-3 px-4 text-right space-x-3">
+            ${button(`data-reset-code="${esc(s.id)}"`, 'New code')}
+            ${button(`data-toggle-school="${esc(s.id)}"`, s.active === false ? 'Show' : 'Hide', 'text-ink-500')}
+          </td>
+        </tr>`), 'No schools yet. Add your first one above.');
+      $('[data-advisor-form]').schoolId.innerHTML = '<option value="">Choose…</option>' +
+        data.schools.map((s) => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.state)})</option>`).join('');
+    }
+
+    $('[data-school-form]').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const name = form.schoolName.value.trim();
+      const ref = await addDoc(collection(db, 'schools'), {
+        name, state: form.state.value.trim(), active: true, createdAt: serverTimestamp(),
+      });
+      const code = newCode();
+      await setDoc(doc(db, 'schoolCodes', ref.id), { code });
+      form.reset();
+      flash(`Added ${name}. Its code is ${code}.`);
+      await load();
+    });
+
+    $('[data-schools]').addEventListener('click', async (e) => {
+      const resetId = e.target.dataset.resetCode;
+      const toggleId = e.target.dataset.toggleSchool;
+      if (resetId) {
+        if (!confirm(`Make a new code for ${schoolName(resetId)}? The old code stops working for new sign-ups. Students who already joined aren't affected.`)) return;
+        const code = newCode();
+        await setDoc(doc(db, 'schoolCodes', resetId), { code });
+        flash(`New code for ${schoolName(resetId)}: ${code}`);
+        await load();
+      } else if (toggleId) {
+        const school = data.schools.find((s) => s.id === toggleId);
+        await updateDoc(doc(db, 'schools', toggleId), { active: school.active === false });
+        await load();
+      }
+    });
+
+    // ---------- Advisors ----------
+    function renderAdvisors() {
+      $('[data-advisors]').innerHTML = table(['Name', 'Email', 'School', ''], data.advisors
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((a) => `
+          <tr class="border-t border-ink-100">
+            <td class="py-3 px-4 font-medium">${esc(a.name)}</td>
+            <td class="py-3 px-4">${esc(a.email)}</td>
+            <td class="py-3 px-4">${esc(schoolName(a.schoolId))}</td>
+            <td class="py-3 px-4 text-right">${button(`data-remove-advisor="${esc(a.id)}"`, 'Remove', 'text-rose-600')}</td>
+          </tr>`), 'No advisors yet.');
+    }
+
+    $('[data-advisor-form]').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      await addDoc(collection(db, 'advisors'), {
+        name: form.advisorName.value.trim(), email: form.email.value.trim().toLowerCase(), schoolId: form.schoolId.value, createdAt: serverTimestamp(),
+      });
+      form.reset();
+      flash('Advisor added.');
+      await load();
+    });
+
+    $('[data-advisors]').addEventListener('click', async (e) => {
+      const id = e.target.dataset.removeAdvisor;
+      if (!id || !confirm('Remove this advisor?')) return;
+      await deleteDoc(doc(db, 'advisors', id));
+      await load();
+    });
+
+    // ---------- Exams ----------
+    const uploadForm = $('[data-upload-form]');
+    uploadForm.cluster.innerHTML = CLUSTERS.map((c) => `<option ${c === 'Marketing' ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    let pending = null;
+
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = uploadForm.file.files[0];
+      const workbook = XLSX.read(await file.arrayBuffer());
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+      pending = parseExamRows(rows, uploadForm.cluster.value);
+      const { exams, errors, warnings } = pending;
+      $('[data-preview]').innerHTML = `
+        <div class="mt-2 rounded-xl border border-ink-200 p-4 space-y-3 text-sm">
+          <p><strong>${exams.length}</strong> exam${exams.length === 1 ? '' : 's'} found for <strong>${esc(uploadForm.cluster.value)}</strong>:
+            ${exams.map((x) => `${esc(x.label)} (${esc(x.subtitle)}, ${x.questionCount} Qs)`).join(' · ')}</p>
+          ${errors.length ? `<div class="rounded-lg bg-rose-50 border border-rose-200 p-3 text-rose-700"><p class="font-semibold">Fix these in the spreadsheet first:</p><ul class="list-disc ml-5 mt-1">${errors.slice(0, 30).map((m) => `<li>${esc(m)}</li>`).join('')}</ul>${errors.length > 30 ? `<p class="mt-1">…and ${errors.length - 30} more.</p>` : ''}</div>` : ''}
+          ${warnings.length ? `<div class="rounded-lg bg-tan-50 border border-tan-200 p-3 text-tan-700"><p class="font-semibold">Missing indicator descriptions (OK to load; students will see just the code):</p><ul class="list-disc ml-5 mt-1">${warnings.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></div>` : ''}
+          ${errors.length || !exams.length ? '' : `<button type="button" data-load-exams class="rounded-lg bg-blue-600 text-white px-5 py-2 font-medium">Load ${exams.length} exam${exams.length === 1 ? '' : 's'} into the site</button>`}
+        </div>`;
+    });
+
+    $('[data-preview]').addEventListener('click', async (e) => {
+      if (!e.target.matches('[data-load-exams]') || !pending) return;
+      e.target.disabled = true;
+      e.target.textContent = 'Loading…';
+      const batch = writeBatch(db);
+      for (const exam of pending.exams) {
+        const { questions, id, ...meta } = exam;
+        batch.set(doc(db, 'exams', id), { ...meta, active: true, updatedAt: serverTimestamp() });
+        batch.set(doc(db, 'examKeys', id), { questions, updatedAt: serverTimestamp() });
+      }
+      try {
+        await batch.commit();
+        flash(`Loaded ${pending.exams.length} exams.`);
+        pending = null;
+        $('[data-preview]').innerHTML = '';
+        uploadForm.reset();
+        await load();
+      } catch (err) {
+        flash(`Couldn't load the exams: ${err.message}`, false);
+        e.target.disabled = false;
+      }
+    });
+
+    function renderExams() {
+      $('[data-exams]').innerHTML = table(['Cluster', 'Exam', 'Questions', 'Test-takers', 'Average', 'Status', ''], data.exams.map((x) => {
+        const s = data.stats.get(x.id);
+        return `
+          <tr class="border-t border-ink-100">
+            <td class="py-3 px-4">${esc(x.cluster)}</td>
+            <td class="py-3 px-4 font-medium">${esc(x.label)} <span class="text-xs text-ink-500">${esc(x.subtitle)}</span></td>
+            <td class="py-3 px-4">${x.questionCount}</td>
+            <td class="py-3 px-4">${s?.takers || 0}</td>
+            <td class="py-3 px-4">${s?.takers ? (s.sumCorrect / s.takers).toFixed(1) : '—'}</td>
+            <td class="py-3 px-4">${x.active === false ? '<span class="text-ink-400">Hidden</span>' : 'Live'}</td>
+            <td class="py-3 px-4 text-right">${button(`data-toggle-exam="${esc(x.id)}"`, x.active === false ? 'Show' : 'Hide', 'text-ink-500')}</td>
+          </tr>`;
+      }), 'No exams loaded yet.');
+    }
+
+    $('[data-exams]').addEventListener('click', async (e) => {
+      const id = e.target.dataset.toggleExam;
+      if (!id) return;
+      const exam = data.exams.find((x) => x.id === id);
+      await updateDoc(doc(db, 'exams', id), { active: exam.active === false });
+      await load();
+    });
+
+    // ---------- Students ----------
+    function renderStudents() {
+      const students = data.users
+        .filter((u) => u.role === 'student')
+        .sort((a, b) => schoolName(a.schoolId).localeCompare(schoolName(b.schoolId)) || a.lastName.localeCompare(b.lastName));
+      $('[data-students]').innerHTML = table(['Student', 'School', 'Event', 'Exams (current event)', 'Last exam', ''], students.map((u) => {
+        const mine = data.attempts.filter((a) => a.uid === u.id).sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+        const current = mine.filter((a) => a.track === u.track);
+        const detail = mine.map((a) => `
+          <li>${esc(formatDate(a.submittedAt))} · ${esc(a.cluster)} ${esc(a.examLabel)} · <strong>${a.correct}/${a.total}</strong>${a.track !== u.track ? ' <span class="text-ink-400">(before event change)</span>' : ''}</li>`).join('');
+        return `
+          <tr class="border-t border-ink-100 align-top">
+            <td class="py-3 px-4"><span class="font-medium">${esc(u.lastName)}, ${esc(u.firstName)}</span><br /><span class="text-xs text-ink-500">${esc(u.email)}</span></td>
+            <td class="py-3 px-4">${esc(schoolName(u.schoolId))}</td>
+            <td class="py-3 px-4">${esc(u.eventCode)}${u.track > 1 ? ` <span class="text-xs text-ink-400">(changed ${u.track - 1}×)</span>` : ''}</td>
+            <td class="py-3 px-4">${current.length}</td>
+            <td class="py-3 px-4">${mine[0] ? esc(formatDate(mine[0].submittedAt)) : '—'}</td>
+            <td class="py-3 px-4 text-right">${mine.length ? `<details><summary class="cursor-pointer text-blue-600 font-medium">History</summary><ul class="mt-2 text-left text-xs space-y-1">${detail}</ul></details>` : ''}</td>
+          </tr>`;
+      }), 'No students have joined yet.');
+    }
+
+    // ---------- Tabs ----------
+    function selectTab(name) {
+      document.querySelectorAll('[data-tab]').forEach((b) => {
+        const on = b.dataset.tab === name;
+        b.classList.toggle('border-ink-900', on);
+        b.classList.toggle('text-ink-900', on);
+        b.classList.toggle('border-transparent', !on);
+        b.classList.toggle('text-ink-500', !on);
+      });
+      document.querySelectorAll('[data-panel]').forEach((p) => show(p, p.dataset.panel === name));
+      try { sessionStorage.setItem('prep:adminTab', name); } catch {}
+    }
+    $('[data-tabs]').addEventListener('click', (e) => e.target.dataset.tab && selectTab(e.target.dataset.tab));
+    let startTab = 'schools';
+    try { startTab = sessionStorage.getItem('prep:adminTab') || 'schools'; } catch {}
+    selectTab(startTab);
+
+    await load();
+  </script>
+</body>
+</html>

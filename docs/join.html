@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join | BowtieGOAT Exam Tracker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-lg mx-auto px-4 py-10">
+    <h1 class="font-serif text-3xl font-bold">Welcome! Let's get you set up.</h1>
+    <p class="mt-2 text-ink-600">You only do this once. Your advisor gave your school a code to enter below.</p>
+
+    <form data-form class="mt-8 bg-white rounded-2xl border border-ink-200 shadow-sm p-6 sm:p-8 space-y-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="text-sm font-medium text-ink-700">First name</span>
+          <input name="firstName" required maxlength="40" autocomplete="given-name"
+            class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-ink-700">Last name</span>
+          <input name="lastName" required maxlength="40" autocomplete="family-name"
+            class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </label>
+      </div>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink-700">School</span>
+        <select name="schoolId" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">Loading schools…</option>
+        </select>
+        <span class="mt-1 block text-xs text-ink-500">Don't see your school? Ask your advisor to contact BowtieGOAT.</span>
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink-700">School code</span>
+        <input name="code" required maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="e.g. K7M2QX"
+          class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2.5 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink-700">Your DECA event</span>
+        <select name="eventCode" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+        <span class="mt-1 block text-xs text-ink-500">This picks your cluster exam. You can change it later, but that starts your progress over.</span>
+      </label>
+
+      <p data-error class="hidden rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
+
+      <button type="submit" class="w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800 disabled:opacity-60">Join</button>
+    </form>
+  </main>
+
+  <script type="module">
+    import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { db, requireUser, renderHeader, call, esc, show } from './js/app.js';
+    import { eventOptionsHtml } from './js/event-picker.js';
+
+    const { user, profile } = await requireUser({ allowNoProfile: true });
+    if (profile) location.replace('exams.html');
+    renderHeader({ user, profile: null, active: '' });
+
+    const form = document.querySelector('[data-form]');
+    const errorBox = document.querySelector('[data-error]');
+    form.eventCode.innerHTML = eventOptionsHtml();
+
+    const schools = (await getDocs(collection(db, 'schools'))).docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((s) => s.active !== false)
+      .sort((a, b) => (a.state || '').localeCompare(b.state || '') || a.name.localeCompare(b.name));
+    form.schoolId.innerHTML = '<option value="">Choose your school</option>' +
+      schools.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}${s.state ? ` (${esc(s.state)})` : ''}</option>`).join('');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      show(errorBox, false);
+      const button = form.querySelector('button[type=submit]');
+      button.disabled = true;
+      button.textContent = 'Joining…';
+      try {
+        await call('joinSchool', {
+          firstName: form.firstName.value,
+          lastName: form.lastName.value,
+          schoolId: form.schoolId.value,
+          code: form.code.value,
+          eventCode: form.eventCode.value,
+        });
+        location.replace('exams.html');
+      } catch (err) {
+        errorBox.textContent = err.message;
+        show(errorBox, true);
+        button.disabled = false;
+        button.textContent = 'Join';
+      }
+    });
+  </script>
+</body>
+</html>

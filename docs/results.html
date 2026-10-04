@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Results | BowtieGOAT Exam Tracker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-4xl mx-auto px-4 py-10">
+    <h1 class="font-serif text-3xl sm:text-4xl font-bold">My Results</h1>
+    <p class="mt-2 text-ink-600">Every exam you've submitted, newest first.</p>
+    <div data-list class="mt-8"><p class="text-ink-500 text-sm">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { collection, doc, getDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText } from './js/app.js';
+
+    const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'results' });
+
+    const snap = await getDocs(query(collection(db, 'attempts'), where('uid', '==', user.uid)));
+    const attempts = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((a) => a.track === profile.track)
+      .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+
+    const list = document.querySelector('[data-list]');
+    if (!attempts.length) {
+      list.innerHTML = `
+        <div class="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
+          <p class="text-ink-600">You haven't submitted an exam yet.</p>
+          <a href="exams.html" class="mt-4 inline-block rounded-lg bg-ink-900 text-cream-50 px-5 py-2.5 font-medium">Pick an exam</a>
+        </div>`;
+    } else {
+      const statsByExam = new Map();
+      await Promise.all([...new Set(attempts.map((a) => a.examId))].map(async (examId) => {
+        try {
+          const s = await getDoc(doc(db, 'examStats', examId));
+          if (s.exists()) statsByExam.set(examId, s.data());
+        } catch {}
+      }));
+      list.innerHTML = `
+        <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
+          <table class="w-full min-w-[560px] text-sm">
+            <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
+              <th class="py-3 px-4">Date</th><th class="py-3 px-4">Exam</th><th class="py-3 px-4">Score</th><th class="py-3 px-4">Rank now</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${attempts.map((a) => {
+                const s = statsByExam.get(a.examId);
+                const rank = s ? percentileText(percentile(s.histogram || [], a.correct, s.takers), s.takers) : '—';
+                return `
+                  <tr class="border-t border-ink-100">
+                    <td class="py-3 px-4 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
+                    <td class="py-3 px-4"><span class="font-medium">${esc(a.examLabel)}</span><br /><span class="text-xs text-ink-500">${esc(a.cluster)} · ${esc(a.examSubtitle)}</span></td>
+                    <td class="py-3 px-4 font-semibold tabular-nums">${a.correct} / ${a.total}</td>
+                    <td class="py-3 px-4 text-ink-600">${esc(rank)}</td>
+                    <td class="py-3 px-4 text-right"><a href="result.html?id=${encodeURIComponent(a.id)}" class="text-blue-600 font-medium whitespace-nowrap">Details →</a></td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+  </script>
+</body>
+</html>

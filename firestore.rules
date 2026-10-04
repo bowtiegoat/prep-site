@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Students never write directly; their sign-ups, event changes, and exam
+// submissions go through Cloud Functions. Answer keys are admin-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == 'justin@thebowtiegoat.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // School names for the sign-up picker (codes live in schoolCodes).
+    match /schools/{schoolId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /schoolCodes/{schoolId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /advisors/{advisorId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Exam list (no answers).
+    match /exams/{examId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /examKeys/{examId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Site-wide numbers only: count, total, score distribution. No names.
+    match /examStats/{examId} {
+      allow read: if signedIn();
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+    }
+
+    // resource == null lets a student check whether they've taken an exam yet.
+    match /attempts/{attemptId} {
+      allow read: if signedIn() && (resource == null || resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    match /statsEntries/{entryId} {
+      allow read: if isAdmin();
+    }
+  }
+}

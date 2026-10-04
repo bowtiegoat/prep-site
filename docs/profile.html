@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile | BowtieGOAT Exam Tracker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-lg mx-auto px-4 py-10">
+    <h1 class="font-serif text-3xl font-bold">Profile</h1>
+
+    <dl data-info class="mt-6 bg-white rounded-2xl border border-ink-200 p-6 space-y-3 text-sm"></dl>
+
+    <form data-form class="mt-8 bg-white rounded-2xl border border-ink-200 p-6 space-y-4">
+      <h2 class="font-semibold text-lg">Change your event</h2>
+      <p class="text-sm text-ink-600">
+        ⚠️ Changing your event <strong>starts your progress over</strong>. Your exam list and My Results will be empty,
+        and you can take exams again under your new event.
+      </p>
+      <select name="eventCode" required class="w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+      <label class="flex items-start gap-2 text-sm text-ink-700">
+        <input type="checkbox" name="confirm" required class="mt-0.5" />
+        I understand this starts my progress over.
+      </label>
+      <p data-error class="hidden rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
+      <button type="submit" class="w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800 disabled:opacity-60">Change event</button>
+    </form>
+  </main>
+
+  <script type="module">
+    import { requireUser, renderHeader, call, esc, show } from './js/app.js';
+    import { eventOptionsHtml } from './js/event-picker.js';
+
+    const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'profile' });
+
+    const rows = [
+      ['Name', `${profile.firstName} ${profile.lastName}`],
+      ['Email', profile.email || user.email],
+      ['School', profile.schoolName],
+      ['Event', `${profile.eventName} (${profile.eventCode})`],
+      ['Cluster exam', profile.cluster],
+    ];
+    document.querySelector('[data-info]').innerHTML = rows.map(([label, value]) => `
+      <div class="flex justify-between gap-4"><dt class="text-ink-500">${label}</dt><dd class="font-medium text-right">${esc(value)}</dd></div>`).join('');
+
+    const form = document.querySelector('[data-form]');
+    const errorBox = form.querySelector('[data-error]');
+    form.eventCode.innerHTML = eventOptionsHtml(profile.eventCode);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      show(errorBox, false);
+      const button = form.querySelector('button[type=submit]');
+      button.disabled = true;
+      try {
+        await call('changeEvent', { eventCode: form.eventCode.value });
+        location.replace('exams.html');
+      } catch (err) {
+        errorBox.textContent = err.message;
+        show(errorBox, true);
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

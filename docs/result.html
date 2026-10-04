@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exam Results | BowtieGOAT Exam Tracker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-5xl mx-auto px-4 py-10">
+    <p data-loading class="text-ink-500 text-sm">Loading results…</p>
+    <p data-error class="hidden rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
+    <div data-content class="hidden"></div>
+  </main>
+
+  <script type="module">
+    import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import {
+      db, requireUser, renderHeader, esc, linkify, formatDate, show,
+      percentile, percentileText, MIN_TAKERS_FOR_PERCENTILE,
+    } from './js/app.js';
+
+    const params = new URLSearchParams(location.search);
+    const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'results' });
+
+    let attempt = null;
+    try {
+      const snap = await getDoc(doc(db, 'attempts', params.get('id') || '-'));
+      if (snap.exists()) attempt = snap.data();
+    } catch {}
+    show(document.querySelector('[data-loading]'), false);
+    if (!attempt) {
+      const box = document.querySelector('[data-error]');
+      box.innerHTML = 'We couldn\'t find those results. <a href="results.html" class="underline">See all your results</a>';
+      show(box, true);
+      await new Promise(() => {});
+    }
+
+    let stats = null;
+    try {
+      const snap = await getDoc(doc(db, 'examStats', attempt.examId));
+      if (snap.exists()) stats = snap.data();
+    } catch {}
+
+    const then = attempt.statsAtSubmit || {};
+    const now = stats
+      ? {
+          takers: stats.takers,
+          averageCorrect: Math.round((stats.sumCorrect / stats.takers) * 10) / 10,
+          percentile: percentile(stats.histogram || [], attempt.correct, stats.takers),
+        }
+      : then;
+
+    const minutes = attempt.startedAt && attempt.submittedAt
+      ? Math.round((attempt.submittedAt.toMillis() - attempt.startedAt.toMillis()) / 60000)
+      : null;
+    const pct = Math.round((attempt.correct / attempt.total) * 100);
+
+    function statBlock(label, data) {
+      return `
+        <div class="rounded-xl bg-white border border-ink-200 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">${label}</p>
+          <dl class="mt-3 space-y-2 text-sm">
+            <div class="flex justify-between gap-4"><dt class="text-ink-600">Students who've taken it</dt><dd class="font-semibold">${data.takers ?? '—'}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-ink-600">Average score</dt><dd class="font-semibold">${data.averageCorrect != null ? `${data.averageCorrect} / ${attempt.total}` : '—'}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-ink-600">Your rank</dt><dd class="font-semibold text-right">${esc(percentileText(data.percentile, data.takers || 0))}</dd></div>
+          </dl>
+        </div>`;
+    }
+
+    const missedRows = attempt.missed.map((m) => `
+      <tr class="border-t border-ink-100 align-top">
+        <td class="py-3 pr-3 font-semibold tabular-nums">${m.q}</td>
+        <td class="py-3 pr-3 ${m.yourAnswer ? 'text-rose-600' : 'text-ink-400'} font-semibold">${m.yourAnswer ? esc(m.yourAnswer) : 'blank'}</td>
+        <td class="py-3 pr-3 text-green-700 font-semibold">${esc(m.correctAnswer)}</td>
+        <td class="py-3 pr-3"><span class="font-mono text-xs bg-ink-100 rounded px-1.5 py-0.5">${esc(m.code)}</span> ${esc(m.indicator)}</td>
+        <td class="py-3 text-ink-600 text-xs">${linkify(m.source)}</td>
+      </tr>`).join('');
+
+    const content = document.querySelector('[data-content]');
+    content.innerHTML = `
+      ${params.get('new') ? '<p class="mb-6 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">✅ Submitted! Here\'s how you did. You can come back to these results anytime from <strong>My Results</strong>.</p>' : ''}
+      <a href="results.html" class="text-sm text-blue-600">← All my results</a>
+      <h1 class="mt-3 font-serif text-3xl sm:text-4xl font-bold">${esc(attempt.cluster)} · ${esc(attempt.examLabel)}</h1>
+      <p class="mt-1 text-ink-500">${esc(attempt.examSubtitle)} · Taken ${esc(formatDate(attempt.submittedAt))}${minutes != null ? ` · ${minutes} minutes` : ''}</p>
+
+      <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-xl bg-ink-900 text-cream-50 p-6 flex flex-col justify-center">
+          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-blue-300">Your score</p>
+          <p class="mt-2 font-serif text-5xl font-bold">${attempt.correct}<span class="text-2xl text-ink-300"> / ${attempt.total}</span></p>
+          <p class="mt-1 text-ink-300">${pct}% correct · ${attempt.missed.length} missed</p>
+        </div>
+        ${statBlock('Compared to everyone now', now)}
+        ${statBlock('When you took it', then)}
+      </div>
+      <p class="mt-3 text-xs text-ink-500">Rankings compare each student's first try at this exam on BowtieGOAT. Your rank appears once at least ${MIN_TAKERS_FOR_PERCENTILE} students have taken it.</p>
+
+      <h2 class="mt-12 font-serif text-2xl font-bold">Questions you missed</h2>
+      <p class="mt-1 text-sm text-ink-600">Look these up in your exam booklet. The indicator and source tell you what to study.</p>
+      ${attempt.missed.length ? `
+        <div class="mt-4 overflow-x-auto rounded-xl bg-white border border-ink-200 px-4">
+          <table class="w-full min-w-[720px] text-sm">
+            <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500">
+              <th class="py-3 pr-3">Q#</th><th class="py-3 pr-3">Yours</th><th class="py-3 pr-3">Correct</th><th class="py-3 pr-3">Performance indicator</th><th class="py-3">Source</th>
+            </tr></thead>
+            <tbody>${missedRows}</tbody>
+          </table>
+        </div>` : '<p class="mt-4 text-lg">You didn\'t miss a single question. 🐐</p>'}
+    `;
+    show(content, true);
+  </script>
+</body>
+</html>
