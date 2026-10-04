@@ -56,6 +56,11 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // Past scores imported from other sites (anonymous), one doc per batch.
+    match /statsImports/{batchId} {
+      allow read: if isAdmin();
+    }
+
     // Copies of attempts deleted by the admin or an advisor.
     match /deletedAttempts/{attemptId} {
       allow read: if isAdmin();

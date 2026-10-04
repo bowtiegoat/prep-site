@@ -6,7 +6,7 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const EVENTS = require('./events');
-const { grade, summarize, addToStats, removeFromStats } = require('./grading');
+const { grade, summarize, addToStats, removeFromStats, batchFromScores, applyBatch } = require('./grading');
 
 initializeApp();
 const db = getFirestore();
@@ -21,6 +21,14 @@ const ADMIN_EMAIL = 'justin@thebowtiegoat.com';
 function requireUser(req) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in first.');
   return req.auth;
+}
+
+function requireAdmin(req) {
+  const auth = requireUser(req);
+  if (auth.token.email !== ADMIN_EMAIL || auth.token.email_verified !== true) {
+    throw new HttpsError('permission-denied', 'Only the admin can do that.');
+  }
+  return auth;
 }
 
 function invalid(message) {
@@ -203,6 +211,71 @@ exports.deleteAttempt = onCall(CALLABLE, async (req) => {
       deletedAt: FieldValue.serverTimestamp(),
     });
     tx.delete(attemptRef);
+  });
+  return { ok: true };
+});
+
+// Admin: add anonymous past scores (e.g. a ZipGrade export) to an exam's
+// site-wide stats as a named batch that can be deleted later.
+exports.adminImportScores = onCall(CALLABLE, async (req) => {
+  const auth = requireAdmin(req);
+  const { examId, name, source, fileName, scores, perQuestionCorrect } = req.data || {};
+  if (typeof examId !== 'string' || !ID_PATTERN.test(examId)) throw invalid('Pick an exam.');
+  const batchName = typeof name === 'string' ? name.trim().slice(0, 80) : '';
+  if (!batchName) throw invalid('Give the batch a name.');
+  const examSnap = await db.doc(`exams/${examId}`).get();
+  if (!examSnap.exists) throw new HttpsError('not-found', "That exam isn't on the site.");
+  const exam = examSnap.data();
+  const total = exam.questionCount;
+  if (!Array.isArray(scores) || !scores.length || scores.length > 5000
+      || !scores.every((n) => Number.isInteger(n) && n >= 0 && n <= total)) {
+    throw invalid(`Scores must be whole numbers from 0 to ${total}.`);
+  }
+  const perQuestion = Array.isArray(perQuestionCorrect) && perQuestionCorrect.length === total
+      && perQuestionCorrect.every((n) => Number.isInteger(n) && n >= 0 && n <= scores.length)
+    ? perQuestionCorrect
+    : null;
+
+  const batch = batchFromScores(scores, total);
+  const batchRef = db.collection('statsImports').doc();
+  const statsRef = db.doc(`examStats/${examId}`);
+  await db.runTransaction(async (tx) => {
+    const statsSnap = await tx.get(statsRef);
+    const stats = applyBatch(statsSnap.exists ? statsSnap.data() : null, batch, 1);
+    tx.set(statsRef, { ...stats, updatedAt: FieldValue.serverTimestamp() });
+    tx.set(batchRef, {
+      name: batchName,
+      source: typeof source === 'string' ? source.slice(0, 40) : '',
+      fileName: typeof fileName === 'string' ? fileName.slice(0, 200) : '',
+      examId,
+      examLabel: exam.label,
+      examSubtitle: exam.subtitle || '',
+      cluster: exam.cluster,
+      ...batch,
+      perQuestionCorrect: perQuestion,
+      importedBy: auth.token.email,
+      importedAt: FieldValue.serverTimestamp(),
+    });
+  });
+  return { batchId: batchRef.id, count: batch.count };
+});
+
+// Admin: remove an imported batch's scores from the stats.
+exports.adminDeleteImport = onCall(CALLABLE, async (req) => {
+  requireAdmin(req);
+  const { batchId } = req.data || {};
+  if (typeof batchId !== 'string' || !ID_PATTERN.test(batchId)) throw invalid('Unknown batch.');
+  const batchRef = db.doc(`statsImports/${batchId}`);
+  await db.runTransaction(async (tx) => {
+    const batchSnap = await tx.get(batchRef);
+    if (!batchSnap.exists) throw new HttpsError('not-found', 'That batch was already deleted.');
+    const batch = batchSnap.data();
+    const statsRef = db.doc(`examStats/${batch.examId}`);
+    const statsSnap = await tx.get(statsRef);
+    if (statsSnap.exists) {
+      tx.set(statsRef, { ...applyBatch(statsSnap.data(), batch, -1), updatedAt: FieldValue.serverTimestamp() });
+    }
+    tx.delete(batchRef);
   });
   return { ok: true };
 });

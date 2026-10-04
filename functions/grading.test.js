@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { grade, percentile, summarize, addToStats, removeFromStats } = require('./grading');
+const { grade, percentile, summarize, addToStats, removeFromStats, batchFromScores, applyBatch } = require('./grading');
 
 const key = [
   { q: 1, answer: 'A', code: 'PI:001', indicator: 'Pricing', source: 'LAP' },
@@ -41,4 +41,21 @@ test('removeFromStats undoes addToStats', () => {
   const before = addToStats(null, 2, 3);
   const after = removeFromStats(addToStats(before, 3, 3), 3);
   assert.deepStrictEqual(after, before);
+});
+
+test('imported batches add to stats and can be removed exactly', () => {
+  const live = addToStats(null, 2, 3);
+  const batch = batchFromScores([3, 1, 1], 3);
+  assert.deepStrictEqual(batch, { count: 3, sumCorrect: 5, histogram: [0, 2, 0, 1] });
+  const merged = applyBatch(live, batch, 1);
+  assert.deepStrictEqual(merged, { total: 3, takers: 4, sumCorrect: 7, importedTakers: 3, histogram: [0, 2, 1, 1] });
+  assert.strictEqual(summarize(merged, 2).percentile, 63);
+  const back = applyBatch(merged, batch, -1);
+  assert.deepStrictEqual(back, { ...live, importedTakers: 0 });
+});
+
+test('a live submission after an import keeps importedTakers', () => {
+  const merged = applyBatch(null, batchFromScores([1], 3), 1);
+  const after = addToStats(merged, 2, 3);
+  assert.strictEqual(after.importedTakers, 1);
 });

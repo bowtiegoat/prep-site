@@ -50,6 +50,7 @@ function addToStats(stats, correct, total) {
   while (histogram.length < total + 1) histogram.push(0);
   histogram[correct] += 1;
   return {
+    ...stats,
     total,
     takers: ((stats && stats.takers) || 0) + 1,
     sumCorrect: ((stats && stats.sumCorrect) || 0) + correct,
@@ -62,6 +63,7 @@ function removeFromStats(stats, correct) {
   const histogram = [...(stats.histogram || [])];
   if (histogram[correct] > 0) histogram[correct] -= 1;
   return {
+    ...stats,
     total: stats.total,
     takers: Math.max(0, (stats.takers || 0) - 1),
     sumCorrect: Math.max(0, (stats.sumCorrect || 0) - correct),
@@ -69,4 +71,27 @@ function removeFromStats(stats, correct) {
   };
 }
 
-module.exports = { CHOICES, grade, percentile, summarize, addToStats, removeFromStats };
+// Summarizes a list of imported scores (number correct each) as a batch.
+function batchFromScores(scores, total) {
+  const histogram = Array(total + 1).fill(0);
+  scores.forEach((n) => { histogram[n] += 1; });
+  return { count: scores.length, sumCorrect: scores.reduce((a, b) => a + b, 0), histogram };
+}
+
+// Adds (sign 1) or removes (sign -1) an imported batch from an exam's stats.
+function applyBatch(stats, batch, sign) {
+  const histogram = [...((stats && stats.histogram) || [])];
+  while (histogram.length < batch.histogram.length) histogram.push(0);
+  batch.histogram.forEach((n, i) => { histogram[i] = Math.max(0, histogram[i] + sign * n); });
+  const clamp = (n) => Math.max(0, n);
+  return {
+    ...stats,
+    total: (stats && stats.total) || batch.histogram.length - 1,
+    takers: clamp(((stats && stats.takers) || 0) + sign * batch.count),
+    sumCorrect: clamp(((stats && stats.sumCorrect) || 0) + sign * batch.sumCorrect),
+    importedTakers: clamp(((stats && stats.importedTakers) || 0) + sign * batch.count),
+    histogram,
+  };
+}
+
+module.exports = { CHOICES, grade, percentile, summarize, addToStats, removeFromStats, batchFromScores, applyBatch };

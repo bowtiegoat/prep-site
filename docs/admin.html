@@ -68,6 +68,20 @@
         <div data-preview></div>
       </form>
       <div data-exams></div>
+
+      <form data-scores-form class="bg-white rounded-2xl border border-ink-200 p-5 space-y-4">
+        <h2 class="font-semibold text-lg">Import past scores (ZipGrade)</h2>
+        <p class="text-sm text-ink-600">Adds anonymous scores from another site to an exam's test-taker count, average, and rankings. No student accounts are created and names are ignored. Each file becomes a batch you can delete later.</p>
+        <label class="block"><span class="text-sm font-medium text-ink-700">ZipGrade export (.xlsx or .csv), one exam per file</span>
+          <input name="scoresFile" type="file" required accept=".xlsx,.xls,.csv" class="mt-1 w-full text-sm" /></label>
+        <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Check file</button>
+        <div data-scores-preview></div>
+      </form>
+
+      <div>
+        <h2 class="font-semibold text-lg mb-3">Past score imports</h2>
+        <div data-imports></div>
+      </div>
     </section>
 
     <!-- Students -->
@@ -84,6 +98,7 @@
     import { CLUSTERS } from './js/events.js';
     import { parseExamRows } from './js/exam-import.js';
     import { downloadResults, exportFileName } from './js/missed.js';
+    import { parseZipGradeRows } from './js/score-import.js';
 
     const { user } = await requireUser({ adminOnly: true });
     renderHeader({ user, profile: null, active: 'admin' });
@@ -119,13 +134,14 @@
     let data = {};
     async function load() {
       const read = async (name) => (await getDocs(collection(db, name))).docs.map((d) => ({ id: d.id, ...d.data() }));
-      const [schools, codes, advisors, exams, stats, users, attempts] = await Promise.all(
-        ['schools', 'schoolCodes', 'advisors', 'exams', 'examStats', 'users', 'attempts'].map(read));
+      const [schools, codes, advisors, exams, stats, users, attempts, imports] = await Promise.all(
+        ['schools', 'schoolCodes', 'advisors', 'exams', 'examStats', 'users', 'attempts', 'statsImports'].map(read));
       data = {
         schools: schools.sort((a, b) => (a.state || '').localeCompare(b.state || '') || a.name.localeCompare(b.name)),
         codes: new Map(codes.map((c) => [c.id, c.code])),
         advisors, exams: exams.sort((a, b) => a.cluster.localeCompare(b.cluster) || compareExams(a, b)),
         stats: new Map(stats.map((s) => [s.id, s])), users, attempts,
+        imports: imports.sort((a, b) => (b.importedAt?.toMillis() || 0) - (a.importedAt?.toMillis() || 0)),
       };
       renderAll();
     }
@@ -135,6 +151,7 @@
       renderSchools();
       renderAdvisors();
       renderExams();
+      renderImports();
       renderStudents();
     }
 
@@ -270,7 +287,7 @@
             <td class="py-3 px-4">${esc(x.cluster)}</td>
             <td class="py-3 px-4 font-medium">${esc(x.label)} <span class="text-xs text-ink-500">${esc(x.subtitle)}</span></td>
             <td class="py-3 px-4">${x.questionCount}</td>
-            <td class="py-3 px-4">${s?.takers || 0}</td>
+            <td class="py-3 px-4">${s?.takers || 0}${s?.importedTakers ? ` <span class="text-xs text-ink-500">(${s.importedTakers} imported)</span>` : ''}</td>
             <td class="py-3 px-4">${s?.takers ? (s.sumCorrect / s.takers).toFixed(1) : '—'}</td>
             <td class="py-3 px-4">${x.active === false ? '<span class="text-ink-400">Hidden</span>' : 'Live'}</td>
             <td class="py-3 px-4 text-right">${button(`data-toggle-exam="${esc(x.id)}"`, x.active === false ? 'Show' : 'Hide', 'text-ink-500')}</td>
@@ -284,6 +301,100 @@
       const exam = data.exams.find((x) => x.id === id);
       await updateDoc(doc(db, 'exams', id), { active: exam.active === false });
       await load();
+    });
+
+    // ---------- Past score imports ----------
+    const scoresForm = $('[data-scores-form]');
+    let pendingScores = null;
+
+    scoresForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = scoresForm.scoresFile.files[0];
+      const workbook = XLSX.read(await file.arrayBuffer());
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+      const parsed = parseZipGradeRows(rows);
+      pendingScores = { ...parsed, fileName: file.name };
+      const match = data.exams.find((x) => parsed.testNumber && x.testNumber === parsed.testNumber);
+      const ok = !parsed.errors.length;
+      $('[data-scores-preview]').innerHTML = `
+        <div class="mt-2 rounded-xl border border-ink-200 p-4 space-y-3 text-sm">
+          ${parsed.quizName ? `<p>ZipGrade quiz: <strong>${esc(parsed.quizName)}</strong></p>` : ''}
+          ${ok ? `<p><strong>${parsed.scores.length}</strong> scores · average <strong>${parsed.average}</strong> / ${parsed.questionCount} · range ${Math.min(...parsed.scores)}–${Math.max(...parsed.scores)}</p>` : ''}
+          ${parsed.errors.length ? `<div class="rounded-lg bg-rose-50 border border-rose-200 p-3 text-rose-700"><p class="font-semibold">This file can't be imported:</p><ul class="list-disc ml-5 mt-1">${parsed.errors.slice(0, 20).map((m) => `<li>${esc(m)}</li>`).join('')}</ul></div>` : ''}
+          ${parsed.warnings.length ? `<p class="text-ink-500">${parsed.warnings.map(esc).join(' ')}</p>` : ''}
+          ${ok ? `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="block"><span class="text-sm font-medium text-ink-700">Add these scores to</span>
+                <select data-import-exam class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 bg-white">
+                  <option value="">Choose an exam…</option>
+                  ${data.exams.map((x) => `<option value="${esc(x.id)}" ${x === match ? 'selected' : ''}>${esc(x.cluster)} · ${esc(x.label)} · ${esc(x.subtitle)}</option>`).join('')}
+                </select>
+                <span class="mt-1 block text-xs ${match ? 'text-ink-500' : 'text-rose-600'}">${match ? `Matched by test number ${esc(parsed.testNumber)}. Change it if that's wrong.` : 'No exam matched the test number. Pick one.'}</span>
+              </label>
+              <label class="block"><span class="text-sm font-medium text-ink-700">Batch name</span>
+                <input data-import-name maxlength="80" value="${esc(`ZipGrade ${parsed.testNumber || ''}`.trim())}" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+            </div>
+            <button type="button" data-import-scores class="rounded-lg bg-blue-600 text-white px-5 py-2 font-medium">Import ${parsed.scores.length} scores</button>` : ''}
+        </div>`;
+    });
+
+    $('[data-scores-preview]').addEventListener('click', async (e) => {
+      if (!e.target.matches('[data-import-scores]') || !pendingScores) return;
+      const examId = $('[data-import-exam]').value;
+      const exam = data.exams.find((x) => x.id === examId);
+      if (!exam) { flash('Pick the exam these scores belong to.', false); return; }
+      if (exam.questionCount !== pendingScores.questionCount) {
+        flash(`That exam has ${exam.questionCount} questions but the file has ${pendingScores.questionCount}. Pick the matching exam.`, false);
+        return;
+      }
+      const name = $('[data-import-name]').value.trim();
+      if (data.imports.some((b) => b.examId === examId && b.name === name)
+          && !confirm(`There's already a batch called "${name}" on this exam. Import again anyway? (The scores would be counted twice.)`)) return;
+      e.target.disabled = true;
+      e.target.textContent = 'Importing…';
+      try {
+        const result = await call('adminImportScores', {
+          examId, name, source: 'ZipGrade', fileName: pendingScores.fileName,
+          scores: pendingScores.scores, perQuestionCorrect: pendingScores.perQuestionCorrect,
+        });
+        flash(`Imported ${result.count} scores into ${exam.label} (${exam.subtitle}).`);
+        pendingScores = null;
+        $('[data-scores-preview]').innerHTML = '';
+        scoresForm.reset();
+        await load();
+      } catch (err) {
+        flash(err.message, false);
+        e.target.disabled = false;
+        e.target.textContent = 'Import scores';
+      }
+    });
+
+    function renderImports() {
+      $('[data-imports]').innerHTML = table(['Batch', 'Exam', 'Scores', 'Average', 'Imported', ''], data.imports.map((b) => `
+        <tr class="border-t border-ink-100">
+          <td class="py-3 px-4 font-medium">${esc(b.name)}<br /><span class="text-xs text-ink-500">${esc(b.fileName)}</span></td>
+          <td class="py-3 px-4">${esc(b.cluster)} · ${esc(b.examLabel)} <span class="text-xs text-ink-500">${esc(b.examSubtitle)}</span></td>
+          <td class="py-3 px-4">${b.count}</td>
+          <td class="py-3 px-4">${b.count ? (b.sumCorrect / b.count).toFixed(1) : '—'}</td>
+          <td class="py-3 px-4 whitespace-nowrap">${esc(formatDate(b.importedAt))}</td>
+          <td class="py-3 px-4 text-right">${button(`data-delete-import="${esc(b.id)}" data-name="${esc(b.name)}" data-count="${b.count}"`, 'Delete batch', 'text-rose-600')}</td>
+        </tr>`), 'No past scores imported yet.');
+    }
+
+    $('[data-imports]').addEventListener('click', async (e) => {
+      const target = e.target.closest('[data-delete-import]');
+      if (!target) return;
+      const { deleteImport: batchId, name, count } = target.dataset;
+      if (!confirm(`Delete the batch "${name}"?\n\nIts ${count} scores are removed from that exam's test-taker count, average, and rankings.`)) return;
+      target.disabled = true;
+      try {
+        await call('adminDeleteImport', { batchId });
+        flash(`Deleted "${name}".`);
+        await load();
+      } catch (err) {
+        flash(err.message, false);
+        target.disabled = false;
+      }
     });
 
     // ---------- Students ----------
