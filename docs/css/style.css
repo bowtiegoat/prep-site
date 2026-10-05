@@ -1,8 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap');
+/* Fonts (same as thebowtiegoat.com): Montserrat headings, Open Sans body, Archivo for the BowtieGOAT name */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Open+Sans:wght@400;500;600;700&family=Archivo:wght@800&display=swap');
 
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Heading weights: page titles extra bold, smaller headings bold. */
+h1.font-serif, h2.font-serif { font-weight: 800; letter-spacing: -0.01em; }
+
+/* The BowtieGOAT name in the header. */
+.wordmark { font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; }
 
 /* Answer sheet bubbles */
 .bubble input { position: absolute; opacity: 0; pointer-events: none; }
