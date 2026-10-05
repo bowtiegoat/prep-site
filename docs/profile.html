@@ -40,7 +40,7 @@
   </main>
 
   <script type="module">
-    import { requireUser, renderHeader, call, esc, show } from './js/app.js';
+    import { requireUser, renderHeader, call, esc, show, isViewingAs } from './js/app.js';
     import { eventOptionsHtml } from './js/event-picker.js';
     import { EVENTS } from './js/events.js';
 
@@ -79,6 +79,11 @@
     }
     form.eventCode.addEventListener('change', updateChoices);
     updateChoices();
+
+    if (isViewingAs()) {
+      form.querySelectorAll('select, input, button').forEach((el) => { el.disabled = true; });
+      form.insertAdjacentHTML('afterbegin', '<p class="text-sm rounded-lg bg-tan-50 border border-tan-200 px-4 py-3 text-tan-700">View only: changing events is turned off while viewing as a student.</p>');
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

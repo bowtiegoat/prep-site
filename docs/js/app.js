@@ -19,7 +19,34 @@ export function isAdmin(user) {
   return !!user && user.email === ADMIN_EMAIL && user.emailVerified;
 }
 
+// ---------- View as (admin only, read-only) ----------
+// The admin can look at the site exactly as a student sees it. The choice is
+// kept for this browser tab only. While viewing, every change is blocked here,
+// and the database rules separately stop the admin writing to a student's
+// account.
+
+const VIEW_AS_KEY = 'prep:viewAs';
+const VIEW_ONLY_MESSAGE = "You're viewing as a student, so changes are turned off.";
+let viewing = null; // { uid, name } while the admin views as a student
+
+export function startViewingAs(uid) {
+  try { sessionStorage.setItem(VIEW_AS_KEY, uid); } catch {}
+}
+
+export function stopViewingAs() {
+  try { sessionStorage.removeItem(VIEW_AS_KEY); } catch {}
+}
+
+export function isViewingAs() {
+  return !!viewing;
+}
+
+function viewAsUid() {
+  try { return sessionStorage.getItem(VIEW_AS_KEY); } catch { return null; }
+}
+
 export async function call(name, data) {
+  if (viewing) throw new Error(VIEW_ONLY_MESSAGE);
   try {
     const result = await httpsCallable(functions, name)(data);
     return result.data;
@@ -49,11 +76,23 @@ export async function requireUser({ allowNoProfile = false, adminOnly = false } 
     return new Promise(() => {});
   }
   if (adminOnly) {
+    stopViewingAs();
     if (!isAdmin(user)) {
       location.replace('exams.html');
       return new Promise(() => {});
     }
     return { user, profile: null };
+  }
+  const asUid = isAdmin(user) ? viewAsUid() : null;
+  if (asUid) {
+    const asSnap = await getDoc(doc(db, 'users', asUid));
+    if (asSnap.exists()) {
+      const asProfile = asSnap.data();
+      viewing = { uid: asUid, name: `${asProfile.firstName} ${asProfile.lastName}` };
+      // Pages read data for "user", so hand them the student's identity.
+      return { user: { uid: asUid, email: asProfile.email, emailVerified: true }, profile: asProfile };
+    }
+    stopViewingAs();
   }
   const snap = await getDoc(doc(db, 'users', user.uid));
   const profile = snap.exists() ? snap.data() : null;
@@ -71,9 +110,16 @@ export function renderHeader({ user, profile, active }) {
     links.push(['results.html', 'My Results', 'results']);
     links.push(['profile.html', 'Profile', 'profile']);
   }
-  if (isAdmin(user)) links.push(['admin.html', 'Admin', 'admin']);
+  if (isAdmin(user) || viewing) links.push(['admin.html', 'Admin', 'admin']);
   const header = document.querySelector('[data-header]');
   header.innerHTML = `
+    ${viewing ? `
+      <div class="bg-tan-600 text-white text-sm">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <span>👁️ Viewing as <strong>${esc(viewing.name)}</strong> (student). View only: nothing can be changed.</span>
+          <button data-exit-view-as class="underline font-medium">Exit view-as</button>
+        </div>
+      </div>` : ''}
     <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
       <a href="exams.html" class="flex items-center gap-3 shrink-0">
         <img src="images/logo.jpg" alt="BowtieGOAT logo" class="w-9 h-9 rounded-lg object-cover" />
@@ -89,7 +135,12 @@ export function renderHeader({ user, profile, active }) {
         <button data-sign-out class="px-2 sm:px-3 py-2 rounded-md text-ink-500 hover:bg-ink-100 whitespace-nowrap">Sign out</button>
       </div>
     </nav>`;
+  header.querySelector('[data-exit-view-as]')?.addEventListener('click', () => {
+    stopViewingAs();
+    location.href = 'admin.html';
+  });
   header.querySelector('[data-sign-out]').addEventListener('click', async () => {
+    stopViewingAs();
     await signOut(auth);
     location.replace('index.html');
   });

@@ -70,13 +70,18 @@
 
   <script type="module">
     import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-    import { db, requireUser, renderHeader, call, esc, show, EXAM_MINUTES } from './js/app.js';
+    import { db, requireUser, renderHeader, call, esc, show, EXAM_MINUTES, isViewingAs } from './js/app.js';
     import { draftKey, loadDraft, saveDraft, clearDraft } from './js/drafts.js';
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => [...document.querySelectorAll(sel)];
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'exams' });
+
+    if (isViewingAs()) {
+      fail(`You're viewing as ${profile.firstName}, so taking exams is turned off.`);
+      await new Promise(() => {});
+    }
 
     function fail(message) {
       show($('[data-loading]'), false);

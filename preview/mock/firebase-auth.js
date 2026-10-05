@@ -1,11 +1,11 @@
 // PREVIEW ONLY: pretend sign-in. Every sign-in method signs in the sample student.
-import { DEMO_USER, ready, isSignedIn, setSignedIn, previewBar } from './store.js';
+import { currentDemoUser, ready, isSignedIn, setSignedIn, previewBar } from './store.js';
 
 const auth = { currentUser: null };
 const listeners = new Set();
 
 function notify() {
-  auth.currentUser = isSignedIn() ? DEMO_USER : null;
+  auth.currentUser = isSignedIn() ? currentDemoUser() : null;
   listeners.forEach((cb) => cb(auth.currentUser));
 }
 
@@ -17,7 +17,7 @@ export function onAuthStateChanged(_auth, callback) {
   listeners.add(callback);
   ready().then(() => {
     previewBar();
-    auth.currentUser = isSignedIn() ? DEMO_USER : null;
+    auth.currentUser = isSignedIn() ? currentDemoUser() : null;
     callback(auth.currentUser);
   });
   return () => listeners.delete(callback);
@@ -28,7 +28,7 @@ export class GoogleAuthProvider {}
 export async function signInWithPopup() {
   setSignedIn(true);
   notify();
-  return { user: DEMO_USER };
+  return { user: currentDemoUser() };
 }
 
 export async function signOut() {

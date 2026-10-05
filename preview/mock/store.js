@@ -5,6 +5,12 @@ const KEY = 'prep-preview:db';
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
+export const ADMIN_USER = { uid: 'demo-admin', email: 'justin@thebowtiegoat.com', emailVerified: true };
+const WHO = 'prep-preview:who';
+
+// Which pretend account is signed in: the sample student or the admin.
+export const currentDemoUser = () => (localStorage.getItem(WHO) === 'admin' ? ADMIN_USER : DEMO_USER);
+export const setDemoUser = (who) => localStorage.setItem(WHO, who);
 
 export function timestamp(date) {
   const d = new Date(date);
@@ -62,6 +68,14 @@ export async function seed({ joined }) {
   exams.forEach((e) => { db.exams[e.id] = e; });
   Object.entries(stats).forEach(([id, s]) => { db.examStats[id] = s; });
   db.schools['demo-school'] = { name: 'BowtieGOAT Academy', state: 'PA', active: true };
+  db.schoolCodes = { 'demo-school': { code: 'DEMO' } };
+  // A second student, in a cluster with no exams yet.
+  db.users['demo-student-2'] = {
+    role: 'student', firstName: 'Jordan', lastName: 'Lee', email: 'jordan.student@example.com',
+    schoolId: 'demo-school', schoolName: 'BowtieGOAT Academy',
+    eventCode: 'ACT', eventName: 'Accounting Applications', cluster: 'Finance', track: 1,
+    eventHistory: [{ eventCode: 'ACT', track: 1, at: timestamp('2026-09-25') }],
+  };
 
   if (joined) {
     db.users[DEMO_USER.uid] = {
@@ -99,9 +113,17 @@ export function previewBar() {
     <strong>🔧 Preview on your computer: pretend data, not the live site</strong>
     <span>School code for sign-up: <strong>DEMO</strong></span>
     <button data-reset style="text-decoration:underline">Reset sample student</button>
-    <button data-new style="text-decoration:underline">Start as a brand-new student</button>`;
-  bar.querySelector('[data-reset]').onclick = async () => { await seed({ joined: true }); setSignedIn(true); clearDrafts(); location.href = '/exams.html'; };
-  bar.querySelector('[data-new]').onclick = async () => { await seed({ joined: false }); setSignedIn(false); clearDrafts(); location.href = '/index.html'; };
+    <button data-new style="text-decoration:underline">Start as a brand-new student</button>
+    <button data-who style="text-decoration:underline">${currentDemoUser() === ADMIN_USER ? 'Switch to student (Alex)' : 'Switch to admin (you)'}</button>`;
+  bar.querySelector('[data-reset]').onclick = async () => { await seed({ joined: true }); setDemoUser('student'); setSignedIn(true); clearDrafts(); location.href = '/exams.html'; };
+  bar.querySelector('[data-who]').onclick = () => {
+    const toAdmin = currentDemoUser() !== ADMIN_USER;
+    setDemoUser(toAdmin ? 'admin' : 'student');
+    setSignedIn(true);
+    sessionStorage.removeItem('prep:viewAs');
+    location.href = toAdmin ? '/admin.html' : '/exams.html';
+  };
+  bar.querySelector('[data-new]').onclick = async () => { await seed({ joined: false }); setDemoUser('student'); setSignedIn(false); clearDrafts(); location.href = '/index.html'; };
   document.body.appendChild(bar);
   document.body.style.paddingBottom = '48px';
 }

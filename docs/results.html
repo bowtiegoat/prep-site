@@ -35,7 +35,7 @@
     import {
       collection, doc, getDoc, getDocs, query, where, updateDoc, arrayUnion, arrayRemove,
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-    import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText, show } from './js/app.js';
+    import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText, show, isViewingAs } from './js/app.js';
     import { missedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
 
     const { user, profile } = await requireUser();
@@ -83,8 +83,8 @@
                     <td class="py-3 px-4 font-semibold tabular-nums">${a.correct} / ${a.total}</td>
                     <td class="py-3 px-4 text-ink-600">${esc(rank)}</td>
                     <td class="py-3 px-4">
-                      <label class="inline-flex items-center cursor-pointer" title="Include this exam in All missed questions">
-                        <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} />
+                      <label class="inline-flex items-center ${isViewingAs() ? 'opacity-60' : 'cursor-pointer'}" title="Include this exam in All missed questions">
+                        <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} ${isViewingAs() ? 'disabled' : ''} />
                         <span class="relative w-10 h-6 rounded-full bg-ink-200 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400
                           after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-4"></span>
                         <span class="sr-only">Include ${esc(a.examLabel)} in All missed questions</span>
