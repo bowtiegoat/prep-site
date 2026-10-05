@@ -198,7 +198,7 @@ export function renderHeader({ user, profile, active }) {
       </div>` : ''}
     <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
       <a href="exams.html" class="flex items-center gap-3 shrink-0">
-        <img src="images/logo.jpg" alt="BowtieGOAT logo" class="w-9 h-9 rounded-lg object-cover" />
+        <img src="images/logo.png" alt="BowtieGOAT logo" class="w-9 h-9" />
         <span class="flex flex-col leading-tight">
           <span class="font-serif text-lg font-bold text-ink-900">BowtieGOAT</span>
           <span class="text-[11px] font-semibold tracking-[0.08em] text-blue-600">GOATS get GLASS</span>
