@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advisor Hub | BowtieGOAT · GOATS get GLASS</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+  <div data-hub-banner></div>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-28">
+    <p data-school class="text-sm font-semibold uppercase tracking-[0.15em] text-blue-600"></p>
+    <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">Advisor hub</h1>
+    <p data-advisors class="mt-1 text-sm text-ink-500"></p>
+    <p class="mt-2 text-ink-600">Your chapter's exam prep at a glance. Click a student's name for details.</p>
+
+    <!-- School code -->
+    <section class="mt-8 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Your school code</p>
+        <p data-code class="mt-1 font-mono text-2xl font-bold tracking-[0.2em]">——</p>
+      </div>
+      <p class="flex-1 min-w-[14rem] text-sm text-ink-600">Students join at <strong>prep.thebowtiegoat.com</strong> with this code.</p>
+      <div class="flex flex-wrap gap-2">
+        <button data-copy-invite class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">📋 Copy invite message</button>
+        <button data-copy-code class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Copy code</button>
+      </div>
+      <p data-copy-note class="w-full text-xs text-green-700 h-4"></p>
+    </section>
+
+    <!-- Competition dates -->
+    <section class="mt-4 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-serif text-xl font-bold">Competition dates</h2>
+        <p class="text-xs text-ink-500">Shared by every advisor at your school.</p>
+      </div>
+      <div data-dates-summary class="hidden mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"></div>
+      <p data-dates-needed class="hidden mt-3 rounded-lg bg-tan-50 border border-tan-200 px-4 py-3 text-sm text-tan-700">
+        📅 <strong>Set your competition dates.</strong> Students' prep schedules will be built backward from these dates.
+      </p>
+      <form data-dates-form class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-xl border border-ink-200 p-4">
+          <label class="block text-sm font-semibold text-ink-800" for="district">District / Regional</label>
+          <input id="district" name="district" type="date" class="mt-2 w-full rounded-lg border border-ink-300 px-3 py-2 disabled:bg-ink-50 disabled:text-ink-400" />
+          <label class="mt-2 flex items-center gap-2 text-xs text-ink-600">
+            <input type="checkbox" name="noDistrict" /> We don't have a district/regional competition
+          </label>
+          <p data-countdown="district" class="mt-2 text-xs font-medium text-blue-600"></p>
+        </div>
+        <div class="rounded-xl border border-ink-200 p-4">
+          <label class="block text-sm font-semibold text-ink-800" for="state">State / Provincial</label>
+          <input id="state" name="state" type="date" class="mt-2 w-full rounded-lg border border-ink-300 px-3 py-2" />
+          <p data-countdown="state" class="mt-2 text-xs font-medium text-blue-600"></p>
+        </div>
+        <div class="rounded-xl border border-ink-200 bg-ink-50 p-4">
+          <p class="text-sm font-semibold text-ink-800">ICDC <span class="font-normal text-ink-500">(International)</span></p>
+          <p data-icdc class="mt-2 font-medium"></p>
+          <p class="mt-1 text-xs text-ink-500">Filled in by BowtieGOAT from deca.org.</p>
+          <p data-countdown="icdc" class="mt-2 text-xs font-medium text-blue-600"></p>
+        </div>
+        <label data-prepared-row class="md:col-span-3 flex items-start gap-3 rounded-xl border border-ink-200 p-4 text-sm">
+          <input type="checkbox" name="preparedAtState" class="mt-0.5" />
+          <span>
+            <strong>Our prepared events don't compete until State/Provincial.</strong>
+            <span class="block text-ink-600">Check this if prepared events skip district/regional in your area (like Pennsylvania). Role plays always compete at your first competition.</span>
+          </span>
+        </label>
+        <div class="md:col-span-3 flex flex-wrap items-center gap-3">
+          <button type="submit" class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 text-sm font-medium hover:bg-ink-800 disabled:opacity-50">Save dates</button>
+          <button type="button" data-dates-cancel class="hidden text-sm text-ink-500 underline">Cancel</button>
+          <p data-dates-message class="text-sm"></p>
+        </div>
+      </form>
+    </section>
+
+    <!-- Students -->
+    <section class="mt-10">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="font-serif text-2xl font-bold">Students <span data-count class="text-ink-400 text-lg"></span></h2>
+          <p class="mt-1 text-xs text-ink-500">
+            Progress (for now): 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet (no exams for their cluster, or a virtual event)
+          </p>
+        </div>
+        <input data-search type="search" placeholder="Search students or events…"
+          class="w-full sm:w-72 rounded-lg border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      </div>
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <div data-filters class="flex flex-wrap gap-2"></div>
+        <span class="ml-auto flex flex-wrap gap-2">
+          <button data-copy-emails class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-sm font-medium hover:border-blue-500">📋 Copy emails</button>
+          <button data-draft class="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-40">✉️ Suggested draft</button>
+        </span>
+      </div>
+      <p data-emails-note class="mt-1 text-right text-xs text-green-700 h-4"></p>
+      <div data-students class="mt-4"><p class="text-sm text-ink-500">Loading students…</p></div>
+      <p class="mt-3 text-xs text-ink-500">To make a team, check the boxes next to 2–3 students in the same team event.</p>
+    </section>
+  </main>
+
+  <!-- Suggested email -->
+  <div data-draft-modal class="hidden fixed inset-0 z-30 bg-ink-950/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="font-serif text-2xl font-bold">Suggested email</h2>
+          <p data-draft-to class="mt-1 text-sm text-ink-600"></p>
+        </div>
+        <button data-draft-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button>
+      </div>
+      <label class="mt-4 block text-sm font-medium text-ink-700">Subject
+        <input data-draft-subject class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 font-normal" /></label>
+      <label class="mt-3 block text-sm font-medium text-ink-700">Message
+        <textarea data-draft-body rows="12" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 font-normal leading-relaxed"></textarea></label>
+      <p class="mt-1 text-xs text-ink-500">Edit anything you like. Students are added as BCC, so they won't see each other's addresses.</p>
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button data-draft-gmail class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">Open in Gmail</button>
+        <button data-draft-mailto class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Open in my email app</button>
+        <button data-draft-copy class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Copy message</button>
+        <button data-draft-another class="ml-auto text-sm text-blue-600 underline">↻ Try another version</button>
+      </div>
+      <p data-draft-note class="mt-2 text-xs text-green-700 h-4"></p>
+    </div>
+  </div>
+
+  <!-- Make-a-team bar -->
+  <div data-team-bar class="hidden fixed bottom-0 inset-x-0 z-20 bg-ink-900 text-cream-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+      <span data-team-summary class="text-sm"></span>
+      <span data-team-problem class="text-sm text-tan-200"></span>
+      <span class="ml-auto flex gap-2">
+        <button data-team-clear class="rounded-lg px-4 py-2 text-sm text-ink-200 hover:bg-ink-800">Clear</button>
+        <button data-team-make class="rounded-lg bg-blue-500 text-white px-4 py-2 text-sm font-medium disabled:opacity-40">Make a team</button>
+      </span>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc, deleteDoc, serverTimestamp,
+    } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import {
+      db, requireUser, renderHeader, call, esc, show, formatDate, today, loadIcdc,
+      percentile, percentileText, startViewingAs, stopViewingHub,
+    } from './js/app.js';
+    import { EVENTS, maxTeamSize, minTeamSize } from './js/events.js';
+    import { areaOf, downloadResults, exportFileName } from './js/missed.js';
+    import { firstCompetition } from './js/competitions.js';
+    import { buildDraft } from './js/email-drafts.js';
+
+    const $ = (sel) => document.querySelector(sel);
+    const { user, advisor } = await requireUser({ advisorOnly: true });
+    renderHeader({ user, profile: null, active: 'advisor' });
+    const viewOnly = advisor.viewOnly;
+    const schoolId = advisor.schoolId;
+    window.addEventListener('unhandledrejection', (e) => alert(`Something went wrong: ${e.reason?.message || e.reason}`));
+
+    const eventOf = (code) => EVENTS.find((e) => e.code === code);
+    const DAY = 86400000;
+    const dayNumber = (ymd) => Math.round(new Date(`${ymd}T12:00`).getTime() / DAY);
+    const daysUntil = (ymd) => dayNumber(ymd) - dayNumber(today());
+
+    // ---------- School + view-only banner ----------
+    const schoolSnap = await getDoc(doc(db, 'schools', schoolId));
+    const school = schoolSnap.exists() ? schoolSnap.data() : { name: 'Your school' };
+    $('[data-school]').textContent = school.name;
+    if (viewOnly) {
+      $('[data-hub-banner]').innerHTML = `
+        <div class="bg-tan-600 text-white text-sm">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            <span>👁️ Viewing <strong>${esc(school.name)}</strong>'s advisor hub. View only: nothing can be changed.</span>
+            <button data-exit-hub class="underline font-medium">Exit</button>
+          </div>
+        </div>`;
+      $('[data-exit-hub]').addEventListener('click', () => { stopViewingHub(); location.href = 'admin.html'; });
+    }
+
+    // ---------- Advisors at this school ----------
+    try {
+      const advisorSnap = await getDocs(query(collection(db, 'advisors'), where('schoolId', '==', schoolId)));
+      const names = advisorSnap.docs.map((d) => d.data().name).filter(Boolean).sort((a, b) => a.localeCompare(b));
+      if (names.length) $('[data-advisors]').textContent = `${names.length === 1 ? 'Advisor' : 'Advisors'}: ${names.join(', ')}`;
+    } catch {}
+
+    // ---------- School code ----------
+    let schoolCode = '';
+    try {
+      const codeSnap = await getDoc(doc(db, 'schoolCodes', schoolId));
+      schoolCode = codeSnap.exists() ? codeSnap.data().code : '';
+    } catch {}
+    $('[data-code]').textContent = schoolCode || 'Ask BowtieGOAT';
+    // Copies text, falling back to an older method, then to a box the advisor can copy from.
+    async function copy(text, noteSel, message) {
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch {
+        const area = Object.assign(document.createElement('textarea'), { value: text });
+        area.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(area);
+        area.select();
+        try { copied = document.execCommand('copy'); } catch {}
+        area.remove();
+      }
+      if (!copied) {
+        window.prompt('Copy this text (⌘+C), then press Enter:', text);
+        return;
+      }
+      $(noteSel).textContent = message;
+      setTimeout(() => { $(noteSel).textContent = ''; }, 4000);
+    }
+    $('[data-copy-code]').addEventListener('click', () => copy(schoolCode, '[data-copy-note]', '✓ Code copied'));
+    $('[data-copy-invite]').addEventListener('click', () => copy(
+      `Join GOATS get GLASS, our DECA prep site! Go to https://prep.thebowtiegoat.com, sign in, pick ${school.name}, and enter our school code: ${schoolCode}. Then choose your DECA event.`,
+      '[data-copy-note]', '✓ Invite message copied. Paste it into an email, Remind, or Google Classroom.'));
+    if (!schoolCode) $('[data-copy-invite]').disabled = $('[data-copy-code]').disabled = true;
+    if (viewOnly) $('[data-draft]').disabled = true;
+
+    // ---------- Competition dates ----------
+    const icdc = await loadIcdc();
+    const datesForm = $('[data-dates-form]');
+    const dates = school.competitionDates || {};
+    const prettyDate = (ymd) => new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    $('[data-icdc]').textContent = `${prettyDate(icdc.start)}–${new Date(`${icdc.end}T12:00`).getDate()} · ${icdc.location}`;
+    datesForm.district.value = dates.district || '';
+    datesForm.state.value = dates.state || '';
+    datesForm.noDistrict.checked = !!dates.noDistrict;
+    datesForm.preparedAtState.checked = dates.preparedFirstAt === 'state';
+
+    function countdown(ymd) {
+      if (!ymd) return '';
+      const n = daysUntil(ymd);
+      if (n > 1) return `${n} days away (${Math.floor(n / 7)} weeks)`;
+      if (n === 1) return 'Tomorrow';
+      if (n === 0) return 'Today!';
+      return `${-n} days ago`;
+    }
+    const shortDate = (ymd) => new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const weeks = (ymd) => {
+      const n = daysUntil(ymd);
+      return n >= 14 ? `${Math.floor(n / 7)} weeks` : n > 0 ? `${n} days` : n === 0 ? 'today' : 'done';
+    };
+    let editingDates = false;
+    function showDates() {
+      const saved = school.competitionDates || {};
+      const complete = saved.state && (saved.district || saved.noDistrict);
+      const collapsed = complete && !editingDates;
+      show($('[data-dates-summary]'), collapsed);
+      show(datesForm, !collapsed);
+      show($('[data-dates-cancel]'), complete && editingDates);
+      if (!collapsed) return;
+      const item = (label, ymd) => `<span><span class="text-ink-500">${label}</span> <strong>${shortDate(ymd)}</strong> <span class="text-blue-600">(${weeks(ymd)})</span></span>`;
+      $('[data-dates-summary]').innerHTML = `
+        ${saved.noDistrict ? '<span class="text-ink-500">No district/regional</span>' : item('District/Regional', saved.district)}
+        ${item('State/Provincial', saved.state)}
+        ${item('ICDC', icdc.start)}
+        <span class="w-full text-xs text-ink-500">Role plays start at ${saved.noDistrict ? 'State/Provincial' : 'District/Regional'} · Prepared events start at ${saved.noDistrict || saved.preparedFirstAt === 'state' ? 'State/Provincial' : 'District/Regional'}</span>
+        ${viewOnly ? '' : '<button data-dates-edit class="ml-auto text-sm text-blue-600 underline">Edit dates</button>'}`;
+    }
+    $('[data-dates-summary]').addEventListener('click', (e) => {
+      if (e.target.matches('[data-dates-edit]')) { editingDates = true; showDates(); }
+    });
+    $('[data-dates-cancel]').addEventListener('click', () => {
+      const saved = school.competitionDates || {};
+      datesForm.district.value = saved.district || '';
+      datesForm.state.value = saved.state || '';
+      datesForm.noDistrict.checked = !!saved.noDistrict;
+      datesForm.preparedAtState.checked = saved.preparedFirstAt === 'state';
+      editingDates = false;
+      refreshDates();
+      showDates();
+    });
+
+    function refreshDates() {
+      datesForm.district.disabled = datesForm.noDistrict.checked || viewOnly;
+      // Without a district/regional competition, everything starts at state anyway.
+      datesForm.preparedAtState.disabled = datesForm.noDistrict.checked || viewOnly;
+      $('[data-prepared-row]').classList.toggle('opacity-50', datesForm.noDistrict.checked);
+      $('[data-countdown="district"]').textContent = datesForm.noDistrict.checked ? '' : countdown(datesForm.district.value);
+      $('[data-countdown="state"]').textContent = countdown(datesForm.state.value);
+      $('[data-countdown="icdc"]').textContent = countdown(icdc.start);
+      const saved = school.competitionDates || {};
+      show($('[data-dates-needed]'), !saved.state || (!saved.district && !saved.noDistrict));
+    }
+    datesForm.addEventListener('input', refreshDates);
+    refreshDates();
+    showDates();
+    if (viewOnly) datesForm.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
+
+    datesForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = $('[data-dates-message]');
+      const district = datesForm.noDistrict.checked ? '' : datesForm.district.value;
+      const state = datesForm.state.value;
+      const problem =
+        !state ? 'Pick your state/provincial date.'
+        : !district && !datesForm.noDistrict.checked ? 'Pick your district/regional date, or check the box if you don\'t have one.'
+        : district && district >= state ? 'District/regional should come before state/provincial.'
+        : state >= icdc.start ? 'State/provincial should come before ICDC.'
+        : '';
+      if (problem) {
+        message.className = 'text-sm text-rose-600';
+        message.textContent = problem;
+        return;
+      }
+      const noDistrict = datesForm.noDistrict.checked;
+      const competitionDates = {
+        district, state, noDistrict,
+        preparedFirstAt: noDistrict || datesForm.preparedAtState.checked ? 'state' : 'district',
+        updatedBy: user.email, updatedAt: serverTimestamp(),
+      };
+      await updateDoc(doc(db, 'schools', schoolId), { competitionDates });
+      school.competitionDates = competitionDates;
+      editingDates = false;
+      refreshDates();
+      showDates();
+      message.textContent = '';
+      render(); // open panels show the new first-competition dates
+    });
+
+    // ---------- Data ----------
+    let students = [];
+    let attempts = [];
+    let teams = [];
+    let clustersWithExams = new Set();
+    const statsCache = new Map();
+
+    async function load() {
+      const [userSnap, attemptSnap, teamSnap, examSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('schoolId', '==', schoolId))),
+        getDocs(query(collection(db, 'attempts'), where('schoolId', '==', schoolId))),
+        getDocs(query(collection(db, 'teams'), where('schoolId', '==', schoolId))),
+        getDocs(collection(db, 'exams')),
+      ]);
+      students = userSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role === 'student');
+      attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      teams = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      clustersWithExams = new Set(examSnap.docs.map((d) => d.data()).filter((e) => e.active !== false).map((e) => e.cluster));
+      render();
+    }
+
+    // Current results only (not attempts from before a student started over).
+    const attemptsOf = (s) => attempts
+      .filter((a) => a.uid === s.id && a.track === s.track)
+      .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+
+    // Temporary stoplight until the prep path exists.
+    const STATUS = {
+      green: { dot: '🟢', label: 'On track', rank: 3 },
+      yellow: { dot: '🟡', label: 'Slipping', rank: 1 },
+      red: { dot: '🔴', label: 'Needs a nudge', rank: 0 },
+      gray: { dot: '⚪', label: 'No exams for cluster yet', rank: 2 },
+      virtual: { dot: '⚪', label: 'Virtual event (not supported yet)', rank: 2 },
+    };
+    function statusOf(s) {
+      // Prep for virtual events (VBC, Stock Market Game) isn't offered this year.
+      if (eventOf(s.eventCode)?.type === 'Virtual') return 'virtual';
+      if (!clustersWithExams.has(s.cluster)) return 'gray';
+      const last = attemptsOf(s)[0];
+      if (!last) return 'red';
+      const days = Math.floor((Date.now() - last.submittedAt.toMillis()) / DAY);
+      return days <= 14 ? 'green' : days <= 30 ? 'yellow' : 'red';
+    }
+
+    function lastActiveText(s) {
+      if (!s.lastActiveDate) return '<span class="text-ink-400">Never</span>';
+      const n = -daysUntil(s.lastActiveDate);
+      return n <= 0 ? 'Today' : n === 1 ? 'Yesterday' : `${n} days ago`;
+    }
+    const lastActiveDays = (s) => (s.lastActiveDate ? -daysUntil(s.lastActiveDate) : 99999);
+
+    // ---------- Rendering ----------
+    // The advisor's last sort and filter, remembered in this browser.
+    const VIEW_KEY = 'prep:advisorView';
+    let { sortKey = 'name', sortDir = 1, statusFilter = 'all' } = (() => {
+      try { return JSON.parse(localStorage.getItem(VIEW_KEY)) || {}; } catch { return {}; }
+    })();
+    function rememberView() {
+      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ sortKey, sortDir, statusFilter })); } catch {}
+    }
+    const selected = new Set();
+    const open = new Set();
+    let visibleIds = new Set(); // teammates outside the filter are shown faded
+
+    const SORTS = {
+      name: (s) => `${s.lastName} ${s.firstName}`.toLowerCase(),
+      event: (s) => eventOf(s.eventCode)?.event || s.eventCode,
+      active: (s) => lastActiveDays(s),
+      status: (s) => STATUS[statusOf(s)].rank,
+    };
+
+    // A team sorts by its member who comes first (or needs the most help).
+    function unitsToShow(visible) {
+      const teamOf = new Map();
+      teams.forEach((t) => t.memberUids.forEach((uid) => teamOf.set(uid, t)));
+      const units = [];
+      const seenTeams = new Set();
+      for (const s of visible) {
+        const team = teamOf.get(s.id);
+        if (!team) { units.push({ students: [s] }); continue; }
+        if (seenTeams.has(team.id)) continue;
+        seenTeams.add(team.id);
+        const members = team.memberUids.map((uid) => students.find((x) => x.id === uid)).filter(Boolean);
+        units.push({ team, students: members });
+      }
+      const key = (unit) => unit.students.map(SORTS[sortKey]).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))[0];
+      return units.sort((a, b) => {
+        const x = key(a);
+        const y = key(b);
+        return (x < y ? -1 : x > y ? 1 : 0) * sortDir || SORTS.name(a.students[0]).localeCompare(SORTS.name(b.students[0]));
+      });
+    }
+
+    function render() {
+      const search = $('[data-search]').value.trim().toLowerCase();
+      const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
+      const bucket = (s) => (statusOf(s) === 'virtual' ? 'gray' : statusOf(s));
+      students.forEach((s) => { counts[bucket(s)] += 1; });
+      $('[data-count]').textContent = `(${students.length})`;
+      $('[data-filters]').innerHTML = ['all', 'green', 'yellow', 'red', 'gray'].map((k) => `
+        <button data-filter="${k}" class="rounded-full border px-3 py-1.5 text-sm ${statusFilter === k ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">
+          ${k === 'all' ? 'All' : k === 'gray' ? '⚪ Not tracked yet' : `${STATUS[k].dot} ${STATUS[k].label}`} <span class="opacity-70">${counts[k]}</span>
+        </button>`).join('');
+
+      const visible = students.filter((s) =>
+        (statusFilter === 'all' || bucket(s) === statusFilter)
+        && (!search || `${s.firstName} ${s.lastName} ${s.eventCode} ${eventOf(s.eventCode)?.event || ''}`.toLowerCase().includes(search)));
+      const units = unitsToShow(visible);
+      visibleIds = new Set(visible.map((x) => x.id));
+      $('[data-copy-emails]').textContent = `📋 Copy emails (${visible.length})`;
+      const head = (key, label) => `
+        <th class="py-3 px-3">
+          <button data-sort="${key}" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-ink-900 ${key === sortKey ? 'text-ink-900' : ''}">
+            ${label}<span aria-hidden="true">${key === sortKey ? (sortDir === 1 ? '▲' : '▼') : '↕'}</span>
+          </button>
+        </th>`;
+
+      $('[data-students]').innerHTML = !students.length
+        ? '<p class="rounded-xl bg-white border border-ink-200 px-4 py-8 text-center text-ink-500">No students have joined yet. Share your school code with them!</p>'
+        : `
+        <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
+          <table class="w-full min-w-[720px] text-sm">
+            <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
+              <th class="py-3 pl-4 w-8"><span class="sr-only">Select</span></th>
+              ${head('name', 'Student')}${head('event', 'Event')}${head('active', 'Last active')}${head('status', 'Progress')}
+            </tr></thead>
+            <tbody>
+              ${units.length ? units.map(unitRows).join('') : '<tr><td colspan="5" class="py-8 text-center text-ink-500">No students match.</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+      updateTeamBar();
+      open.forEach((id) => {
+        const s = students.find((x) => x.id === id);
+        if (s) fillPanel(s);
+      });
+    }
+
+    function unitRows(unit) {
+      if (!unit.team) return studentRows(unit.students[0], false);
+      const team = unit.team;
+      const event = eventOf(team.eventCode);
+      const mismatch = unit.students.some((s) => s.eventCode !== team.eventCode);
+      return `
+        <tr class="border-t border-ink-200 bg-blue-50/60">
+          <td></td>
+          <td colspan="4" class="py-2 px-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span class="font-semibold text-blue-700">👥 Team · ${esc(event?.event || team.eventCode)}</span>
+              <span class="text-xs text-ink-500">${unit.students.length} of ${maxTeamSize(team.eventCode)} students</span>
+              ${mismatch ? '<span class="text-xs text-rose-600">⚠️ A member changed events</span>' : ''}
+              ${viewOnly ? '' : `<button data-break-team="${esc(team.id)}" class="ml-auto text-xs text-ink-500 underline hover:text-rose-600">Break up team</button>`}
+            </div>
+          </td>
+        </tr>
+        ${unit.students.map((s) => studentRows(s, true, !visibleIds.has(s.id))).join('')}`;
+    }
+
+    function studentRows(s, inTeam, faded = false) {
+      const status = STATUS[statusOf(s)];
+      const event = eventOf(s.eventCode);
+      const canTeam = !inTeam && maxTeamSize(s.eventCode) > 1 && !viewOnly;
+      const isOpen = open.has(s.id);
+      return `
+        <tr class="border-t border-ink-100 ${inTeam ? 'bg-blue-50/30' : ''} ${isOpen ? 'bg-cream-100/50' : ''} ${faded && !isOpen ? 'opacity-50' : ''}">
+          <td class="py-3 pl-4 align-top">${canTeam ? `<input type="checkbox" data-select="${esc(s.id)}" ${selected.has(s.id) ? 'checked' : ''} aria-label="Select ${esc(s.firstName)} for a team" />` : ''}</td>
+          <td class="py-3 px-3 align-top ${inTeam ? 'pl-6 border-l-4 border-blue-300' : ''}">
+            <button data-toggle="${esc(s.id)}" class="text-left font-medium text-ink-900 hover:text-blue-600" aria-expanded="${isOpen}">
+              ${esc(s.lastName)}, ${esc(s.firstName)} <span class="text-ink-400 text-xs">${isOpen ? '▾' : '▸'}</span>
+            </button>
+          </td>
+          <td class="py-3 px-3 align-top">${esc(event?.event || s.eventCode)} <span class="text-xs text-ink-500">${esc(s.eventCode)}</span>
+            ${!inTeam && minTeamSize(s.eventCode) > 1 ? '<span class="ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-[11px] font-medium px-2 py-0.5">Needs a teammate</span>' : ''}</td>
+          <td class="py-3 px-3 align-top whitespace-nowrap">${lastActiveText(s)}</td>
+          <td class="py-3 px-3 align-top whitespace-nowrap">${status.dot} ${status.label}</td>
+        </tr>
+        ${isOpen ? `<tr><td colspan="5" class="px-4 pb-5 pt-1 ${inTeam ? 'bg-blue-50/30' : 'bg-cream-100/50'}"><div data-panel="${esc(s.id)}"></div></td></tr>` : ''}`;
+    }
+
+    // ---------- Student detail panel ----------
+    async function fillPanel(s) {
+      const box = document.querySelector(`[data-panel="${CSS.escape(s.id)}"]`);
+      if (!box) return;
+      const mine = attemptsOf(s);
+      await Promise.all([...new Set(mine.map((a) => a.examId))].filter((id) => !statsCache.has(id)).map(async (id) => {
+        try {
+          const snap = await getDoc(doc(db, 'examStats', id));
+          statsCache.set(id, snap.exists() ? snap.data() : null);
+        } catch { statsCache.set(id, null); }
+      }));
+      const missesByArea = new Map();
+      mine.forEach((a) => a.missed.forEach((m) => {
+        const area = areaOf(m.code);
+        missesByArea.set(area, (missesByArea.get(area) || 0) + 1);
+      }));
+      const weakest = [...missesByArea.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+      const history = mine.map((a) => {
+        const st = statsCache.get(a.examId);
+        const rank = st ? percentileText(percentile(st.histogram || [], a.correct, st.takers), st.takers) : '—';
+        return `
+          <tr class="border-t border-ink-100">
+            <td class="py-2 pr-3 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
+            <td class="py-2 pr-3">${esc(a.examLabel)} <span class="text-xs text-ink-500">${esc(a.examSubtitle)}</span></td>
+            <td class="py-2 pr-3 font-semibold tabular-nums">${a.correct}/${a.total}</td>
+            <td class="py-2 pr-3 text-ink-600">${esc(rank)}</td>
+            <td class="py-2 text-right">${viewOnly ? '' : `<button data-delete-attempt="${esc(a.id)}" data-label="${esc(a.examLabel)}" class="text-xs text-rose-600 hover:underline">Delete</button>`}</td>
+          </tr>`;
+      }).join('');
+      box.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
+          <div class="lg:col-span-2 rounded-xl bg-white border border-ink-200 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Exam history</p>
+            ${mine.length ? `<table class="mt-2 w-full text-sm"><tbody>${history}</tbody></table>` : '<p class="mt-2 text-sm text-ink-500">No exams submitted yet.</p>'}
+          </div>
+          <div class="space-y-4">
+            <div class="rounded-xl bg-white border border-ink-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Weakest areas</p>
+              ${weakest.length ? `<ol class="mt-2 space-y-1 text-sm">${weakest.map(([area, n]) => `<li>${esc(area)} <span class="text-ink-500">· ${n} missed</span></li>`).join('')}</ol>` : '<p class="mt-2 text-sm text-ink-500">Not enough data yet.</p>'}
+            </div>
+            <div class="rounded-xl bg-white border border-ink-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">First competes at</p>
+              ${firstCompetitionHtml(s)}
+            </div>
+            <div class="rounded-xl border-2 border-dashed border-ink-200 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Prep path</p>
+              <p class="mt-1 text-sm text-ink-500">Coming soon: where ${esc(s.firstName)} is on the prep schedule.</p>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-3 text-sm">
+          <button data-view-as="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">👁️ View as ${esc(s.firstName)}</button>
+          ${mine.length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">⬇ Export results</button>` : ''}
+        </div>`;
+    }
+
+    function firstCompetitionHtml(s) {
+      const first = firstCompetition(s.eventCode, school.competitionDates);
+      if (!first) return '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to see this.</p>';
+      const type = eventOf(s.eventCode)?.type || '';
+      if (first.level === 'virtual') return '<p class="mt-1 text-sm">Online (virtual event)</p><p class="text-xs text-ink-500">Prep for virtual events isn\'t offered this year.</p>';
+      if (!first.date) return `<p class="mt-1 text-sm">${esc(first.label)}</p>`;
+      return `<p class="mt-1 text-sm"><strong>${esc(first.label)}</strong> · ${esc(shortDate(first.date))} <span class="text-blue-600">(${esc(weeks(first.date))})</span></p>
+        <p class="text-xs text-ink-500">${esc(type)} event</p>`;
+    }
+
+    // ---------- Teams ----------
+    function updateTeamBar() {
+      const chosen = [...selected].map((id) => students.find((s) => s.id === id)).filter(Boolean);
+      show($('[data-team-bar]'), chosen.length > 0);
+      if (!chosen.length) return;
+      const codes = new Set(chosen.map((s) => s.eventCode));
+      const code = chosen[0].eventCode;
+      const max = maxTeamSize(code);
+      const problem =
+        codes.size > 1 ? 'Teammates must be in the same event.'
+        : chosen.length < 2 ? 'Pick at least 2 students.'
+        : chosen.length > max ? `${eventOf(code).event} teams have at most ${max} students.`
+        : '';
+      $('[data-team-summary]').textContent = `${chosen.length} selected: ${chosen.map((s) => s.firstName).join(', ')}`;
+      $('[data-team-problem]').textContent = problem;
+      $('[data-team-make]').disabled = !!problem;
+    }
+
+    $('[data-team-make]').addEventListener('click', async () => {
+      const chosen = [...selected].map((id) => students.find((s) => s.id === id));
+      await addDoc(collection(db, 'teams'), {
+        schoolId, eventCode: chosen[0].eventCode, memberUids: chosen.map((s) => s.id),
+        createdBy: user.email, createdAt: serverTimestamp(),
+      });
+      selected.clear();
+      await load();
+    });
+    $('[data-team-clear]').addEventListener('click', () => { selected.clear(); render(); });
+
+    $('[data-copy-emails]').addEventListener('click', () => {
+      const emails = students.filter((x) => visibleIds.has(x.id)).map((x) => x.email).filter(Boolean);
+      if (!emails.length) { $('[data-emails-note]').textContent = 'No students showing.'; return; }
+      copy(emails.join(', '), '[data-emails-note]', `✓ Copied ${emails.length} email${emails.length === 1 ? '' : 's'}. Paste them into the To: line.`);
+    });
+
+    // ---------- Suggested email draft ----------
+    const draftModal = $('[data-draft-modal]');
+    let draftVersion = 0;
+    let draftEmails = [];
+    const GROUP_NAMES = { all: 'all students', green: 'students on track', yellow: 'students who are slipping', red: 'students who need a nudge', gray: 'students not tracked yet' };
+
+    // The upcoming first competitions for the students showing, soonest first.
+    function upcomingFor(group) {
+      const seen = new Map();
+      group.forEach((st) => {
+        const first = firstCompetition(st.eventCode, school.competitionDates);
+        if (first?.date && daysUntil(first.date) >= 0) seen.set(first.date + first.label, { label: first.label, date: first.date, daysAway: daysUntil(first.date) });
+      });
+      return [...seen.values()].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function fillDraft() {
+      const group = students.filter((x) => visibleIds.has(x.id));
+      const draft = buildDraft({ group: statusFilter, version: draftVersion, competitions: upcomingFor(group), advisorName: advisor.name });
+      $('[data-draft-subject]').value = draft.subject;
+      $('[data-draft-body]').value = draft.body;
+    }
+
+    $('[data-draft]').addEventListener('click', () => {
+      const group = students.filter((x) => visibleIds.has(x.id));
+      draftEmails = group.map((x) => x.email).filter(Boolean);
+      if (!draftEmails.length) { $('[data-emails-note]').textContent = 'No students showing.'; return; }
+      draftVersion = 0;
+      $('[data-draft-to]').textContent = `To ${draftEmails.length} ${GROUP_NAMES[statusFilter]}${$('[data-search]').value.trim() ? ' matching your search' : ''} (BCC)`;
+      fillDraft();
+      $('[data-draft-note]').textContent = '';
+      show(draftModal, true);
+    });
+    $('[data-draft-another]').addEventListener('click', () => { draftVersion += 1; fillDraft(); });
+    $('[data-draft-close]').addEventListener('click', () => show(draftModal, false));
+    draftModal.addEventListener('click', (e) => { if (e.target === draftModal) show(draftModal, false); });
+
+    const subject = () => $('[data-draft-subject]').value;
+    const body = () => $('[data-draft-body]').value;
+    $('[data-draft-gmail]').addEventListener('click', () => {
+      const url = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(draftEmails.join(','))}&su=${encodeURIComponent(subject())}&body=${encodeURIComponent(body())}`;
+      window.open(url, '_blank', 'noopener');
+    });
+    $('[data-draft-mailto]').addEventListener('click', () => {
+      location.href = `mailto:?bcc=${encodeURIComponent(draftEmails.join(','))}&subject=${encodeURIComponent(subject())}&body=${encodeURIComponent(body())}`;
+    });
+    $('[data-draft-copy]').addEventListener('click', () => copy(`${subject()}\n\n${body()}`, '[data-draft-note]', '✓ Message copied. Paste it into Remind, Google Classroom, or an email.'));
+
+    // ---------- Events ----------
+    $('[data-search]').addEventListener('input', render);
+    $('[data-filters]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-filter]');
+      if (b) { statusFilter = b.dataset.filter; rememberView(); render(); }
+    });
+    $('[data-students]').addEventListener('change', (e) => {
+      const box = e.target.closest('[data-select]');
+      if (!box) return;
+      if (box.checked) selected.add(box.dataset.select); else selected.delete(box.dataset.select);
+      updateTeamBar();
+    });
+    $('[data-students]').addEventListener('click', async (e) => {
+      const sortButton = e.target.closest('[data-sort]');
+      if (sortButton) {
+        if (sortButton.dataset.sort === sortKey) sortDir = -sortDir;
+        else { sortKey = sortButton.dataset.sort; sortDir = 1; }
+        rememberView();
+        render();
+        return;
+      }
+      const toggle = e.target.closest('[data-toggle]');
+      if (toggle) {
+        const id = toggle.dataset.toggle;
+        if (open.has(id)) open.delete(id); else open.add(id);
+        render();
+        return;
+      }
+      const viewAs = e.target.closest('[data-view-as]');
+      if (viewAs) {
+        startViewingAs(viewAs.dataset.viewAs, 'advisor.html');
+        location.href = 'exams.html';
+        return;
+      }
+      const exportButton = e.target.closest('[data-export]');
+      if (exportButton) {
+        const s = students.find((x) => x.id === exportButton.dataset.export);
+        const name = `${s.firstName} ${s.lastName}`;
+        await downloadResults({ studentName: name, attempts: attempts.filter((a) => a.uid === s.id), fileName: exportFileName(name) });
+        return;
+      }
+      const breakTeam = e.target.closest('[data-break-team]');
+      if (breakTeam && confirm('Break up this team? The students stay in the hub; they just won\'t be grouped.')) {
+        await deleteDoc(doc(db, 'teams', breakTeam.dataset.breakTeam));
+        await load();
+        return;
+      }
+      const del = e.target.closest('[data-delete-attempt]');
+      if (del && confirm(`Delete this ${del.dataset.label} attempt?\n\nThe student will be able to take this exam again, and it's removed from the site averages.`)) {
+        await call('deleteAttempt', { attemptId: del.dataset.deleteAttempt });
+        await load();
+      }
+    });
+
+    await load();
+  </script>
+</body>
+</html>

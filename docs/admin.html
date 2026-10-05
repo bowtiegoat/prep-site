@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin | BowtieGOAT Exam Tracker</title>
+  <title>Admin | BowtieGOAT · GOATS get GLASS</title>
   <meta name="robots" content="noindex" />
   <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -28,6 +28,16 @@
 
     <!-- Schools -->
     <section data-panel="schools" class="hidden mt-6 space-y-6">
+      <form data-icdc-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[auto_auto_1fr_auto] gap-3 items-end">
+        <p class="sm:col-span-4 text-sm text-ink-600"><strong>ICDC dates</strong> are shown on every advisor hub. Update them each year from <a href="https://www.deca.org/conferences/icdc" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">deca.org</a>.</p>
+        <label class="block"><span class="text-sm font-medium text-ink-700">Starts</span>
+          <input name="icdcStart" type="date" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <label class="block"><span class="text-sm font-medium text-ink-700">Ends</span>
+          <input name="icdcEnd" type="date" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <label class="block"><span class="text-sm font-medium text-ink-700">Location</span>
+          <input name="icdcLocation" required maxlength="60" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Save ICDC</button>
+      </form>
       <form data-school-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-3 items-end">
         <label class="block"><span class="text-sm font-medium text-ink-700">School name</span>
           <input name="schoolName" required maxlength="100" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
@@ -99,7 +109,7 @@
     import {
       collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-    import { db, requireUser, renderHeader, call, esc, show, formatDate, compareExams, startViewingAs } from './js/app.js';
+    import { db, requireUser, renderHeader, call, esc, show, formatDate, compareExams, startViewingAs, startViewingHub, loadIcdc } from './js/app.js';
     import { CLUSTERS } from './js/events.js';
     import { parseExamRows } from './js/exam-import.js';
     import { downloadResults, exportFileName } from './js/missed.js';
@@ -141,6 +151,13 @@
       const read = async (name) => (await getDocs(collection(db, name))).docs.map((d) => ({ id: d.id, ...d.data() }));
       const [schools, codes, advisors, exams, stats, users, attempts, imports] = await Promise.all(
         ['schools', 'schoolCodes', 'advisors', 'exams', 'examStats', 'users', 'attempts', 'statsImports'].map(read));
+      // Advisors added before they were stored by email: move them over.
+      for (const a of advisors.filter((x) => x.email && x.id !== x.email.toLowerCase())) {
+        const { id, ...rest } = a;
+        await setDoc(doc(db, 'advisors', a.email.toLowerCase()), { ...rest, email: a.email.toLowerCase() });
+        await deleteDoc(doc(db, 'advisors', id));
+        a.id = a.email.toLowerCase();
+      }
       data = {
         schools: schools.sort((a, b) => (a.state || '').localeCompare(b.state || '') || a.name.localeCompare(b.name)),
         codes: new Map(codes.map((c) => [c.id, c.code])),
@@ -170,6 +187,7 @@
           <td class="py-3 px-4">${data.users.filter((u) => u.schoolId === s.id).length}</td>
           <td class="py-3 px-4">${s.active === false ? '<span class="text-ink-400">Hidden</span>' : 'Active'}</td>
           <td class="py-3 px-4 text-right space-x-3">
+            ${button(`data-view-hub="${esc(s.id)}"`, '👁️ View hub')}
             ${button(`data-reset-code="${esc(s.id)}"`, 'New code')}
             ${button(`data-toggle-school="${esc(s.id)}"`, s.active === false ? 'Show' : 'Hide', 'text-ink-500')}
           </td>
@@ -193,6 +211,11 @@
     });
 
     $('[data-schools]').addEventListener('click', async (e) => {
+      if (e.target.dataset.viewHub) {
+        startViewingHub(e.target.dataset.viewHub);
+        location.href = 'advisor.html';
+        return;
+      }
       const resetId = e.target.dataset.resetCode;
       const toggleId = e.target.dataset.toggleSchool;
       if (resetId) {
@@ -206,6 +229,21 @@
         await updateDoc(doc(db, 'schools', toggleId), { active: school.active === false });
         await load();
       }
+    });
+
+    // ---------- ICDC ----------
+    const icdcForm = $('[data-icdc-form]');
+    const icdc = await loadIcdc();
+    icdcForm.icdcStart.value = icdc.start;
+    icdcForm.icdcEnd.value = icdc.end;
+    icdcForm.icdcLocation.value = icdc.location;
+    icdcForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (icdcForm.icdcEnd.value < icdcForm.icdcStart.value) { flash('ICDC should end on or after its start date.', false); return; }
+      await setDoc(doc(db, 'settings', 'site'), {
+        icdc: { start: icdcForm.icdcStart.value, end: icdcForm.icdcEnd.value, location: icdcForm.icdcLocation.value.trim() },
+      });
+      flash('ICDC dates saved.');
     });
 
     // ---------- Advisors ----------
@@ -224,8 +262,10 @@
     $('[data-advisor-form]').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
-      await addDoc(collection(db, 'advisors'), {
-        name: form.advisorName.value.trim(), email: form.email.value.trim().toLowerCase(), schoolId: form.schoolId.value, createdAt: serverTimestamp(),
+      const email = form.email.value.trim().toLowerCase();
+      // Stored by email so the advisor is recognized when they sign in with it.
+      await setDoc(doc(db, 'advisors', email), {
+        name: form.advisorName.value.trim(), email, schoolId: form.schoolId.value, createdAt: serverTimestamp(),
       });
       form.reset();
       flash('Advisor added.');

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Answer Sheet | BowtieGOAT Exam Tracker</title>
+  <title>Answer Sheet | BowtieGOAT · GOATS get GLASS</title>
   <meta name="robots" content="noindex" />
   <link rel="icon" type="image/jpeg" href="images/logo.jpg" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -119,7 +119,7 @@
     let draft = loadDraft(key);
     if (draft && draft.answers.length !== count) draft = null;
 
-    document.title = `${exam.label} | BowtieGOAT Exam Tracker`;
+    document.title = `${exam.label} | BowtieGOAT · GOATS get GLASS`;
     $('[data-title]').textContent = `${exam.cluster} · ${exam.label}`;
     $('[data-subtitle]').textContent = exam.subtitle;
     $('[data-sheet-title]').textContent = `${exam.cluster} · ${exam.label} · ${exam.subtitle}`;

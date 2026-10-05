@@ -55,6 +55,12 @@ const handlers = {
   },
 };
 
+handlers.deleteAttempt = async ({ attemptId }) => {
+  delete table('attempts')[attemptId];
+  save();
+  return { ok: true };
+};
+
 export const getFunctions = () => ({});
 
 export function httpsCallable(_functions, name) {

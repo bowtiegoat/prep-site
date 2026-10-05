@@ -2,7 +2,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { getFirestore, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js';
 import { firebaseConfig } from './firebase-config.js';
 
@@ -19,22 +19,70 @@ export function isAdmin(user) {
   return !!user && user.email === ADMIN_EMAIL && user.emailVerified;
 }
 
-// ---------- View as (admin only, read-only) ----------
-// The admin can look at the site exactly as a student sees it. The choice is
-// kept for this browser tab only. While viewing, every change is blocked here,
-// and the database rules separately stop the admin writing to a student's
-// account.
+// ICDC is the same for every school; the admin can override it in Admin.
+export const DEFAULT_ICDC = { start: '2027-04-17', end: '2027-04-20', location: 'Anaheim, CA' };
+
+export async function loadIcdc() {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'site'));
+    return (snap.exists() && snap.data().icdc) || DEFAULT_ICDC;
+  } catch {
+    return DEFAULT_ICDC;
+  }
+}
+
+// Advisors are stored by lowercase email: advisors/{email} = { name, email, schoolId }.
+let advisorInfo = null;
+async function findAdvisor(user) {
+  if (!user?.email || !user.emailVerified) return null;
+  try {
+    const snap = await getDoc(doc(db, 'advisors', user.email.toLowerCase()));
+    return snap.exists() ? snap.data() : null;
+  } catch {
+    return null;
+  }
+}
+
+// YYYY-MM-DD in the viewer's time zone.
+export function today() {
+  return new Date().toLocaleDateString('en-CA');
+}
+
+// ---------- View as (read-only) ----------
+// The admin, or an advisor for their own students, can look at the site
+// exactly as a student sees it. The admin can also look at any school's
+// advisor hub. The choice is kept for this browser tab only. While viewing,
+// every change is blocked here, and the database rules separately stop
+// writes to a student's account.
 
 const VIEW_AS_KEY = 'prep:viewAs';
+const VIEW_HUB_KEY = 'prep:viewHub';
+const RETURN_KEY = 'prep:viewReturn';
 const VIEW_ONLY_MESSAGE = "You're viewing as a student, so changes are turned off.";
-let viewing = null; // { uid, name } while the admin views as a student
+let viewing = null; // { uid, name } while viewing as a student
 
-export function startViewingAs(uid) {
-  try { sessionStorage.setItem(VIEW_AS_KEY, uid); } catch {}
+export function startViewingAs(uid, returnTo = 'admin.html') {
+  try {
+    sessionStorage.setItem(VIEW_AS_KEY, uid);
+    sessionStorage.setItem(RETURN_KEY, returnTo);
+  } catch {}
 }
 
 export function stopViewingAs() {
   try { sessionStorage.removeItem(VIEW_AS_KEY); } catch {}
+}
+
+// Admin only: open a school's advisor hub, view only.
+export function startViewingHub(schoolId) {
+  try { sessionStorage.setItem(VIEW_HUB_KEY, schoolId); } catch {}
+}
+
+export function stopViewingHub() {
+  try { sessionStorage.removeItem(VIEW_HUB_KEY); } catch {}
+}
+
+function viewReturn() {
+  try { return sessionStorage.getItem(RETURN_KEY) || 'admin.html'; } catch { return 'admin.html'; }
 }
 
 export function isViewingAs() {
@@ -65,40 +113,67 @@ function currentUser() {
   });
 }
 
+const stay = () => new Promise(() => {});
+
 // Sends visitors to the right place:
 // - not signed in -> sign-in page
+// - advisors -> advisor hub; admin -> admin page (when they have no student profile)
 // - signed in, no profile -> join page (unless the page allows that)
-// Returns { user, profile }.
-export async function requireUser({ allowNoProfile = false, adminOnly = false } = {}) {
+// Returns { user, profile } (student pages), or { user, advisor } (advisorOnly).
+export async function requireUser({ allowNoProfile = false, adminOnly = false, advisorOnly = false } = {}) {
   const user = await currentUser();
   if (!user) {
     location.replace('index.html');
-    return new Promise(() => {});
+    return stay();
   }
   if (adminOnly) {
     stopViewingAs();
+    stopViewingHub();
     if (!isAdmin(user)) {
       location.replace('exams.html');
-      return new Promise(() => {});
+      return stay();
     }
     return { user, profile: null };
   }
-  const asUid = isAdmin(user) ? viewAsUid() : null;
-  if (asUid) {
-    const asSnap = await getDoc(doc(db, 'users', asUid));
-    if (asSnap.exists()) {
-      const asProfile = asSnap.data();
-      viewing = { uid: asUid, name: `${asProfile.firstName} ${asProfile.lastName}` };
-      // Pages read data for "user", so hand them the student's identity.
-      return { user: { uid: asUid, email: asProfile.email, emailVerified: true }, profile: asProfile };
+
+  advisorInfo = await findAdvisor(user);
+
+  if (advisorOnly) {
+    stopViewingAs();
+    let hubSchool = null;
+    try { hubSchool = sessionStorage.getItem(VIEW_HUB_KEY); } catch {}
+    if (isAdmin(user) && hubSchool) {
+      return { user, advisor: { schoolId: hubSchool, name: 'BowtieGOAT admin', viewOnly: true } };
     }
+    if (!advisorInfo) {
+      location.replace(isAdmin(user) ? 'admin.html' : 'exams.html');
+      return stay();
+    }
+    return { user, advisor: { ...advisorInfo, viewOnly: false } };
+  }
+
+  const asUid = isAdmin(user) || advisorInfo ? viewAsUid() : null;
+  if (asUid) {
+    try {
+      const asSnap = await getDoc(doc(db, 'users', asUid));
+      if (asSnap.exists()) {
+        const asProfile = asSnap.data();
+        viewing = { uid: asUid, name: `${asProfile.firstName} ${asProfile.lastName}` };
+        // Pages read data for "user", so hand them the student's identity.
+        return { user: { uid: asUid, email: asProfile.email, emailVerified: true }, profile: asProfile };
+      }
+    } catch {}
     stopViewingAs();
   }
   const snap = await getDoc(doc(db, 'users', user.uid));
   const profile = snap.exists() ? snap.data() : null;
   if (!profile && !allowNoProfile) {
-    location.replace(isAdmin(user) ? 'admin.html' : 'join.html');
-    return new Promise(() => {});
+    location.replace(isAdmin(user) ? 'admin.html' : advisorInfo ? 'advisor.html' : 'join.html');
+    return stay();
+  }
+  // Record the student's last active day (once a day) for their advisor.
+  if (profile && profile.lastActiveDate !== today()) {
+    updateDoc(doc(db, 'users', user.uid), { lastActiveDate: today() }).catch(() => {});
   }
   return { user, profile };
 }
@@ -110,7 +185,8 @@ export function renderHeader({ user, profile, active }) {
     links.push(['results.html', 'My Results', 'results']);
     links.push(['profile.html', 'Profile', 'profile']);
   }
-  if (isAdmin(user) || viewing) links.push(['admin.html', 'Admin', 'admin']);
+  if (advisorInfo) links.push(['advisor.html', 'Advisor hub', 'advisor']);
+  if (isAdmin(user) || (viewing && viewReturn() === 'admin.html')) links.push(['admin.html', 'Admin', 'admin']);
   const header = document.querySelector('[data-header]');
   header.innerHTML = `
     ${viewing ? `
@@ -125,7 +201,7 @@ export function renderHeader({ user, profile, active }) {
         <img src="images/logo.jpg" alt="BowtieGOAT logo" class="w-9 h-9 rounded-lg object-cover" />
         <span class="flex flex-col leading-tight">
           <span class="font-serif text-lg font-bold text-ink-900">BowtieGOAT</span>
-          <span class="text-[10px] font-medium uppercase tracking-[0.15em] text-blue-600">Exam Tracker</span>
+          <span class="text-[11px] font-semibold tracking-[0.08em] text-blue-600">GOATS get GLASS</span>
         </span>
       </a>
       <div class="flex items-center gap-1 sm:gap-2 text-sm overflow-x-auto">
@@ -136,11 +212,13 @@ export function renderHeader({ user, profile, active }) {
       </div>
     </nav>`;
   header.querySelector('[data-exit-view-as]')?.addEventListener('click', () => {
+    const back = viewReturn();
     stopViewingAs();
-    location.href = 'admin.html';
+    location.href = back;
   });
   header.querySelector('[data-sign-out]').addEventListener('click', async () => {
     stopViewingAs();
+    stopViewingHub();
     await signOut(auth);
     location.replace('index.html');
   });

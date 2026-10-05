@@ -1,15 +1,19 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db';
+const KEY = 'prep-preview:db:v3'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
 export const ADMIN_USER = { uid: 'demo-admin', email: 'justin@thebowtiegoat.com', emailVerified: true };
+export const ADVISOR_USER = { uid: 'demo-advisor', email: 'taylor.morgan@example.com', emailVerified: true };
 const WHO = 'prep-preview:who';
 
-// Which pretend account is signed in: the sample student or the admin.
-export const currentDemoUser = () => (localStorage.getItem(WHO) === 'admin' ? ADMIN_USER : DEMO_USER);
+// Which pretend account is signed in: the sample student, the advisor, or the admin.
+export function currentDemoUser() {
+  const who = localStorage.getItem(WHO);
+  return who === 'admin' ? ADMIN_USER : who === 'advisor' ? ADVISOR_USER : DEMO_USER;
+}
 export const setDemoUser = (who) => localStorage.setItem(WHO, who);
 
 export function timestamp(date) {
@@ -60,45 +64,70 @@ export async function keys() {
 
 // Sample data: the real exam list, made-up site-wide stats, and (optionally)
 // a student who already joined with one exam taken.
+// Pretend chapter: 15 students across events, with a mix of recent, slipping,
+// and missing exam activity so every stoplight color shows up.
+const DEMO_STUDENTS = [
+  // uid, first, last, event, last active (days ago, null = never), exams [days ago, correct]
+  ['demo-student', 'Alex', 'Rivera', 'PSE', 0, [[2, 71]]],
+  ['s-maya', 'Maya', 'Patel', 'RMS', 1, [[5, 82], [40, 74]]],
+  ['s-ethan', 'Ethan', 'Brooks', 'SEM', 6, [[20, 64]]],
+  ['s-sofia', 'Sofia', 'Nguyen', 'AAM', 33, [[45, 58]]],
+  ['s-liam', 'Liam', 'Carter', 'MCS', null, []],
+  ['s-ava', 'Ava', 'Thompson', 'STDM', 2, [[3, 77]]],
+  ['s-noah', 'Noah', 'Kim', 'STDM', 12, [[25, 61]]],
+  ['s-chloe', 'Chloe', 'Martinez', 'BTDM', 4, [[10, 69]]],
+  ['s-jackson', 'Jackson', 'Reed', 'BTDM', 21, []],
+  ['s-emma', 'Emma', 'Wilson', 'IMCP', 1, [[8, 85], [30, 79]]],
+  ['s-lucas', 'Lucas', 'Garcia', 'IMCP', 9, [[33, 55]]],
+  ['s-harper', 'Harper', 'Davis', 'IMCP', 15, []],
+  ['demo-student-2', 'Jordan', 'Lee', 'ACT', 3, []],
+  ['s-mia', 'Mia', 'Robinson', 'PBM', 7, []],
+  ['s-owen', 'Owen', 'Hughes', 'BLTDM', null, []],
+];
+const DEMO_EXAMS = ['marketing-25-26-districts-1322', 'marketing-24-25-states-1309', 'marketing-25-26-states-1329', 'marketing-24-25-districts-1302'];
+
 export async function seed({ joined }) {
   const exams = await (await fetch('/mock/data/exams.json')).json();
   const stats = await (await fetch('/mock/data/stats.json')).json();
   const answerKeys = await keys();
-  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {} };
+  const { EVENTS } = await import('/js/events.js');
+  const { grade, summarize } = await import('/mock/grading.js');
+  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {} };
   exams.forEach((e) => { db.exams[e.id] = e; });
   Object.entries(stats).forEach(([id, s]) => { db.examStats[id] = s; });
   db.schools['demo-school'] = { name: 'BowtieGOAT Academy', state: 'PA', active: true };
   db.schoolCodes = { 'demo-school': { code: 'DEMO' } };
-  // A second student, in a cluster with no exams yet.
-  db.users['demo-student-2'] = {
-    role: 'student', firstName: 'Jordan', lastName: 'Lee', email: 'jordan.student@example.com',
-    schoolId: 'demo-school', schoolName: 'BowtieGOAT Academy',
-    eventCode: 'ACT', eventName: 'Accounting Applications', cluster: 'Finance', track: 1,
-    eventHistory: [{ eventCode: 'ACT', track: 1, at: timestamp('2026-09-25') }],
-  };
+  db.advisors[ADVISOR_USER.email] = { name: 'Taylor Morgan', email: ADVISOR_USER.email, schoolId: 'demo-school' };
+  db.advisors['jamie.cruz@example.com'] = { name: 'Jamie Cruz', email: 'jamie.cruz@example.com', schoolId: 'demo-school' };
 
-  if (joined) {
-    db.users[DEMO_USER.uid] = {
-      role: 'student', firstName: 'Alex', lastName: 'Rivera', email: DEMO_USER.email,
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000);
+  DEMO_STUDENTS.forEach(([uid, firstName, lastName, code, active, taken]) => {
+    if (uid === DEMO_USER.uid && !joined) return;
+    const event = EVENTS.find((e) => e.code === code);
+    db.users[uid] = {
+      role: 'student', firstName, lastName, email: `${firstName.toLowerCase()}.student@example.com`,
       schoolId: 'demo-school', schoolName: 'BowtieGOAT Academy',
-      eventCode: 'PSE', eventName: 'Professional Selling', cluster: 'Marketing', track: 1,
-      eventHistory: [{ eventCode: 'PSE', track: 1, at: timestamp('2026-09-20') }],
+      eventCode: code, eventName: event.event, cluster: event.cluster, track: 1,
+      eventHistory: [{ eventCode: code, track: 1, at: timestamp(daysAgo(60)) }],
+      ...(active == null ? {} : { lastActiveDate: daysAgo(active).toLocaleDateString('en-CA') }),
     };
-    // One exam already taken: wrong on 29 questions spread through the test.
-    const examId = 'marketing-25-26-districts-1322';
-    const key = answerKeys[examId];
-    const wrong = new Set(key.filter((_, i) => (i * 37) % 100 < 29).map((k) => k.q));
-    const answers = key.map((k) => (wrong.has(k.q) ? (k.answer === 'A' ? 'B' : 'A') : k.answer));
-    const { grade, summarize } = await import('/mock/grading.js');
-    const graded = grade(key, answers);
-    db.attempts[`${DEMO_USER.uid}_1_${examId}`] = {
-      uid: DEMO_USER.uid, track: 1, examId, examLabel: db.exams[examId].label, examSubtitle: db.exams[examId].subtitle,
-      cluster: 'Marketing', eventCode: 'PSE', schoolId: 'demo-school',
-      answers: graded.answers, correct: graded.correct, total: graded.total, missed: graded.missed,
-      countsForStats: true, statsAtSubmit: summarize(db.examStats[examId], graded.correct),
-      startedAt: timestamp('2026-10-02T14:05'), submittedAt: timestamp('2026-10-02T15:21'),
-    };
-  }
+    taken.forEach(([ago, correct], i) => {
+      const examId = DEMO_EXAMS[i];
+      const key = answerKeys[examId];
+      // Miss (100 - correct) questions spread through the test.
+      const wrong = new Set(key.filter((_, n) => ((n * 37 + i * 11) % 100) < 100 - correct).map((k) => k.q));
+      const graded = grade(key, key.map((k) => (wrong.has(k.q) ? (k.answer === 'A' ? 'B' : 'A') : k.answer)));
+      db.attempts[`${uid}_1_${examId}`] = {
+        uid, track: 1, examId, examLabel: db.exams[examId].label, examSubtitle: db.exams[examId].subtitle,
+        cluster: event.cluster, eventCode: code, schoolId: 'demo-school',
+        answers: graded.answers, correct: graded.correct, total: graded.total, missed: graded.missed,
+        countsForStats: true, statsAtSubmit: summarize(db.examStats[examId], graded.correct),
+        startedAt: timestamp(new Date(daysAgo(ago).getTime() - 80 * 60000)), submittedAt: timestamp(daysAgo(ago)),
+      };
+    });
+  });
+  // One team already formed; the Buying and Merchandising pair is left for the advisor to try.
+  db.teams['demo-team-1'] = { schoolId: 'demo-school', eventCode: 'STDM', memberUids: ['s-ava', 's-noah'], createdBy: ADVISOR_USER.email };
   save();
   return db;
 }
@@ -108,24 +137,34 @@ export function previewBar() {
   if (document.querySelector('[data-preview-bar]')) return;
   const bar = document.createElement('div');
   bar.setAttribute('data-preview-bar', '');
-  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:100;background:#7d5c33;color:#fff;font:13px Inter,system-ui,sans-serif;padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:center';
+  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:100;background:#7d5c33;color:#fff;font:13px Inter,system-ui,sans-serif;padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:center';
+  const who = currentDemoUser();
+  const pick = (key, label, user) => `<button data-be="${key}" style="${who === user ? 'font-weight:700;background:#fff;color:#5f4526;border-radius:999px;padding:1px 10px' : 'text-decoration:underline'}">${label}</button>`;
   bar.innerHTML = `
-    <strong>🔧 Preview on your computer: pretend data, not the live site</strong>
-    <span>School code for sign-up: <strong>DEMO</strong></span>
-    <button data-reset style="text-decoration:underline">Reset sample student</button>
-    <button data-new style="text-decoration:underline">Start as a brand-new student</button>
-    <button data-who style="text-decoration:underline">${currentDemoUser() === ADMIN_USER ? 'Switch to student (Alex)' : 'Switch to admin (you)'}</button>`;
-  bar.querySelector('[data-reset]').onclick = async () => { await seed({ joined: true }); setDemoUser('student'); setSignedIn(true); clearDrafts(); location.href = '/exams.html'; };
-  bar.querySelector('[data-who]').onclick = () => {
-    const toAdmin = currentDemoUser() !== ADMIN_USER;
-    setDemoUser(toAdmin ? 'admin' : 'student');
+    <strong>🔧 Preview: pretend data, not the live site</strong>
+    <span>Be: ${pick('student', 'Student (Alex)', DEMO_USER)} ${pick('advisor', 'Advisor (Taylor)', ADVISOR_USER)} ${pick('admin', 'Admin (you)', ADMIN_USER)}</span>
+    <button data-reset style="text-decoration:underline">Reset pretend data</button>
+    <button data-new style="text-decoration:underline">Sign up as a new student</button>
+    <span style="opacity:.8">School code: <strong>DEMO</strong></span>`;
+  const home = { student: '/exams.html', advisor: '/advisor.html', admin: '/admin.html' };
+  bar.querySelectorAll('[data-be]').forEach((b) => {
+    b.onclick = () => {
+      setDemoUser(b.dataset.be);
+      setSignedIn(true);
+      sessionStorage.clear();
+      location.href = home[b.dataset.be];
+    };
+  });
+  bar.querySelector('[data-reset]').onclick = async () => {
+    await seed({ joined: true });
     setSignedIn(true);
-    sessionStorage.removeItem('prep:viewAs');
-    location.href = toAdmin ? '/admin.html' : '/exams.html';
+    sessionStorage.clear();
+    clearDrafts();
+    location.href = home[localStorage.getItem(WHO) || 'student'];
   };
-  bar.querySelector('[data-new]').onclick = async () => { await seed({ joined: false }); setDemoUser('student'); setSignedIn(false); clearDrafts(); location.href = '/index.html'; };
+  bar.querySelector('[data-new]').onclick = async () => { await seed({ joined: false }); setDemoUser('student'); setSignedIn(false); sessionStorage.clear(); clearDrafts(); location.href = '/index.html'; };
   document.body.appendChild(bar);
-  document.body.style.paddingBottom = '48px';
+  document.body.style.paddingBottom = '56px';
 }
 
 function clearDrafts() {

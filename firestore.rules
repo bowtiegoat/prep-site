@@ -14,18 +14,54 @@ service cloud.firestore {
         && request.auth.token.email_verified == true;
     }
 
+    // Advisors are stored by their lowercase email address.
+    function advisorPath() {
+      return /databases/$(database)/documents/advisors/$(request.auth.token.email.lower());
+    }
+
+    function isAdvisorOf(schoolId) {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(advisorPath())
+        && get(advisorPath()).data.schoolId == schoolId;
+    }
+
     // School names for the sign-up picker (codes live in schoolCodes).
+    // Advisors may set their school's competition dates.
     match /schools/{schoolId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+      allow update: if isAdvisorOf(schoolId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['competitionDates']);
+    }
+
+    // Site-wide settings, e.g. this year's ICDC dates.
+    match /settings/{settingId} {
       allow read: if signedIn();
       allow write: if isAdmin();
     }
 
+    // Teams of students, formed by their advisor.
+    match /teams/{teamId} {
+      allow read, delete: if isAdmin() || isAdvisorOf(resource.data.schoolId);
+      allow create: if isAdvisorOf(request.resource.data.schoolId)
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() >= 2
+        && request.resource.data.memberUids.size() <= 3;
+    }
+
+    // Advisors can see their own school's code to share with students.
     match /schoolCodes/{schoolId} {
       allow read, write: if isAdmin();
+      allow read: if isAdvisorOf(schoolId);
     }
 
     match /advisors/{advisorId} {
       allow read, write: if isAdmin();
+      allow read: if signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == advisorId;
+      // Advisors can see who else advises their school.
+      allow read: if isAdvisorOf(resource.data.schoolId);
     }
 
     // Exam list (no answers).
@@ -44,18 +80,21 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin() || isAdvisorOf(resource.data.schoolId));
       // Students may only change which attempts are left out of their
-      // "All missed questions" table.
+      // "All missed questions" table, and their last active day.
       allow update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts'])
-        && request.resource.data.excludedAttempts is list
-        && request.resource.data.excludedAttempts.size() <= 1000;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts', 'lastActiveDate'])
+        && (!('excludedAttempts' in request.resource.data)
+          || (request.resource.data.excludedAttempts is list && request.resource.data.excludedAttempts.size() <= 1000))
+        && (!('lastActiveDate' in request.resource.data)
+          || (request.resource.data.lastActiveDate is string && request.resource.data.lastActiveDate.size() == 10));
     }
 
     // resource == null lets a student check whether they've taken an exam yet.
     match /attempts/{attemptId} {
-      allow read: if signedIn() && (resource == null || resource.data.uid == request.auth.uid || isAdmin());
+      allow read: if signedIn() && (resource == null || resource.data.uid == request.auth.uid || isAdmin()
+        || isAdvisorOf(resource.data.schoolId));
     }
 
     match /statsEntries/{entryId} {
