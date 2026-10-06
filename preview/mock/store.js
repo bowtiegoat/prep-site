@@ -146,7 +146,7 @@ export function previewBar() {
     <button data-reset style="text-decoration:underline">Reset pretend data</button>
     <button data-new style="text-decoration:underline">Sign up as a new student</button>
     <span style="opacity:.8">School code: <strong>DEMO</strong></span>`;
-  const home = { student: '/exams.html', advisor: '/advisor.html', admin: '/admin.html' };
+  const home = { student: '/eventhub.html', advisor: '/advisor.html', admin: '/admin.html' };
   bar.querySelectorAll('[data-be]').forEach((b) => {
     b.onclick = () => {
       setDemoUser(b.dataset.be);

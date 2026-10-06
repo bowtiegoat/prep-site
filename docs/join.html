@@ -63,7 +63,7 @@
     import { eventOptionsHtml } from './js/event-picker.js';
 
     const { user, profile } = await requireUser({ allowNoProfile: true });
-    if (profile) location.replace('exams.html');
+    if (profile) location.replace('eventhub.html');
     renderHeader({ user, profile: null, active: '' });
 
     const form = document.querySelector('[data-form]');
@@ -91,7 +91,7 @@
           code: form.code.value,
           eventCode: form.eventCode.value,
         });
-        location.replace('exams.html');
+        location.replace('eventhub.html');
       } catch (err) {
         errorBox.textContent = err.message;
         show(errorBox, true);

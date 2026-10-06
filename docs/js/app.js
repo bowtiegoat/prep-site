@@ -130,7 +130,7 @@ export async function requireUser({ allowNoProfile = false, adminOnly = false, a
     stopViewingAs();
     stopViewingHub();
     if (!isAdmin(user)) {
-      location.replace('exams.html');
+      location.replace('eventhub.html');
       return stay();
     }
     return { user, profile: null };
@@ -146,7 +146,7 @@ export async function requireUser({ allowNoProfile = false, adminOnly = false, a
       return { user, advisor: { schoolId: hubSchool, name: 'BowtieGOAT admin', viewOnly: true } };
     }
     if (!advisorInfo) {
-      location.replace(isAdmin(user) ? 'admin.html' : 'exams.html');
+      location.replace(isAdmin(user) ? 'admin.html' : 'eventhub.html');
       return stay();
     }
     return { user, advisor: { ...advisorInfo, viewOnly: false } };
@@ -181,7 +181,7 @@ export async function requireUser({ allowNoProfile = false, adminOnly = false, a
 export function renderHeader({ user, profile, active }) {
   const links = [];
   if (profile) {
-    links.push(['exams.html', 'Exams', 'exams']);
+    links.push(['eventhub.html', 'Event Hub', 'exams']);
     links.push(['results.html', 'My Results', 'results']);
     links.push(['profile.html', 'Profile', 'profile']);
   }
@@ -197,7 +197,7 @@ export function renderHeader({ user, profile, active }) {
         </div>
       </div>` : ''}
     <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-      <a href="exams.html" class="flex items-center gap-3 shrink-0">
+      <a href="eventhub.html" class="flex items-center gap-3 shrink-0">
         <img src="images/logo.png" alt="BowtieGOAT logo" class="w-9 h-9" />
         <span class="flex flex-col leading-tight">
           <span class="wordmark text-lg text-ink-900">BowtieGOAT</span>

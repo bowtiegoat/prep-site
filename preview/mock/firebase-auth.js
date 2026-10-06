@@ -38,7 +38,7 @@ export async function signOut() {
 
 // Email links: pretend the email arrived and was clicked right away.
 export async function sendSignInLinkToEmail() {
-  setTimeout(() => { setSignedIn(true); location.href = '/exams.html'; }, 1500);
+  setTimeout(() => { setSignedIn(true); location.href = '/eventhub.html'; }, 1500);
 }
 export const isSignInWithEmailLink = () => false;
 export async function signInWithEmailLink() {

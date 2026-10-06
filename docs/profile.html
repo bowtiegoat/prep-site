@@ -97,7 +97,7 @@
           return;
         }
         await call('changeEvent', { eventCode: form.eventCode.value, keepResults });
-        location.replace('exams.html');
+        location.replace('eventhub.html');
       } catch (err) {
         errorBox.textContent = err.message;
         show(errorBox, true);

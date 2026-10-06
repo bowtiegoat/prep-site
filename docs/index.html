@@ -98,7 +98,7 @@
       try {
         await signInWithEmailLink(auth, email, location.href);
         try { localStorage.removeItem(EMAIL_KEY); } catch {}
-        location.replace('exams.html');
+        location.replace('eventhub.html');
       } catch (err) {
         finishing = false;
         history.replaceState(null, '', location.pathname);
@@ -120,7 +120,7 @@
 
     onAuthStateChanged(auth, (user) => {
       if (finishing) return;
-      if (user) location.replace('exams.html');
+      if (user) location.replace('eventhub.html');
       else showPanel('[data-sign-in]');
     });
 
