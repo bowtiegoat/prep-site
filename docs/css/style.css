@@ -43,3 +43,8 @@ h1.font-serif, h2.font-serif { font-weight: 800; letter-spacing: -0.01em; }
 @media (min-width: 1024px) {
   :is(h1, h2, h3).font-serif.lg\:text-6xl { font-size: 3.3rem; }
 }
+
+/* Drawers: hide the browser's default triangle on <summary>. */
+details.drawer > summary { list-style: none; }
+details.drawer > summary::-webkit-details-marker { display: none; }
+details.drawer > summary:focus-visible { outline: 2px solid #2f8cc2; outline-offset: 2px; }
