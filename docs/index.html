@@ -19,6 +19,7 @@
         <p class="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">BowtieGOAT</p>
         <h1 class="mt-1 font-serif text-3xl font-bold text-ink-900">GOATS get GLASS</h1>
         <p class="mt-3 text-ink-600">Your journey to the ICDC stage begins today.</p>
+        <p data-invite-note class="hidden mt-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">Sign in to finish joining your school. Your school code is saved.</p>
       </div>
 
       <div class="mt-8 bg-white rounded-2xl border border-ink-200 shadow-sm p-6 sm:p-8">
@@ -72,6 +73,7 @@
     import { auth, show } from './js/app.js';
 
     const EMAIL_KEY = 'prep:emailForSignIn';
+    try { if (localStorage.getItem('prep:invite')) document.querySelector('[data-invite-note]').classList.remove('hidden'); } catch {}
     const $ = (sel) => document.querySelector(sel);
     const panels = ['[data-loading]', '[data-sign-in]', '[data-sent]', '[data-confirm-form]'];
     function showPanel(name) {

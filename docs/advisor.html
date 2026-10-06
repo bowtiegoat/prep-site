@@ -9,6 +9,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/theme.js"></script>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
 <body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
   <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
@@ -22,13 +23,17 @@
 
     <!-- School code -->
     <section class="mt-8 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <button data-qr-open class="shrink-0 rounded-lg border border-ink-200 p-1.5 hover:border-blue-500" aria-label="Show the sign-up QR code">
+        <canvas data-qr-thumb width="72" height="72" class="block w-[72px] h-[72px]"></canvas>
+      </button>
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Your school code</p>
         <p data-code class="mt-1 font-mono text-2xl font-bold tracking-[0.2em]">——</p>
       </div>
-      <p class="flex-1 min-w-[14rem] text-sm text-ink-600">Students join at <strong>prep.thebowtiegoat.com</strong> with this code.</p>
+      <p class="flex-1 min-w-[14rem] text-sm text-ink-600">Students join at <strong>prep.thebowtiegoat.com</strong> with this code, or scan the QR code to sign up with it filled in.</p>
       <div class="flex flex-wrap gap-2">
         <button data-copy-invite class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">📋 Copy invite message</button>
+        <button data-qr-open class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Show QR code</button>
         <button data-copy-code class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Copy code</button>
       </div>
       <p data-copy-note class="w-full text-xs text-green-700 h-4"></p>
@@ -103,6 +108,24 @@
       <p class="mt-3 text-xs text-ink-500">To make a team, check the boxes next to 2–3 students in the same team event.</p>
     </section>
   </main>
+
+  <!-- QR code, large enough to project in class -->
+  <div data-qr-modal class="hidden fixed inset-0 z-30 bg-ink-950/60 flex items-center justify-center p-4">
+    <div class="w-full max-w-md max-h-[92vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6 text-center">
+      <div class="flex justify-end"><button data-qr-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button></div>
+      <p data-qr-school class="text-xs font-semibold uppercase tracking-[0.15em] text-blue-600"></p>
+      <h2 class="mt-1 font-serif text-2xl font-bold">Scan to join GOATS get GLASS</h2>
+      <canvas data-qr-big width="320" height="320" class="mt-4 mx-auto block w-full max-w-[320px] h-auto"></canvas>
+      <p class="mt-3 text-sm text-ink-600">School code: <strong data-qr-code class="font-mono tracking-[0.15em]"></strong></p>
+      <p data-qr-url class="mt-1 text-xs text-ink-400 break-all"></p>
+      <div class="mt-5 flex flex-wrap justify-center gap-2">
+        <button data-qr-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">Download QR code</button>
+        <button data-qr-copy-link class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Copy join link</button>
+      </div>
+      <p data-qr-note class="mt-2 text-xs text-green-700 h-4"></p>
+      <p class="mt-1 text-xs text-ink-500">If the school code is reset, this QR code changes too. Old copies stop working.</p>
+    </div>
+  </div>
 
   <!-- Suggested email -->
   <div data-draft-modal class="hidden fixed inset-0 z-30 bg-ink-950/50 flex items-center justify-center p-4">
@@ -217,9 +240,59 @@
       setTimeout(() => { $(noteSel).textContent = ''; }, 4000);
     }
     $('[data-copy-code]').addEventListener('click', () => copy(schoolCode, '[data-copy-note]', '✓ Code copied'));
+    // Join link with the school and code filled in. It's built from the current
+    // code, so resetting the code changes the link and QR code automatically.
+    const joinUrl = schoolCode
+      ? `${new URL('join.html', location.href).href}?school=${encodeURIComponent(schoolId)}&code=${encodeURIComponent(schoolCode)}`
+      : '';
     $('[data-copy-invite]').addEventListener('click', () => copy(
-      `Join GOATS get GLASS, our DECA prep site! Go to https://prep.thebowtiegoat.com, sign in, pick ${school.name}, and enter our school code: ${schoolCode}. Then choose your DECA event.`,
+      `Join GOATS get GLASS, our DECA prep site! Use this link to sign up with our school code already filled in: ${joinUrl}\n\n(Or go to https://prep.thebowtiegoat.com, sign in, pick ${school.name}, and enter our school code: ${schoolCode}.) Then choose your DECA event.`,
       '[data-copy-note]', '✓ Invite message copied. Paste it into an email, Remind, or Google Classroom.'));
+
+    // Draws the join link as a QR code on a canvas (black on white, with a quiet border).
+    function drawQr(canvas, text) {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      const count = qr.getModuleCount();
+      const size = canvas.width;
+      const border = 4;
+      const cell = size / (count + border * 2);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#141a2e';
+      for (let r = 0; r < count; r += 1) {
+        for (let c = 0; c < count; c += 1) {
+          if (qr.isDark(r, c)) ctx.fillRect(Math.floor((c + border) * cell), Math.floor((r + border) * cell), Math.ceil(cell), Math.ceil(cell));
+        }
+      }
+    }
+    const qrReady = !!(joinUrl && window.qrcode);
+    if (qrReady) {
+      drawQr($('[data-qr-thumb]'), joinUrl);
+      drawQr($('[data-qr-big]'), joinUrl);
+      $('[data-qr-school]').textContent = school.name;
+      $('[data-qr-code]').textContent = schoolCode;
+      $('[data-qr-url]').textContent = joinUrl;
+    }
+    document.querySelectorAll('[data-qr-open]').forEach((b) => {
+      b.disabled = !qrReady;
+      b.addEventListener('click', () => show($('[data-qr-modal]'), true));
+    });
+    $('[data-qr-close]').addEventListener('click', () => show($('[data-qr-modal]'), false));
+    $('[data-qr-modal]').addEventListener('click', (e) => { if (e.target === e.currentTarget) show($('[data-qr-modal]'), false); });
+    $('[data-qr-copy-link]').addEventListener('click', () => copy(joinUrl, '[data-qr-note]', '✓ Join link copied'));
+    $('[data-qr-download]').addEventListener('click', () => {
+      // A bigger copy for posters and slides.
+      const big = Object.assign(document.createElement('canvas'), { width: 1024, height: 1024 });
+      drawQr(big, joinUrl);
+      const a = Object.assign(document.createElement('a'), {
+        href: big.toDataURL('image/png'),
+        download: `${school.name.replace(/[^A-Za-z0-9]+/g, '-')}-DECA-join-QR.png`,
+      });
+      a.click();
+    });
     if (!schoolCode) $('[data-copy-invite]').disabled = $('[data-copy-code]').disabled = true;
     if (viewOnly) $('[data-draft]').disabled = true;
 

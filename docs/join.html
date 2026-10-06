@@ -62,8 +62,25 @@
     import { db, requireUser, renderHeader, call, esc, show } from './js/app.js';
     import { eventOptionsHtml } from './js/event-picker.js';
 
+    // An invite link (from the advisor's QR code) carries the school and code.
+    // Remember it in this browser so it survives signing in.
+    const INVITE_KEY = 'prep:invite';
+    const params = new URLSearchParams(location.search);
+    if (params.get('school') && params.get('code')) {
+      try { localStorage.setItem(INVITE_KEY, JSON.stringify({ school: params.get('school'), code: params.get('code'), at: Date.now() })); } catch {}
+      history.replaceState(null, '', location.pathname);
+    }
+    let invite = null;
+    try {
+      invite = JSON.parse(localStorage.getItem(INVITE_KEY));
+      if (invite && Date.now() - invite.at > 14 * 86400000) invite = null; // old invites expire
+    } catch {}
+
     const { user, profile } = await requireUser({ allowNoProfile: true });
-    if (profile) location.replace('eventhub.html');
+    if (profile) {
+      try { localStorage.removeItem(INVITE_KEY); } catch {}
+      location.replace('eventhub.html');
+    }
     renderHeader({ user, profile: null, active: '' });
 
     const form = document.querySelector('[data-form]');
@@ -76,6 +93,11 @@
       .sort((a, b) => (a.state || '').localeCompare(b.state || '') || a.name.localeCompare(b.name));
     form.schoolId.innerHTML = '<option value="">Choose your school</option>' +
       schools.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}${s.state ? ` (${esc(s.state)})` : ''}</option>`).join('');
+    if (invite && schools.some((s) => s.id === invite.school)) {
+      form.schoolId.value = invite.school;
+      form.code.value = invite.code;
+      form.insertAdjacentHTML('afterbegin', '<p class="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">Your school and school code are filled in from your invite. Just add your name and event.</p>');
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -91,6 +113,7 @@
           code: form.code.value,
           eventCode: form.eventCode.value,
         });
+        try { localStorage.removeItem(INVITE_KEY); } catch {}
         location.replace('eventhub.html');
       } catch (err) {
         errorBox.textContent = err.message;
