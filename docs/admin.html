@@ -29,7 +29,7 @@
     <!-- Schools -->
     <section data-panel="schools" class="hidden mt-6 space-y-6">
       <form data-icdc-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[auto_auto_1fr_auto] gap-3 items-end">
-        <p class="sm:col-span-4 text-sm text-ink-600"><strong>ICDC dates</strong> are shown on every advisor hub. Update them each year from <a href="https://www.deca.org/conferences/icdc" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">deca.org</a>.</p>
+        <p class="sm:col-span-4 text-sm text-ink-600"><strong>ICDC dates</strong> are shown on every Advisor Dashboard. Update them each year from <a href="https://www.deca.org/conferences/icdc" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">deca.org</a>.</p>
         <label class="block"><span class="text-sm font-medium text-ink-700">Starts</span>
           <input name="icdcStart" type="date" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
         <label class="block"><span class="text-sm font-medium text-ink-700">Ends</span>
@@ -187,7 +187,7 @@
           <td class="py-3 px-4">${data.users.filter((u) => u.schoolId === s.id).length}</td>
           <td class="py-3 px-4">${s.active === false ? '<span class="text-ink-400">Hidden</span>' : 'Active'}</td>
           <td class="py-3 px-4 text-right space-x-3">
-            ${button(`data-view-hub="${esc(s.id)}"`, '👁️ View hub')}
+            ${button(`data-view-hub="${esc(s.id)}"`, '👁️ View dashboard')}
             ${button(`data-reset-code="${esc(s.id)}"`, 'New code')}
             ${button(`data-toggle-school="${esc(s.id)}"`, s.active === false ? 'Show' : 'Hide', 'text-ink-500')}
           </td>

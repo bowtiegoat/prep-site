@@ -185,7 +185,7 @@ export function renderHeader({ user, profile, active }) {
     links.push(['results.html', 'My Results', 'results']);
     links.push(['profile.html', 'Profile', 'profile']);
   }
-  if (advisorInfo) links.push(['advisor.html', 'Advisor hub', 'advisor']);
+  if (advisorInfo) links.push(['advisor.html', 'Advisor Dashboard', 'advisor']);
   if (isAdmin(user) || (viewing && viewReturn() === 'admin.html')) links.push(['admin.html', 'Admin', 'admin']);
   const header = document.querySelector('[data-header]');
   header.innerHTML = `

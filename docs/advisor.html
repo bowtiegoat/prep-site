@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Advisor Hub | BowtieGOAT · GOATS get GLASS</title>
+  <title>Advisor Dashboard | BowtieGOAT · GOATS get GLASS</title>
   <meta name="robots" content="noindex" />
   <link rel="icon" type="image/png" href="images/logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -16,9 +16,9 @@
 
   <main class="max-w-6xl mx-auto px-4 py-10 pb-28">
     <p data-school class="text-sm font-semibold uppercase tracking-[0.15em] text-blue-600"></p>
-    <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">Advisor hub</h1>
+    <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">Advisor Dashboard</h1>
     <p data-advisors class="mt-1 text-sm text-ink-500"></p>
-    <p class="mt-2 text-ink-600">Your chapter's exam prep at a glance. Click a student's name for details.</p>
+    <p class="mt-2 text-ink-600">Your chapter's road to ICDC, at a glance. Click a student's name for details.</p>
 
     <!-- School code -->
     <section class="mt-8 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6 flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -174,7 +174,7 @@
       $('[data-hub-banner]').innerHTML = `
         <div class="bg-tan-600 text-white text-sm">
           <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-            <span>👁️ Viewing <strong>${esc(school.name)}</strong>'s advisor hub. View only: nothing can be changed.</span>
+            <span>👁️ Viewing <strong>${esc(school.name)}</strong>'s Advisor Dashboard. View only: nothing can be changed.</span>
             <button data-exit-hub class="underline font-medium">Exit</button>
           </div>
         </div>`;
@@ -695,7 +695,7 @@
         return;
       }
       const breakTeam = e.target.closest('[data-break-team]');
-      if (breakTeam && confirm('Break up this team? The students stay in the hub; they just won\'t be grouped.')) {
+      if (breakTeam && confirm('Break up this team? The students stay on the dashboard; they just won\'t be grouped.')) {
         await deleteDoc(doc(db, 'teams', breakTeam.dataset.breakTeam));
         await load();
         return;
