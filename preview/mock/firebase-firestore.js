@@ -22,7 +22,9 @@ export async function getDoc(ref) {
 export async function getDocs(ref) {
   await ready();
   const rows = Object.entries(table(ref.name))
-    .filter(([, data]) => (ref.conditions || []).every((c) => data[c.field] === c.value));
+    .filter(([, data]) => (ref.conditions || []).every((c) => (c.op === 'array-contains'
+      ? (data[c.field] || []).includes(c.value)
+      : data[c.field] === c.value)));
   return { docs: rows.map(([id, data]) => snapshot(id, data)) };
 }
 

@@ -132,7 +132,7 @@ function loadSheetJS() {
 }
 
 // Downloads an .xlsx with two tabs: one row per missed question, one row per exam.
-export async function downloadResults({ studentName, attempts, fileName }) {
+export async function downloadResults({ studentName, attempts, fileName, rolePlays = [] }) {
   const XLSX = await loadSheetJS();
   const sorted = [...attempts].sort((a, b) => (a.submittedAt?.toMillis() || 0) - (b.submittedAt?.toMillis() || 0));
   const day = (ts) => (ts?.toDate ? localDay(ts.toDate()) : '');
@@ -175,6 +175,10 @@ export async function downloadResults({ studentName, attempts, fileName }) {
   };
   XLSX.utils.book_append_sheet(book, sheet(missed, [20, 11, 12, 16, 14, 5, 11, 13, 26, 9, 60, 60]), 'Missed questions');
   XLSX.utils.book_append_sheet(book, sheet(examRows, [20, 11, 12, 16, 14, 8, 8, 6, 8, 12, 12, 12]), 'Exams');
+  if (rolePlays.length) {
+    const widths = Object.keys(rolePlays[0]).map((k) => (k === 'Feedback' ? 60 : k === 'Role play' || k === 'Link' ? 32 : 14));
+    XLSX.utils.book_append_sheet(book, sheet(rolePlays, widths), 'Role plays');
+  }
   XLSX.writeFile(book, fileName);
 }
 

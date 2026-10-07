@@ -48,3 +48,13 @@ h1.font-serif, h2.font-serif { font-weight: 800; letter-spacing: -0.01em; }
 details.drawer > summary { list-style: none; }
 details.drawer > summary::-webkit-details-marker { display: none; }
 details.drawer > summary:focus-visible { outline: 2px solid #2f8cc2; outline-offset: 2px; }
+
+/* Role play levels: one blue, light (Novice) to dark (Exemplary). The letter keeps it readable without color. */
+.lv-N { background: #eaf3fa; color: #124563; }
+.lv-D { background: #93c7e6; color: #124563; }
+.lv-P { background: #2f8cc2; color: #fff; }
+.lv-E { background: #124563; color: #fff; }
+.level-btn[aria-pressed="true"].N { background: #eaf3fa; color: #124563; border-color: #124563; }
+.level-btn[aria-pressed="true"].D { background: #93c7e6; color: #124563; border-color: #124563; }
+.level-btn[aria-pressed="true"].P { background: #2f8cc2; color: #fff; border-color: #2f8cc2; }
+.level-btn[aria-pressed="true"].E { background: #124563; color: #fff; border-color: #124563; }

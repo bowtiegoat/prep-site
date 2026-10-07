@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v3'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v4'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -68,7 +68,7 @@ export async function keys() {
 // and missing exam activity so every stoplight color shows up.
 const DEMO_STUDENTS = [
   // uid, first, last, event, last active (days ago, null = never), exams [days ago, correct]
-  ['demo-student', 'Alex', 'Rivera', 'PSE', 0, [[2, 71]]],
+  ['demo-student', 'Alex', 'Rivera', 'AAM', 0, [[2, 71]]],
   ['s-maya', 'Maya', 'Patel', 'RMS', 1, [[5, 82], [40, 74]]],
   ['s-ethan', 'Ethan', 'Brooks', 'SEM', 6, [[20, 64]]],
   ['s-sofia', 'Sofia', 'Nguyen', 'AAM', 33, [[45, 58]]],
@@ -92,7 +92,7 @@ export async function seed({ joined }) {
   const answerKeys = await keys();
   const { EVENTS } = await import('/js/events.js');
   const { grade, summarize } = await import('/mock/grading.js');
-  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {} };
+  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {}, roleplayLogs: {} };
   exams.forEach((e) => { db.exams[e.id] = e; });
   Object.entries(stats).forEach(([id, s]) => { db.examStats[id] = s; });
   db.schools['demo-school'] = { name: 'BowtieGOAT Academy', state: 'PA', active: true };
@@ -128,8 +128,46 @@ export async function seed({ joined }) {
   });
   // One team already formed; the Buying and Merchandising pair is left for the advisor to try.
   db.teams['demo-team-1'] = { schoolId: 'demo-school', eventCode: 'STDM', memberUids: ['s-ava', 's-noah'], createdBy: ADVISOR_USER.email };
+  seedRolePlayLogs(daysAgo);
   save();
   return db;
+}
+
+// Pretend role play practice logs. Levels are listed in rubric order:
+// PIs, then Unique, Practical, Effective, Critical thinking, Communication,
+// Decision-making, Overall impression.
+const AAM_GOAT = {
+  'GOAT_AAM_2425_DISTRICT_EVENT1.pdf': ['AAM 2024-25 District Event 1', 'Market Planning', ['Explain the concept of market and market identification.', 'Explain the nature of marketing plans.', 'Explain the role of situation analysis in the marketing planning process.', 'Describe the nature of target marketing in marketing communications.', 'Identify communications channels used in sales promotion.']],
+  'GOAT_AAM_2425_DISTRICT_EVENT2.pdf': ['AAM 2024-25 District Event 2', 'Product/Service Management', ['Explain the nature and scope of the product/service management function.', 'Explain the nature of product/service branding.', 'Describe factors used by marketers to position products/services.', 'Communicate core values of a product/service.', 'Identify components of a retail image.']],
+  'GOAT_AAM_2526_DISTRICT_EVENT1.pdf': ['AAM 2025-26 District Event 1', 'Operations', ['Explain routine security precautions.', 'Explain employee’s role in expense control.', 'Explain the nature of overhead/operating costs.', 'Process returns/exchanges.', 'Interpret business policies to customers/clients.']],
+  'GOAT_AAM_2627_EXTRA.pdf': ['AAM 2026-27 Extra', 'Operations', ['Explain the nature of operations.', 'Explain the nature of overhead/operating costs.', 'Explain company selling policies.', 'Explain the relationship between customer service and distribution.', 'Discuss actions employees can take to achieve the company’s desired results.']],
+};
+const ROW_KEYS = (pis) => [...Array.from({ length: pis }, (_, i) => `pi${i + 1}`), 'unique', 'practical', 'effective', 'critical', 'communication', 'decision', 'overall'];
+
+function seedRolePlayLogs(daysAgo) {
+  const ymd = (n) => daysAgo(n).toLocaleDateString('en-CA');
+  const log = (id, { members, teamId = null, by, byName, event, rubric = 'series', ago, goat, deca, levels, score = null, judge, feedback, video = '' }) => {
+    const keys = ROW_KEYS(rubric === 'principles' ? 4 : rubric === 'pfl' ? 3 : 5);
+    const [title, ia, pis] = goat ? AAM_GOAT[goat] : ['DECA role play', deca, null];
+    db.roleplayLogs[id] = {
+      memberUids: members, teamId, schoolId: 'demo-school', eventCode: event, rubric, date: ymd(ago),
+      source: goat ? 'goat' : 'deca', goatFile: goat || null, title,
+      url: goat ? `https://www.thebowtiegoat.com/roleplays/${goat}` : 'https://www.deca.org/resources',
+      ia, pis, levels: Object.fromEntries(keys.map((k, i) => [k, levels[i]]).filter(([, v]) => v && v !== '-')),
+      score, videoUrl: video, judge, feedback, createdBy: by, createdByName: byName,
+      createdAt: timestamp(daysAgo(ago)), updatedAt: timestamp(daysAgo(ago)),
+    };
+  };
+  const alex = { members: ['demo-student'], by: 'demo-student', byName: 'Alex Rivera', event: 'AAM' };
+  log('rp-alex-1', { ...alex, ago: 28, goat: 'GOAT_AAM_2425_DISTRICT_EVENT1.pdf', levels: 'NDDNNNDNDNDN', score: 52, judge: 'Classmate / DECA member', feedback: 'Strong opening, but you ran out of time before PI #4 and #5. Practice a 1-minute plan for each PI.' });
+  log('rp-alex-2', { ...alex, ago: 21, deca: 'Promotion', levels: 'DDNDNDDNDDDD', judge: 'Classmate / DECA member', feedback: 'Better pacing. Your solution was generic. Give one specific, original idea.' });
+  log('rp-alex-3', { ...alex, ago: 14, goat: 'GOAT_AAM_2425_DISTRICT_EVENT2.pdf', levels: 'PDDDDDPDPDDD', score: 68, judge: 'Parent or family member', feedback: 'Good use of the judge’s name. Explain WHY each idea works, not just what it is.' });
+  log('rp-alex-4', { ...alex, ago: 7, goat: 'GOAT_AAM_2526_DISTRICT_EVENT1.pdf', levels: 'PPDPDDPPPPDP', score: 74, judge: 'Teacher or advisor', feedback: 'Confident delivery. Decision-making: commit to one recommendation instead of listing options.' });
+  log('rp-alex-5', { ...alex, ago: 3, goat: 'GOAT_AAM_2627_EXTRA.pdf', levels: 'PPPEPPPEPEPP', score: 81, judge: 'Teacher or advisor', feedback: 'Best one yet! The showroom hub idea was creative. Tighten your closing summary.', video: 'https://drive.google.com/' });
+  const team = { members: ['s-ava', 's-noah'], teamId: 'demo-team-1', event: 'STDM' };
+  log('rp-team-1', { ...team, by: 's-ava', byName: 'Ava Thompson', ago: 12, deca: 'Promotion', levels: 'DDNDDDDNDDND', judge: 'Teacher or advisor', feedback: 'Split the PIs between you before you walk in. Noah, speak up more.' });
+  log('rp-team-2', { ...team, by: 's-noah', byName: 'Noah Kim', ago: 4, deca: 'Marketing', levels: 'PDPDPPDPPPPP', score: 77, judge: 'Classmate / DECA member', feedback: 'Much smoother handoffs. Add numbers to support your budget.' });
+  log('rp-mia-1', { members: ['s-mia'], by: 's-mia', byName: 'Mia Robinson', event: 'PBM', rubric: 'principles', ago: 5, deca: 'Human Resources Management', levels: 'DND-DNDDDDD', judge: 'Classmate / DECA member', feedback: 'Remember to answer all four PIs out loud.' });
 }
 
 // A small bar on every page so the preview is never mistaken for the live site.

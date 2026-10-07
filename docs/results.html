@@ -39,9 +39,12 @@
     import { missedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
 
     const { user, profile } = await requireUser();
+    // An advisor viewing as a student must also filter by school, or the
+    // database rules refuse the search. Students' own view is unchanged.
+    const attemptFilters = () => [where('uid', '==', user.uid), ...(isViewingAs() ? [where('schoolId', '==', profile.schoolId)] : [])];
     renderHeader({ user, profile, active: 'results' });
 
-    const snap = await getDocs(query(collection(db, 'attempts'), where('uid', '==', user.uid)));
+    const snap = await getDocs(query(collection(db, 'attempts'), ...attemptFilters()));
     const attempts = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((a) => a.track === profile.track)

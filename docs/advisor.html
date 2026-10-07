@@ -89,6 +89,7 @@
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 class="font-serif text-2xl font-bold">Students <span data-count class="text-ink-400 text-lg"></span></h2>
+          <p data-rp-total class="mt-1 text-sm text-ink-600"></p>
           <p class="mt-1 text-xs text-ink-500">
             Progress (for now): 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet (no exams for their cluster, or a virtual event)
           </p>
@@ -176,6 +177,7 @@
     import { areaOf, downloadResults, exportFileName } from './js/missed.js';
     import { firstCompetition } from './js/competitions.js';
     import { buildDraft } from './js/email-drafts.js';
+    import { exportRows as rolePlayRows, gridHtml, logListHtml, rubricTypeFor, trend, latestSummary } from './js/roleplays.js';
 
     const $ = (sel) => document.querySelector(sel);
     const { user, advisor } = await requireUser({ advisorOnly: true });
@@ -402,19 +404,22 @@
     let students = [];
     let attempts = [];
     let teams = [];
+    let rolePlayLogs = [];
     let clustersWithExams = new Set();
     const statsCache = new Map();
 
     async function load() {
-      const [userSnap, attemptSnap, teamSnap, examSnap] = await Promise.all([
+      const [userSnap, attemptSnap, teamSnap, examSnap, logSnap] = await Promise.all([
         getDocs(query(collection(db, 'users'), where('schoolId', '==', schoolId))),
         getDocs(query(collection(db, 'attempts'), where('schoolId', '==', schoolId))),
         getDocs(query(collection(db, 'teams'), where('schoolId', '==', schoolId))),
         getDocs(collection(db, 'exams')),
+        getDocs(query(collection(db, 'roleplayLogs'), where('schoolId', '==', schoolId))),
       ]);
       students = userSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role === 'student');
       attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       teams = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rolePlayLogs = logSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       clustersWithExams = new Set(examSnap.docs.map((d) => d.data()).filter((e) => e.active !== false).map((e) => e.cluster));
       render();
     }
@@ -497,6 +502,10 @@
       const bucket = (s) => (statusOf(s) === 'virtual' ? 'gray' : statusOf(s));
       students.forEach((s) => { counts[bucket(s)] += 1; });
       $('[data-count]').textContent = `(${students.length})`;
+      const practiced = new Set(rolePlayLogs.flatMap((l) => l.memberUids)).size;
+      $('[data-rp-total]').textContent = rolePlayLogs.length
+        ? `${rolePlayLogs.length} role play${rolePlayLogs.length === 1 ? '' : 's'} logged by ${practiced} student${practiced === 1 ? '' : 's'}`
+        : 'No role plays logged yet';
       $('[data-filters]').innerHTML = ['all', 'green', 'yellow', 'red', 'gray'].map((k) => `
         <button data-filter="${k}" class="rounded-full border px-3 py-1.5 text-sm ${statusFilter === k ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">
           ${k === 'all' ? 'All' : k === 'gray' ? '⚪ Not tracked yet' : `${STATUS[k].dot} ${STATUS[k].label}`} <span class="opacity-70">${counts[k]}</span>
@@ -577,6 +586,27 @@
         ${isOpen ? `<tr><td colspan="5" class="px-4 pb-5 pt-1 ${inTeam ? 'bg-blue-50/30' : 'bg-cream-100/50'}"><div data-panel="${esc(s.id)}"></div></td></tr>` : ''}`;
     }
 
+    // A student's role play logs for their current event (team logs included).
+    const logsOf = (s) => rolePlayLogs.filter((l) => l.memberUids.includes(s.id) && l.eventCode === s.eventCode);
+    const allLogsOf = (s) => rolePlayLogs.filter((l) => l.memberUids.includes(s.id));
+
+    function rolePlayHtml(s) {
+      if (eventOf(s.eventCode)?.type !== 'Role Play') return '';
+      const logs = logsOf(s);
+      const notes = [trend(logs), latestSummary(logs)].filter(Boolean).join(' · ');
+      return `
+        <div class="mt-4 rounded-xl bg-white border border-ink-200 p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Role play practice · ${logs.length} logged</p>
+            ${notes ? `<p class="text-sm text-ink-600">${esc(notes)}</p>` : ''}
+          </div>
+          ${logs.length
+            ? `<div class="mt-2">${gridHtml(logs, rubricTypeFor(s.eventCode))}</div>
+               <details class="mt-4"><summary class="cursor-pointer text-sm font-semibold text-blue-600">Logs and feedback</summary>${logListHtml(logs, { viewerUid: s.id })}</details>`
+            : `<p class="mt-2 text-sm text-ink-500">${esc(s.firstName)} hasn't logged a role play yet.</p>`}
+        </div>`;
+    }
+
     // ---------- Student detail panel ----------
     async function fillPanel(s) {
       const box = document.querySelector(`[data-panel="${CSS.escape(s.id)}"]`);
@@ -627,9 +657,10 @@
             </div>
           </div>
         </div>
+        ${rolePlayHtml(s)}
         <div class="mt-3 flex flex-wrap gap-3 text-sm">
           <button data-view-as="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">👁️ View as ${esc(s.firstName)}</button>
-          ${mine.length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">⬇ Export results</button>` : ''}
+          ${mine.length || allLogsOf(s).length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">⬇ Export results</button>` : ''}
         </div>`;
     }
 
@@ -764,7 +795,10 @@
       if (exportButton) {
         const s = students.find((x) => x.id === exportButton.dataset.export);
         const name = `${s.firstName} ${s.lastName}`;
-        await downloadResults({ studentName: name, attempts: attempts.filter((a) => a.uid === s.id), fileName: exportFileName(name) });
+        await downloadResults({
+          studentName: name, attempts: attempts.filter((a) => a.uid === s.id), fileName: exportFileName(name),
+          rolePlays: rolePlayRows(allLogsOf(s), name),
+        });
         return;
       }
       const breakTeam = e.target.closest('[data-break-team]');
