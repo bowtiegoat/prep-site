@@ -6,7 +6,9 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const EVENTS = require('./events');
-const { grade, summarize, addToStats, removeFromStats, batchFromScores, applyBatch } = require('./grading');
+const {
+  grade, summarize, addToStats, removeFromStats, batchFromScores, applyBatch, correctFlags, applyQuestionCounts,
+} = require('./grading');
 
 initializeApp();
 const db = getFirestore();
@@ -144,6 +146,7 @@ exports.submitAttempt = onCall(CALLABLE, async (req) => {
     let stats = statsSnap.exists ? statsSnap.data() : { takers: 0, sumCorrect: 0, histogram: [] };
     if (countsForStats) {
       stats = addToStats(stats, graded.correct, graded.total);
+      stats = applyQuestionCounts(stats, correctFlags(graded.total, graded.missed), 1, 1);
       tx.set(statsRef, { ...stats, updatedAt: FieldValue.serverTimestamp() });
       tx.set(entryRef, { attemptId, createdAt: FieldValue.serverTimestamp() });
     }
@@ -203,7 +206,12 @@ exports.deleteAttempt = onCall(CALLABLE, async (req) => {
     const [statsSnap, entrySnap] = await Promise.all([tx.get(statsRef), tx.get(entryRef)]);
 
     if (statsSnap.exists && entrySnap.exists && entrySnap.data().attemptId === attemptId) {
-      tx.set(statsRef, { ...removeFromStats(statsSnap.data(), attempt.correct), updatedAt: FieldValue.serverTimestamp() });
+      let stats = removeFromStats(statsSnap.data(), attempt.correct);
+      // Skip if per-question counts haven't been built yet (Admin → Rebuild insights data).
+      if ((statsSnap.data().questionTakers || 0) > 0) {
+        stats = applyQuestionCounts(stats, correctFlags(attempt.total, attempt.missed), 1, -1);
+      }
+      tx.set(statsRef, { ...stats, updatedAt: FieldValue.serverTimestamp() });
       tx.delete(entryRef);
     }
     tx.set(db.doc(`deletedAttempts/${attemptId}`), {
@@ -238,7 +246,7 @@ exports.adminImportScores = onCall(CALLABLE, async (req) => {
     ? perQuestionCorrect
     : null;
 
-  const batch = batchFromScores(scores, total);
+  const batch = { ...batchFromScores(scores, total), perQuestionCorrect: perQuestion };
   const batchRef = db.collection('statsImports').doc();
   const statsRef = db.doc(`examStats/${examId}`);
   await db.runTransaction(async (tx) => {
@@ -254,7 +262,6 @@ exports.adminImportScores = onCall(CALLABLE, async (req) => {
       examSubtitle: exam.subtitle || '',
       cluster: exam.cluster,
       ...batch,
-      perQuestionCorrect: perQuestion,
       importedBy: auth.token.email,
       importedAt: FieldValue.serverTimestamp(),
     });
@@ -280,4 +287,59 @@ exports.adminDeleteImport = onCall(CALLABLE, async (req) => {
     tx.delete(batchRef);
   });
   return { ok: true };
+});
+
+// Admin: (re)build the data behind the exam deep-dive page.
+// - examQuestions/{examId}: each question's PI and source, WITHOUT answers, so
+//   students can see what every question covered (not just the ones they missed),
+//   plus how many answers are A/B/C/D.
+// - examStats questionCorrect/questionTakers: per-question counts, recounted
+//   from scratch from first attempts and imported batches that include them.
+// Safe to run again any time (e.g. after re-uploading an exam's answer key).
+exports.adminRebuildInsights = onCall({ ...CALLABLE, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
+  requireAdmin(req);
+  const [examSnap, keySnap, attemptSnap, importSnap] = await Promise.all([
+    db.collection('exams').get(),
+    db.collection('examKeys').get(),
+    db.collection('attempts').where('countsForStats', '==', true).get(),
+    db.collection('statsImports').get(),
+  ]);
+  const keys = new Map(keySnap.docs.map((d) => [d.id, d.data().questions || []]));
+  let exams = 0;
+  for (const examDoc of examSnap.docs) {
+    const key = keys.get(examDoc.id);
+    if (!key || !key.length) continue;
+    const exam = examDoc.data();
+    const answerCounts = { A: 0, B: 0, C: 0, D: 0 };
+    key.forEach((k) => { if (k.answer in answerCounts) answerCounts[k.answer] += 1; });
+
+    let counts = { questionCorrect: Array(key.length).fill(0), questionTakers: 0 };
+    attemptSnap.docs.map((d) => d.data()).filter((a) => a.examId === examDoc.id).forEach((a) => {
+      const flags = key.map((k, i) => (a.answers && a.answers[i] === k.answer ? 1 : 0));
+      counts = applyQuestionCounts(counts, flags, 1, 1);
+    });
+    importSnap.docs.map((d) => d.data())
+      .filter((b) => b.examId === examDoc.id && Array.isArray(b.perQuestionCorrect) && b.perQuestionCorrect.length === key.length)
+      .forEach((b) => { counts = applyQuestionCounts(counts, b.perQuestionCorrect, b.count, 1); });
+
+    const batch = db.batch();
+    batch.set(db.doc(`examQuestions/${examDoc.id}`), {
+      cluster: exam.cluster,
+      level: exam.level,
+      year: exam.year,
+      label: exam.label,
+      subtitle: exam.subtitle || '',
+      questions: key.map(({ q, code, indicator, source }) => ({ q, code: code || '', indicator: indicator || '', source: source || '' })),
+      answerCounts,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    batch.set(db.doc(`examStats/${examDoc.id}`), {
+      questionCorrect: counts.questionCorrect,
+      questionTakers: counts.questionTakers,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await batch.commit();
+    exams += 1;
+  }
+  return { exams };
 });

@@ -64,11 +64,15 @@ exams.forEach((exam, i) => {
   const mean = 56 + random() * 10;
   const scores = Array.from({ length: takers }, () => Math.max(20, Math.min(98, Math.round(mean + normal() * 11))));
   stats[exam.id] = applyBatch(null, batchFromScores(scores, exam.questionCount), 1);
+  // Made-up per-question results: how many of the takers got each question right.
+  stats[exam.id].questionTakers = takers;
+  stats[exam.id].questionCorrect = exam.questions.map(() => Math.round(takers * Math.max(0.15, Math.min(0.97, mean / 100 + normal() * 0.2))));
 });
 if (existsSync(zipGradeFile)) {
   const { parseZipGradeRows } = await import(pathToFileURL(join(root, 'docs/js/score-import.js')));
   const zip = parseZipGradeRows(sheet(zipGradeFile));
-  stats['marketing-25-26-districts-1322'] = applyBatch(null, batchFromScores(zip.scores, 100), 1);
+  // The real ZipGrade scores, including how many got each question right.
+  stats['marketing-25-26-districts-1322'] = applyBatch(null, { ...batchFromScores(zip.scores, 100), perQuestionCorrect: zip.perQuestionCorrect }, 1);
 }
 writeFileSync(join(out, 'mock/data/stats.json'), JSON.stringify(stats));
 

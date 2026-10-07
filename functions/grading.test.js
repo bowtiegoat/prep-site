@@ -59,3 +59,30 @@ test('a live submission after an import keeps importedTakers', () => {
   const after = addToStats(merged, 2, 3);
   assert.strictEqual(after.importedTakers, 1);
 });
+
+const { correctFlags, applyQuestionCounts } = require('./grading');
+
+test('correctFlags marks missed questions 0 and the rest 1', () => {
+  assert.deepStrictEqual(correctFlags(4, [{ q: 2 }, { q: 4 }]), [1, 0, 1, 0]);
+});
+
+test('per-question counts add and remove cleanly', () => {
+  let s = applyQuestionCounts({ takers: 1 }, [1, 0, 1], 1, 1);
+  s = applyQuestionCounts(s, [5, 3, 0], 5, 1);
+  assert.deepStrictEqual(s.questionCorrect, [6, 3, 1]);
+  assert.strictEqual(s.questionTakers, 6);
+  assert.strictEqual(s.takers, 1);
+  s = applyQuestionCounts(s, [1, 0, 1], 1, -1);
+  assert.deepStrictEqual(s.questionCorrect, [5, 3, 0]);
+  assert.strictEqual(s.questionTakers, 5);
+});
+
+test('applyBatch carries per-question counts when the batch has them', () => {
+  const batch = { ...batchFromScores([2, 1], 2), perQuestionCorrect: [2, 1] };
+  const added = applyBatch(null, batch, 1);
+  assert.deepStrictEqual(added.questionCorrect, [2, 1]);
+  assert.strictEqual(added.questionTakers, 2);
+  const removed = applyBatch(added, batch, -1);
+  assert.deepStrictEqual(removed.questionCorrect, [0, 0]);
+  assert.strictEqual(removed.questionTakers, 0);
+});

@@ -79,6 +79,14 @@
       </form>
       <div data-exams></div>
 
+      <div class="bg-white rounded-2xl border border-ink-200 p-5 flex flex-wrap items-center gap-4">
+        <div class="flex-1 min-w-[16rem]">
+          <h2 class="font-semibold text-lg">Exam deep-dive data</h2>
+          <p class="text-sm text-ink-600">Rebuilds each question's PI and source (no answers) and the per-question "how many got this right" counts. Run it once after this feature goes live, and again after re-uploading an exam's answer key.</p>
+        </div>
+        <button type="button" data-rebuild-insights class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500 disabled:opacity-50">Rebuild insights data</button>
+      </div>
+
       <form data-scores-form class="bg-white rounded-2xl border border-ink-200 p-5 space-y-4">
         <h2 class="font-semibold text-lg">Import past scores (ZipGrade)</h2>
         <p class="text-sm text-ink-600">Adds anonymous scores from another site to an exam's test-taker count, average, and rankings. No student accounts are created and names are ignored. Each file becomes a batch you can delete later.</p>
@@ -310,6 +318,14 @@
         const { questions, id, ...meta } = exam;
         batch.set(doc(db, 'exams', id), { ...meta, active: true, updatedAt: serverTimestamp() });
         batch.set(doc(db, 'examKeys', id), { questions, updatedAt: serverTimestamp() });
+        // The same questions without answers, for the exam deep dive.
+        const answerCounts = { A: 0, B: 0, C: 0, D: 0 };
+        questions.forEach((q) => { answerCounts[q.answer] += 1; });
+        batch.set(doc(db, 'examQuestions', id), {
+          cluster: meta.cluster, level: meta.level, year: meta.year, label: meta.label, subtitle: meta.subtitle,
+          questions: questions.map(({ q, code, indicator, source }) => ({ q, code, indicator, source })),
+          answerCounts, updatedAt: serverTimestamp(),
+        });
       }
       try {
         await batch.commit();
@@ -321,6 +337,20 @@
       } catch (err) {
         flash(`Couldn't load the exams: ${err.message}`, false);
         e.target.disabled = false;
+      }
+    });
+
+    $('[data-rebuild-insights]').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      e.target.textContent = 'Rebuilding…';
+      try {
+        const { exams } = await call('adminRebuildInsights', {});
+        flash(`Rebuilt deep-dive data for ${exams} exams.`);
+      } catch (err) {
+        flash(`Couldn't rebuild: ${err.message}`, false);
+      } finally {
+        e.target.disabled = false;
+        e.target.textContent = 'Rebuild insights data';
       }
     });
 

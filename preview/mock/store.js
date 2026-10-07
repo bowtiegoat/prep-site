@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v4'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v5'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -68,7 +68,7 @@ export async function keys() {
 // and missing exam activity so every stoplight color shows up.
 const DEMO_STUDENTS = [
   // uid, first, last, event, last active (days ago, null = never), exams [days ago, correct]
-  ['demo-student', 'Alex', 'Rivera', 'AAM', 0, [[2, 71]]],
+  ['demo-student', 'Alex', 'Rivera', 'AAM', 0, [[2, 74], [16, 66], [30, 61], [45, 63], [9, 58]]],
   ['s-maya', 'Maya', 'Patel', 'RMS', 1, [[5, 82], [40, 74]]],
   ['s-ethan', 'Ethan', 'Brooks', 'SEM', 6, [[20, 64]]],
   ['s-sofia', 'Sofia', 'Nguyen', 'AAM', 33, [[45, 58]]],
@@ -84,7 +84,9 @@ const DEMO_STUDENTS = [
   ['s-mia', 'Mia', 'Robinson', 'PBM', 7, []],
   ['s-owen', 'Owen', 'Hughes', 'BLTDM', null, []],
 ];
-const DEMO_EXAMS = ['marketing-25-26-districts-1322', 'marketing-24-25-states-1309', 'marketing-25-26-states-1329', 'marketing-24-25-districts-1302'];
+const DEMO_EXAMS = ['marketing-25-26-districts-1322', 'marketing-24-25-states-1309', 'marketing-25-26-states-1329', 'marketing-24-25-districts-1302', 'marketing-25-26-icdc-1340'];
+// Alex's weak and strong areas, so the exam deep dive has a story to tell.
+const ALEX_WEAKNESS = { PR: 0.5, IM: 0.45, PM: 0.3, CM: 0.25, PI: 0.2, EI: -0.35, PD: -0.25, CO: -0.2, EC: -0.1 };
 
 export async function seed({ joined }) {
   const exams = await (await fetch('/mock/data/exams.json')).json();
@@ -95,6 +97,16 @@ export async function seed({ joined }) {
   db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {}, roleplayLogs: {} };
   exams.forEach((e) => { db.exams[e.id] = e; });
   Object.entries(stats).forEach(([id, s]) => { db.examStats[id] = s; });
+  // Each question's PI and source without answers (what adminRebuildInsights writes).
+  db.examQuestions = {};
+  exams.forEach((e) => {
+    const answerCounts = { A: 0, B: 0, C: 0, D: 0 };
+    answerKeys[e.id].forEach((k) => { answerCounts[k.answer] += 1; });
+    db.examQuestions[e.id] = {
+      cluster: e.cluster, level: e.level, year: e.year, label: e.label, subtitle: e.subtitle,
+      questions: answerKeys[e.id].map(({ q, code, indicator, source }) => ({ q, code, indicator, source })), answerCounts,
+    };
+  });
   db.schools['demo-school'] = { name: 'BowtieGOAT Academy', state: 'PA', active: true };
   db.schoolCodes = { 'demo-school': { code: 'DEMO' } };
   db.advisors[ADVISOR_USER.email] = { name: 'Taylor Morgan', email: ADVISOR_USER.email, schoolId: 'demo-school' };
@@ -114,8 +126,12 @@ export async function seed({ joined }) {
     taken.forEach(([ago, correct], i) => {
       const examId = DEMO_EXAMS[i];
       const key = answerKeys[examId];
-      // Miss (100 - correct) questions spread through the test.
-      const wrong = new Set(key.filter((_, n) => ((n * 37 + i * 11) % 100) < 100 - correct).map((k) => k.q));
+      // Miss (100 - correct) questions spread through the test (Alex: mostly in weak areas).
+      const noise = (n) => ((n * 37 + i * 11) % 100) / 100;
+      const wrong = uid === DEMO_USER.uid
+        ? new Set(key.map((k, n) => ({ q: k.q, s: noise(n) + (ALEX_WEAKNESS[k.code.split(':')[0]] || 0) }))
+          .sort((a, b) => b.s - a.s).slice(0, 100 - correct).map((x) => x.q))
+        : new Set(key.filter((_, n) => noise(n) < (100 - correct) / 100).map((k) => k.q));
       const graded = grade(key, key.map((k) => (wrong.has(k.q) ? (k.answer === 'A' ? 'B' : 'A') : k.answer)));
       db.attempts[`${uid}_1_${examId}`] = {
         uid, track: 1, examId, examLabel: db.exams[examId].label, examSubtitle: db.exams[examId].subtitle,

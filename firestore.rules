@@ -131,6 +131,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Each question's PI and source, without answers (for the exam deep dive).
+    match /examQuestions/{examId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
     match /examKeys/{examId} {
       allow read, write: if isAdmin();
     }
