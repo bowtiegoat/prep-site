@@ -7,6 +7,7 @@
 //   attempts:  the student's attempts (each has examId, answers, missed, correct, total, submittedAt)
 
 import { areaOf } from './missed.js';
+import { PFL_STANDARD } from './exam-import.js';
 
 export const LEVELS = [
   { key: 'Districts', name: 'District', long: 'District/Regional' },
@@ -15,7 +16,8 @@ export const LEVELS = [
 ];
 export const MIN_TAKERS = 10;
 
-export const prefixOf = (code) => String(code || '').split(':')[0];
+// PFL standards group by area (Managing Credit Grade 12 → Managing Credit).
+export const prefixOf = (code) => String(code || '').match(PFL_STANDARD)?.[1] ?? String(code || '').split(':')[0];
 const pct = (right, seen) => (seen ? right / seen : null);
 
 // Exams at a level, newest first.

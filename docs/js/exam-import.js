@@ -4,10 +4,12 @@
 // Expected columns: Level, Year, Test #, Q#, Answer, Code, Source
 // Code looks like "BL:003 Explain types of business ownership"; some rows
 // only have "BL:003", in which case the description is borrowed from another
-// row with the same code.
+// row with the same code. Personal Financial Literacy exams use a national
+// standard instead, like "Managing Credit Grade 12"; it becomes the code as-is.
 
 const LEVELS = ['Districts', 'States', 'ICDC'];
 const CODE_PATTERN = /^([A-Z]{2,3}:\d{3})\s*(.*)$/;
+export const PFL_STANDARD = /^(Earning Income|Spending|Saving|Investing|Managing Credit|Managing Risk) Grade (8|12)$/;
 
 function slug(value) {
   return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -37,14 +39,15 @@ export function parseExamRows(rows, cluster) {
     if (!level && !year && !test && !row['Q#']) return; // blank row
     const q = Number(row['Q#']);
     const answer = text(row['Answer']).toUpperCase();
-    const codeMatch = text(row['Code']).match(CODE_PATTERN);
+    const pfl = text(row['Code']).match(PFL_STANDARD);
+    const codeMatch = pfl ? [pfl[0], pfl[0], ''] : text(row['Code']).match(CODE_PATTERN);
 
     if (!LEVELS.includes(level)) errors.push(`Row ${line}: Level "${level}" should be Districts, States, or ICDC.`);
     if (!/^\d{2}-\d{2}$/.test(year)) errors.push(`Row ${line}: Year "${year}" should look like 24-25.`);
     if (!test) errors.push(`Row ${line}: Test # is missing.`);
     if (!Number.isInteger(q) || q < 1) errors.push(`Row ${line}: Q# "${row['Q#']}" isn't a question number.`);
     if (!['A', 'B', 'C', 'D'].includes(answer)) errors.push(`Row ${line}: Answer "${row['Answer']}" should be A, B, C, or D.`);
-    if (!codeMatch) errors.push(`Row ${line}: Code "${text(row['Code'])}" should start with something like BL:003.`);
+    if (!codeMatch) errors.push(`Row ${line}: Code "${text(row['Code'])}" should start with something like BL:003 (or be a PFL standard like Saving Grade 8).`);
 
     const code = codeMatch ? codeMatch[1] : '';
     const indicator = codeMatch ? codeMatch[2].trim() : '';
@@ -64,7 +67,7 @@ export function parseExamRows(rows, cluster) {
     });
     const missingIndicator = [];
     for (const question of questions) {
-      if (!question.indicator && question.code) {
+      if (!question.indicator && question.code && !PFL_STANDARD.test(question.code)) {
         question.indicator = indicatorByCode.get(question.code) || '';
         if (!question.indicator) missingIndicator.push(`Q${question.q} (${question.code})`);
       }

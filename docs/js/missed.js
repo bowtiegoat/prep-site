@@ -2,6 +2,7 @@
 // a sortable table and a spreadsheet download.
 
 import { esc, linkify, formatDate } from './app.js';
+import { PFL_STANDARD } from './exam-import.js';
 
 // DECA instructional areas, from the letters before the colon in a PI code.
 export const INSTRUCTIONAL_AREAS = {
@@ -27,7 +28,10 @@ export const INSTRUCTIONAL_AREAS = {
   SM: 'Strategic Management',
 };
 
+// A PFL standard's area is the part before "Grade" (Managing Credit Grade 12 → Managing Credit).
 export function areaOf(code) {
+  const pfl = String(code || '').match(PFL_STANDARD);
+  if (pfl) return pfl[1];
   const prefix = String(code || '').split(':')[0];
   return INSTRUCTIONAL_AREAS[prefix] || prefix;
 }
