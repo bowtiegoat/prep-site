@@ -72,6 +72,7 @@
     import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, call, esc, show, EXAM_MINUTES, isViewingAs } from './js/app.js';
     import { draftKey, loadDraft, saveDraft, clearDraft } from './js/drafts.js';
+    import { takesExam } from './js/events.js';
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -109,6 +110,10 @@
       await new Promise(() => {});
     }
     const exam = examSnap.data();
+    if (!takesExam(profile.eventCode)) {
+      fail("Your event doesn't take a cluster exam.");
+      await new Promise(() => {});
+    }
     if (exam.cluster !== profile.cluster) {
       fail("That exam isn't part of your event's cluster.");
       await new Promise(() => {});

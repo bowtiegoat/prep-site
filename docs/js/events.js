@@ -65,6 +65,20 @@ export const EVENTS = [
 
 export const CLUSTERS = [...new Set(EVENTS.map((e) => e.cluster))].sort();
 
+// Events that don't take a cluster exam: Virtual Business Challenges, Stock Market
+// Game, Operations Research, Project Management, and the Entrepreneurship plans.
+// Keep in sync with functions/events.js.
+export const NO_EXAM_EVENTS = new Set([
+  'VBCAC', 'VBCEN', 'VBCFA', 'VBCHM', 'VBCPF', 'VBCRS', 'VBCRT', 'VBCSP', 'SMG',
+  'BOR', 'BMOR', 'FOR', 'HTOR', 'SEOR',
+  'PMBS', 'PMCD', 'PMCA', 'PMCG', 'PMFL', 'PMSP',
+  'EBG', 'EFB', 'EIB', 'EIP', 'ESB', 'IBP',
+]);
+
+export function takesExam(code) {
+  return !NO_EXAM_EVENTS.has(code);
+}
+
 // Most students a team in this event can have (1 = individual event).
 export function maxTeamSize(code) {
   const event = EVENTS.find((e) => e.code === code);

@@ -128,6 +128,7 @@ exports.submitAttempt = onCall(CALLABLE, async (req) => {
   if (!examSnap.exists || !keySnap.exists) throw new HttpsError('not-found', 'That exam is no longer available.');
   const user = userSnap.data();
   const exam = examSnap.data();
+  if (EVENTS.NO_EXAM_EVENTS.has(user.eventCode)) throw new HttpsError('permission-denied', "Your event doesn't take a cluster exam.");
   if (exam.cluster !== user.cluster) throw new HttpsError('permission-denied', "That exam isn't part of your event's cluster.");
   const key = keySnap.data().questions;
   if (answers.length !== key.length) throw invalid(`Expected ${key.length} answers.`);

@@ -31,6 +31,7 @@
     import { db, requireUser, renderHeader, esc, linkify, isViewingAs, today, loadIcdc } from './js/app.js';
     import { firstCompetition } from './js/competitions.js';
     import { areaOf } from './js/missed.js';
+    import { takesExam } from './js/events.js';
     import {
       LEVELS, MIN_TAKERS, accuracy, answerLetters, blueprint, cheapestPoints, examsAtLevel, levelComparison,
       mostTestedPis, piRecord, piStatus, pointsAtStake, projectedScore, projectionTrend, questionResults,
@@ -41,6 +42,12 @@
     renderHeader({ user, profile, active: 'results' });
     const $ = (sel) => document.querySelector(sel);
     const body = $('[data-body]');
+
+    // Events with no cluster exam have nothing to analyze here.
+    if (!takesExam(profile.eventCode)) {
+      body.innerHTML = empty("Your event doesn't take a cluster exam", `${esc(profile.eventName)} is judged without a cluster exam, so there's nothing to analyze here.`, '<a href="eventhub.html" class="mt-4 inline-block rounded-lg bg-ink-900 text-cream-50 px-5 py-2.5 font-medium">Go to the Event Hub</a>');
+      await new Promise(() => {});
+    }
 
     // ---------- Load ----------
     const attemptFilters = [where('uid', '==', user.uid), ...(isViewingAs() ? [where('schoolId', '==', profile.schoolId)] : [])];

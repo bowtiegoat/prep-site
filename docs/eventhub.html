@@ -32,7 +32,7 @@
           </div>
         </div>
         <div class="w-full sm:w-48">
-          <div class="flex justify-between text-xs text-ink-500"><span>Progress</span><span>0 of 4 done</span></div>
+          <div class="flex justify-between text-xs text-ink-500"><span>Progress</span><span data-plan-count>0 of 4 done</span></div>
           <div class="mt-1 h-2 rounded-full bg-ink-100"><div class="h-2 w-0 rounded-full bg-green-600"></div></div>
         </div>
       </div>
@@ -40,9 +40,9 @@
       <p class="mt-4 text-xs font-semibold uppercase tracking-[0.15em] text-ink-400">Example tasks</p>
       <ul class="mt-2 divide-y divide-ink-100 opacity-60" aria-label="Example tasks (not active yet)">
         <li class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Read your event guidelines</span><span class="text-xs text-ink-500">Week 1</span></li>
-        <li class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Take your first practice exam</span><span class="text-xs text-ink-500">Week 1</span></li>
-        <li class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Review your missed questions on My Results</span><span class="text-xs text-ink-500">Week 2</span></li>
-        <li class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Study your weakest instructional area</span><span class="text-xs text-ink-500">Week 2</span></li>
+        <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Take your first practice exam</span><span class="text-xs text-ink-500">Week 1</span></li>
+        <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Review your missed questions on My Results</span><span class="text-xs text-ink-500">Week 2</span></li>
+        <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Study your weakest instructional area</span><span class="text-xs text-ink-500">Week 2</span></li>
       </ul>
     </section>
 
@@ -158,7 +158,7 @@
     import { collection, doc, getDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, esc, formatDate, compareExams, isViewingAs } from './js/app.js';
     import { draftKey } from './js/drafts.js';
-    import { EVENTS } from './js/events.js';
+    import { EVENTS, takesExam } from './js/events.js';
     import { EVENT_LINKS } from './js/event-links.js';
     import { clusterColor } from './js/clusters.js';
     import { firstCompetition } from './js/competitions.js';
@@ -214,118 +214,129 @@
         : `${first.label} was ${when}`;
     }).catch(() => {});
 
-    // ---------- Directions ----------
-    const linkClass = 'font-semibold text-blue-600 underline decoration-blue-300 underline-offset-2 hover:decoration-blue-600';
-    const decaPlusLink = links.decaPlus
-      ? `<a href="${esc(links.decaPlus)}" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA+</a>`
-      : 'DECA+';
-    const steps = [
-      ['Find your DECA exam', `District exams are free on <a href="https://www.deca.org/resources" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA's resources page</a>. Last year's state (SCDC) and ICDC exams are on ${decaPlusLink}.`],
-      ['Select the card below', 'Once you have your exam, pick it from the list and begin.'],
-      ['Finish in 90 minutes', 'You will have 90 minutes to complete and submit your work.'],
-    ];
-    document.querySelector('[data-steps]').innerHTML = steps.map(([title, text], i) => `
-      <li class="flex gap-3">
-        <span class="shrink-0 w-7 h-7 rounded-full bg-ink-900 text-cream-50 grid place-items-center font-bold text-xs" aria-hidden="true">${i + 1}</span>
-        <span><strong class="block text-ink-900">${title}</strong>${text}</span>
-      </li>`).join('');
-
-    const [examSnap, attemptSnap] = await Promise.all([
-      getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))),
-      getDocs(query(collection(db, 'attempts'), ...attemptFilters())),
-    ]);
-    const exams = examSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false).sort(compareExams);
-    const myAttempts = attemptSnap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((a) => a.track === profile.track);
-    const attempts = new Map(myAttempts.filter((a) => a.cluster === profile.cluster).map((a) => [a.examId, a]));
-
-    const list = document.querySelector('[data-list]');
-    // The directions point at exam cards, so skip them until the cluster has exams.
-    document.querySelector('[data-steps]').classList.toggle('hidden', !exams.length);
-    if (!exams.length) {
-      list.innerHTML = `
-        <div class="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
-          <h2 class="font-serif text-2xl font-bold">Your cluster's exams are coming soon</h2>
-          <p class="mt-2 text-ink-600">We're adding ${esc(profile.cluster)} exams next. Check back soon!</p>
-        </div>`;
+    // ---------- Cluster exams (events that take one) ----------
+    if (takesExam(profile.eventCode)) {
+      await loadExams();
     } else {
-      const years = [...new Set(exams.map((e) => e.year))];
-      list.innerHTML = years.map((year) => `
-        <section>
-          <h2 class="font-serif text-xl font-bold text-ink-800">${esc(exams.find((e) => e.year === year).label.split(' ')[0])}</h2>
-          <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            ${exams.filter((e) => e.year === year).map(card).join('')}
-          </div>
-        </section>`).join('');
+      document.querySelector('[data-exam-drawer]').remove();
+      document.querySelectorAll('[data-exam-task]').forEach((li) => li.remove());
+      document.querySelector('[data-plan-count]').textContent = '0 of 1 done';
     }
 
-    // One-line summary on the closed drawer.
-    let inProgressCount = 0;
-    exams.forEach((exam) => {
-      try { if (!attempts.has(exam.id) && localStorage.getItem(draftKey(user.uid, profile.track, exam.id))) inProgressCount += 1; } catch {}
-    });
-    const lastTaken = [...attempts.values()].sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0))[0];
-    document.querySelector('[data-exam-summary]').textContent = !exams.length
-      ? `${profile.cluster} exams are coming soon`
-      : [
-          `${exams.length} ${profile.cluster} exams`,
-          `${attempts.size} taken`,
-          inProgressCount ? `${inProgressCount} in progress` : '',
-          lastTaken ? `last on ${formatDate(lastTaken.submittedAt)}` : '',
-        ].filter(Boolean).join(' · ');
+    async function loadExams() {
+      // ---------- Directions ----------
+      const linkClass = 'font-semibold text-blue-600 underline decoration-blue-300 underline-offset-2 hover:decoration-blue-600';
+      const decaPlusLink = links.decaPlus
+        ? `<a href="${esc(links.decaPlus)}" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA+</a>`
+        : 'DECA+';
+      const steps = [
+        ['Find your DECA exam', `District exams are free on <a href="https://www.deca.org/resources" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA's resources page</a>. Last year's state (SCDC) and ICDC exams are on ${decaPlusLink}.`],
+        ['Select the card below', 'Once you have your exam, pick it from the list and begin.'],
+        ['Finish in 90 minutes', 'You will have 90 minutes to complete and submit your work.'],
+      ];
+      document.querySelector('[data-steps]').innerHTML = steps.map(([title, text], i) => `
+        <li class="flex gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink-900 text-cream-50 grid place-items-center font-bold text-xs" aria-hidden="true">${i + 1}</span>
+          <span><strong class="block text-ink-900">${title}</strong>${text}</span>
+        </li>`).join('');
 
-    // Completed exams from earlier events in a different cluster.
-    const previousClusters = [...new Set(myAttempts.filter((a) => a.cluster !== profile.cluster).map((a) => a.cluster))];
-    if (previousClusters.length) {
-      list.insertAdjacentHTML('beforeend', `
-        <div class="pt-6 border-t-2 border-dashed border-ink-200 space-y-8">
-          ${previousClusters.map((cluster) => {
-            const taken = myAttempts
-              .filter((a) => a.cluster === cluster)
-              .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
-            const events = [...new Set(taken.map((a) => a.eventCode))]
-              .map((code) => EVENTS.find((e) => e.code === code))
-              .filter(Boolean)
-              .map((e) => `${e.event} (${e.code})`);
-            return `
-              <section>
-                <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Previous event</p>
-                <h2 class="font-serif text-xl font-bold text-ink-800">${esc(events.join(', ') || cluster)}</h2>
-                <p class="text-sm text-ink-500">${esc(cluster)} exams you completed. They're still in My Results.</p>
-                <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  ${taken.map((a) => `
-                    <a href="result.html?id=${encodeURIComponent(a.id)}" class="block rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-500 hover:border-ink-300">
-                      <p class="font-semibold">${esc(a.examLabel)}</p>
-                      <p class="text-xs">${esc(a.examSubtitle)}</p>
-                      <p class="mt-3 text-sm">✓ Taken ${esc(formatDate(a.submittedAt))}</p>
-                      <p class="text-sm font-semibold text-ink-700">${a.correct}/${a.total} · See results →</p>
-                    </a>`).join('')}
-                </div>
-              </section>`;
-          }).join('')}
-        </div>`);
-    }
+      const [examSnap, attemptSnap] = await Promise.all([
+        getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))),
+        getDocs(query(collection(db, 'attempts'), ...attemptFilters())),
+      ]);
+      const exams = examSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false).sort(compareExams);
+      const myAttempts = attemptSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.track === profile.track);
+      const attempts = new Map(myAttempts.filter((a) => a.cluster === profile.cluster).map((a) => [a.examId, a]));
 
-    function card(exam) {
-      const attempt = attempts.get(exam.id);
-      if (attempt) {
+      const list = document.querySelector('[data-list]');
+      // The directions point at exam cards, so skip them until the cluster has exams.
+      document.querySelector('[data-steps]').classList.toggle('hidden', !exams.length);
+      if (!exams.length) {
+        list.innerHTML = `
+          <div class="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
+            <h2 class="font-serif text-2xl font-bold">Your cluster's exams are coming soon</h2>
+            <p class="mt-2 text-ink-600">We're adding ${esc(profile.cluster)} exams next. Check back soon!</p>
+          </div>`;
+      } else {
+        const years = [...new Set(exams.map((e) => e.year))];
+        list.innerHTML = years.map((year) => `
+          <section>
+            <h2 class="font-serif text-xl font-bold text-ink-800">${esc(exams.find((e) => e.year === year).label.split(' ')[0])}</h2>
+            <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              ${exams.filter((e) => e.year === year).map(card).join('')}
+            </div>
+          </section>`).join('');
+      }
+
+      // One-line summary on the closed drawer.
+      let inProgressCount = 0;
+      exams.forEach((exam) => {
+        try { if (!attempts.has(exam.id) && localStorage.getItem(draftKey(user.uid, profile.track, exam.id))) inProgressCount += 1; } catch {}
+      });
+      const lastTaken = [...attempts.values()].sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0))[0];
+      document.querySelector('[data-exam-summary]').textContent = !exams.length
+        ? `${profile.cluster} exams are coming soon`
+        : [
+            `${exams.length} ${profile.cluster} exams`,
+            `${attempts.size} taken`,
+            inProgressCount ? `${inProgressCount} in progress` : '',
+            lastTaken ? `last on ${formatDate(lastTaken.submittedAt)}` : '',
+          ].filter(Boolean).join(' · ');
+
+      // Completed exams from earlier events in a different cluster.
+      const previousClusters = [...new Set(myAttempts.filter((a) => a.cluster !== profile.cluster).map((a) => a.cluster))];
+      if (previousClusters.length) {
+        list.insertAdjacentHTML('beforeend', `
+          <div class="pt-6 border-t-2 border-dashed border-ink-200 space-y-8">
+            ${previousClusters.map((cluster) => {
+              const taken = myAttempts
+                .filter((a) => a.cluster === cluster)
+                .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+              const events = [...new Set(taken.map((a) => a.eventCode))]
+                .map((code) => EVENTS.find((e) => e.code === code))
+                .filter(Boolean)
+                .map((e) => `${e.event} (${e.code})`);
+              return `
+                <section>
+                  <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Previous event</p>
+                  <h2 class="font-serif text-xl font-bold text-ink-800">${esc(events.join(', ') || cluster)}</h2>
+                  <p class="text-sm text-ink-500">${esc(cluster)} exams you completed. They're still in My Results.</p>
+                  <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    ${taken.map((a) => `
+                      <a href="result.html?id=${encodeURIComponent(a.id)}" class="block rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-500 hover:border-ink-300">
+                        <p class="font-semibold">${esc(a.examLabel)}</p>
+                        <p class="text-xs">${esc(a.examSubtitle)}</p>
+                        <p class="mt-3 text-sm">✓ Taken ${esc(formatDate(a.submittedAt))}</p>
+                        <p class="text-sm font-semibold text-ink-700">${a.correct}/${a.total} · See results →</p>
+                      </a>`).join('')}
+                  </div>
+                </section>`;
+            }).join('')}
+          </div>`);
+      }
+
+      function card(exam) {
+        const attempt = attempts.get(exam.id);
+        if (attempt) {
+          return `
+            <a href="result.html?id=${encodeURIComponent(attempt.id)}" class="block rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-500 hover:border-ink-300">
+              <p class="font-semibold">${esc(exam.level)}</p>
+              <p class="text-xs">${esc(exam.subtitle)}</p>
+              <p class="mt-3 text-sm">✓ Taken ${esc(formatDate(attempt.submittedAt))}</p>
+              <p class="text-sm font-semibold text-ink-700">${attempt.correct}/${attempt.total} · See results →</p>
+            </a>`;
+        }
+        let inProgress = false;
+        try { inProgress = !!localStorage.getItem(draftKey(user.uid, profile.track, exam.id)); } catch {}
         return `
-          <a href="result.html?id=${encodeURIComponent(attempt.id)}" class="block rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-500 hover:border-ink-300">
-            <p class="font-semibold">${esc(exam.level)}</p>
-            <p class="text-xs">${esc(exam.subtitle)}</p>
-            <p class="mt-3 text-sm">✓ Taken ${esc(formatDate(attempt.submittedAt))}</p>
-            <p class="text-sm font-semibold text-ink-700">${attempt.correct}/${attempt.total} · See results →</p>
+          <a href="exam.html?id=${encodeURIComponent(exam.id)}" class="block rounded-xl border border-ink-300 bg-white p-4 hover:border-blue-500 hover:shadow-sm">
+            <p class="font-semibold text-ink-900">${esc(exam.level)}</p>
+            <p class="text-xs text-ink-500">${esc(exam.subtitle)}</p>
+            <p class="mt-3 text-sm font-medium text-blue-600">${inProgress ? 'Resume exam →' : 'Start exam →'}</p>
           </a>`;
       }
-      let inProgress = false;
-      try { inProgress = !!localStorage.getItem(draftKey(user.uid, profile.track, exam.id)); } catch {}
-      return `
-        <a href="exam.html?id=${encodeURIComponent(exam.id)}" class="block rounded-xl border border-ink-300 bg-white p-4 hover:border-blue-500 hover:shadow-sm">
-          <p class="font-semibold text-ink-900">${esc(exam.level)}</p>
-          <p class="text-xs text-ink-500">${esc(exam.subtitle)}</p>
-          <p class="mt-3 text-sm font-medium text-blue-600">${inProgress ? 'Resume exam →' : 'Start exam →'}</p>
-        </a>`;
     }
   </script>
 </body>

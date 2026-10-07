@@ -173,7 +173,7 @@
       db, requireUser, renderHeader, call, esc, show, formatDate, today, loadIcdc,
       percentile, percentileText, startViewingAs, stopViewingHub,
     } from './js/app.js';
-    import { EVENTS, maxTeamSize, minTeamSize } from './js/events.js';
+    import { EVENTS, maxTeamSize, minTeamSize, takesExam } from './js/events.js';
     import { areaOf, downloadResults, exportFileName } from './js/missed.js';
     import { firstCompetition } from './js/competitions.js';
     import { buildDraft } from './js/email-drafts.js';
@@ -436,10 +436,12 @@
       red: { dot: '🔴', label: 'Needs a nudge', rank: 0 },
       gray: { dot: '⚪', label: 'No exams for cluster yet', rank: 2 },
       virtual: { dot: '⚪', label: 'Virtual event (not supported yet)', rank: 2 },
+      noExam: { dot: '⚪', label: 'No cluster exam for this event', rank: 2 },
     };
     function statusOf(s) {
       // Prep for virtual events (VBC, Stock Market Game) isn't offered this year.
       if (eventOf(s.eventCode)?.type === 'Virtual') return 'virtual';
+      if (!takesExam(s.eventCode)) return 'noExam';
       if (!clustersWithExams.has(s.cluster)) return 'gray';
       const last = attemptsOf(s)[0];
       if (!last) return 'red';
@@ -499,7 +501,7 @@
     function render() {
       const search = $('[data-search]').value.trim().toLowerCase();
       const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
-      const bucket = (s) => (statusOf(s) === 'virtual' ? 'gray' : statusOf(s));
+      const bucket = (s) => (['virtual', 'noExam'].includes(statusOf(s)) ? 'gray' : statusOf(s));
       students.forEach((s) => { counts[bucket(s)] += 1; });
       $('[data-count]').textContent = `(${students.length})`;
       const practiced = new Set(rolePlayLogs.flatMap((l) => l.memberUids)).size;

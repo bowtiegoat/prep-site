@@ -42,7 +42,7 @@
   <script type="module">
     import { requireUser, renderHeader, call, esc, show, isViewingAs } from './js/app.js';
     import { eventOptionsHtml } from './js/event-picker.js';
-    import { EVENTS } from './js/events.js';
+    import { EVENTS, takesExam } from './js/events.js';
 
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'profile' });
@@ -52,7 +52,7 @@
       ['Email', profile.email || user.email],
       ['School', profile.schoolName],
       ['Event', `${profile.eventName} (${profile.eventCode})`],
-      ['Cluster exam', profile.cluster],
+      ['Cluster exam', takesExam(profile.eventCode) ? profile.cluster : 'None for this event'],
     ];
     document.querySelector('[data-info]').innerHTML = rows.map(([label, value]) => `
       <div class="flex justify-between gap-4"><dt class="text-ink-500">${label}</dt><dd class="font-medium text-right">${esc(value)}</dd></div>`).join('');
@@ -70,9 +70,11 @@
       show(form.querySelector('[data-choices]'), changing);
       if (!changing) return;
       const same = event.cluster === profile.cluster;
-      form.querySelector('[data-cluster-note]').innerHTML = same
-        ? `<strong>${esc(event.event)}</strong> uses the same <strong>${esc(event.cluster)}</strong> exam as your current event.`
-        : `<strong>${esc(event.event)}</strong> uses the <strong>${esc(event.cluster)}</strong> exam instead of <strong>${esc(profile.cluster)}</strong>.`;
+      form.querySelector('[data-cluster-note]').innerHTML = !takesExam(event.code)
+        ? `<strong>${esc(event.event)}</strong> doesn't take a cluster exam, so exams won't appear on your Event Hub.`
+        : same
+          ? `<strong>${esc(event.event)}</strong> uses the same <strong>${esc(event.cluster)}</strong> exam as your current event.`
+          : `<strong>${esc(event.event)}</strong> uses the <strong>${esc(event.cluster)}</strong> exam instead of <strong>${esc(profile.cluster)}</strong>.`;
       form.querySelector('[data-keep-detail]').textContent = same
         ? "Everything stays as it is. Exams you've already taken stay completed."
         : `Your ${profile.cluster} exams move to the bottom of your Exams page under "${profile.eventName}," and they stay in My Results.`;

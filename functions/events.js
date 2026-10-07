@@ -62,3 +62,11 @@ module.exports = [
   {"code":"VBCRT","event":"Virtual Business Challenge- Retail","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-retail"},
   {"code":"VBCSP","event":"Virtual Business Challenge- Sports","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-sports"}
 ];
+
+// Events that don't take a cluster exam. Keep in sync with docs/js/events.js.
+module.exports.NO_EXAM_EVENTS = new Set([
+  'VBCAC', 'VBCEN', 'VBCFA', 'VBCHM', 'VBCPF', 'VBCRS', 'VBCRT', 'VBCSP', 'SMG',
+  'BOR', 'BMOR', 'FOR', 'HTOR', 'SEOR',
+  'PMBS', 'PMCD', 'PMCA', 'PMCG', 'PMFL', 'PMSP',
+  'EBG', 'EFB', 'EIB', 'EIP', 'ESB', 'IBP',
+]);
