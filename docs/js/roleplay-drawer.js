@@ -186,7 +186,8 @@ export async function initRolePlayDrawer({ user, profile, event }) {
     if (videoUrl && !isUrl(videoUrl)) return error('The video link should start with https://.');
 
     const data = {
-      date, source, goatFile, title, url, ia, pis, rubric, levels: rated, score, videoUrl,
+      // An edited log keeps the rubric it was saved with.
+      date, source, goatFile, title, url, ia, pis, rubric: editing?.rubric || rubric, levels: rated, score, videoUrl,
       judge: $m('[data-judge]').value,
       feedback: $m('[data-feedback]').value.trim().slice(0, 5000),
       updatedAt: serverTimestamp(),

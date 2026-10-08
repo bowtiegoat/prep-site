@@ -180,7 +180,7 @@ function seedRolePlayLogs(daysAgo) {
   log('rp-alex-3', { ...alex, ago: 14, goat: 'GOAT_AAM_2425_DISTRICT_EVENT2.pdf', levels: 'PDDDDDPDPDDD', score: 68, judge: 'Parent or family member', feedback: 'Good use of the judge’s name. Explain WHY each idea works, not just what it is.' });
   log('rp-alex-4', { ...alex, ago: 7, goat: 'GOAT_AAM_2526_DISTRICT_EVENT1.pdf', levels: 'PPDPDDPPPPDP', score: 74, judge: 'Teacher or advisor', feedback: 'Confident delivery. Decision-making: commit to one recommendation instead of listing options.' });
   log('rp-alex-5', { ...alex, ago: 3, goat: 'GOAT_AAM_2627_EXTRA.pdf', levels: 'PPPEPPPEPEPP', score: 81, judge: 'Teacher or advisor', feedback: 'Best one yet! The showroom hub idea was creative. Tighten your closing summary.', video: 'https://drive.google.com/' });
-  const team = { members: ['s-ava', 's-noah'], teamId: 'demo-team-1', event: 'STDM' };
+  const team = { members: ['s-ava', 's-noah'], teamId: 'demo-team-1', event: 'STDM', rubric: 'team' };
   log('rp-team-1', { ...team, by: 's-ava', byName: 'Ava Thompson', ago: 12, deca: 'Promotion', levels: 'DDNDDDDNDDND', judge: 'Teacher or advisor', feedback: 'Split the PIs between you before you walk in. Noah, speak up more.' });
   log('rp-team-2', { ...team, by: 's-noah', byName: 'Noah Kim', ago: 4, deca: 'Marketing', levels: 'PDPDPPDPPPPP', score: 77, judge: 'Classmate / DECA member', feedback: 'Much smoother handoffs. Add numbers to support your budget.' });
   log('rp-mia-1', { members: ['s-mia'], by: 's-mia', byName: 'Mia Robinson', event: 'PBM', rubric: 'principles', ago: 5, deca: 'Human Resources Management', levels: 'DND-DNDDDDD', judge: 'Classmate / DECA member', feedback: 'Remember to answer all four PIs out loud.' });

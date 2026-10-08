@@ -17,12 +17,13 @@ export const levelName = (key) => LEVELS.find((l) => l.key === key)?.name || '';
 const LEVEL_VALUE = { N: 1, D: 2, P: 3, E: 4 };
 
 // Point ranges for Novice / Developing / Proficient / Exemplary, from the
-// GOAT role play judge pages. Team Decision Making uses the series layout
-// (5 PIs) as of 2026-27.
+// GOAT role play judge pages. Team Decision Making has 5 PIs as of 2026-27;
+// its PI ranges come from DECA's 2026 MTDM sample judge's evaluation form.
 const SOLUTION = ['0–2', '3–5', '6–7', '8'];
 const CAREER = ['0–1', '2–3', '4–5', '6'];
 const RUBRIC_SHAPES = {
-  series: { name: 'Series and team events', pis: 5, pi: ['0–3', '4–7', '8–9', '10'], overall: ['0–2', '3–5', '6–7', '8'] },
+  series: { name: 'Series events', pis: 5, pi: ['0–3', '4–7', '8–9', '10'], overall: ['0–2', '3–5', '6–7', '8'] },
+  team: { name: 'Team Decision Making events', pis: 5, pi: ['0–3', '4–6', '7–9', '10'], overall: ['0–2', '3–5', '6–7', '8'] },
   principles: { name: 'Principles events', pis: 4, pi: ['0–3', '4–7', '8–11', '12'], overall: ['0–3', '4–6', '7–9', '10'] },
   pfl: { name: 'Personal Financial Literacy', pis: 3, pi: ['0–5', '6–11', '12–16', '17'], overall: ['0–2', '3–4', '5–6', '7'] },
 };
@@ -31,6 +32,7 @@ export function rubricTypeFor(eventCode) {
   const event = EVENTS.find((e) => e.code === eventCode);
   if (eventCode === 'PFL') return 'pfl';
   if (event?.cluster === 'Business Administration Core') return 'principles';
+  if (event?.type === 'Role Play' && event.competitors === '2') return 'team';
   return 'series';
 }
 

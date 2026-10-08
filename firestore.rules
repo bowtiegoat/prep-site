@@ -82,7 +82,7 @@ service cloud.firestore {
         && d.memberUids is list && d.memberUids.size() >= 1 && d.memberUids.size() <= 3
         && d.date is string && d.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
         && d.source in ['goat', 'deca']
-        && d.rubric in ['series', 'principles', 'pfl']
+        && d.rubric in ['series', 'team', 'principles', 'pfl']
         && (d.goatFile == null || (d.goatFile is string && d.goatFile.size() <= 200))
         && d.title is string && d.title.size() <= 200
         && isUrlOrEmpty(d.url) && d.url != ''
