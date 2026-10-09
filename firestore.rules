@@ -173,6 +173,12 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // Things for the admin to review, e.g. a student who took one exam more
+    // than 5 times. Written by the server; the admin marks them reviewed.
+    match /flags/{flagId} {
+      allow read, update, delete: if isAdmin();
+    }
+
     // Copies of attempts deleted by the admin or an advisor.
     match /deletedAttempts/{attemptId} {
       allow read: if isAdmin();

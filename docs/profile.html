@@ -23,17 +23,9 @@
       <select name="eventCode" required class="w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
       <p data-cluster-note class="hidden text-sm text-ink-700 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3"></p>
 
-      <fieldset data-choices class="hidden space-y-2">
-        <legend class="text-sm font-medium text-ink-700 mb-2">What should happen to your exam results?</legend>
-        <label class="flex items-start gap-3 rounded-lg border border-ink-200 p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50/50">
-          <input type="radio" name="keep" value="yes" checked class="mt-1" />
-          <span class="text-sm"><strong>Keep my results</strong> (recommended)<br /><span data-keep-detail class="text-ink-600"></span></span>
-        </label>
-        <label class="flex items-start gap-3 rounded-lg border border-ink-200 p-3 cursor-pointer has-[:checked]:border-rose-400 has-[:checked]:bg-rose-50/50">
-          <input type="radio" name="keep" value="no" class="mt-1" />
-          <span class="text-sm"><strong>Start over</strong><br /><span class="text-ink-600">Your exams list and My Results start empty, and you can take every exam again. Your advisor can still see your old results.</span></span>
-        </label>
-      </fieldset>
+      <p data-choices class="hidden rounded-lg bg-ink-50 border border-ink-200 px-4 py-3 text-sm text-ink-700">
+        <strong>Your results stay.</strong> <span data-keep-detail></span> You can retake any exam 3 days after your last try.
+      </p>
       <p data-error class="hidden rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
       <button type="submit" class="w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800 disabled:opacity-60">Change event</button>
     </form>
@@ -76,8 +68,8 @@
           ? `<strong>${esc(event.event)}</strong> uses the same <strong>${esc(event.cluster)}</strong> exam as your current event.`
           : `<strong>${esc(event.event)}</strong> uses the <strong>${esc(event.cluster)}</strong> exam instead of <strong>${esc(profile.cluster)}</strong>.`;
       form.querySelector('[data-keep-detail]').textContent = same
-        ? "Everything stays as it is. Exams you've already taken stay completed."
-        : `Your ${profile.cluster} exams move to the bottom of your Exams page under "${profile.eventName}," and they stay in My Results.`;
+        ? "Exams you've already taken stay on your Event Hub and in My Results."
+        : `Your ${profile.cluster} exams move to the bottom of your Event Hub under "${profile.eventName}," and they stay in My Results.`;
     }
     form.eventCode.addEventListener('change', updateChoices);
     updateChoices();
@@ -93,12 +85,7 @@
       const button = form.querySelector('button[type=submit]');
       button.disabled = true;
       try {
-        const keepResults = form.keep.value !== 'no';
-        if (!keepResults && !confirm('Start over? Your exams list and My Results will be empty. This can\'t be undone.')) {
-          button.disabled = false;
-          return;
-        }
-        await call('changeEvent', { eventCode: form.eventCode.value, keepResults });
+        await call('changeEvent', { eventCode: form.eventCode.value });
         location.replace('eventhub.html');
       } catch (err) {
         errorBox.textContent = err.message;

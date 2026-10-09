@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v5'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v6'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -94,7 +94,7 @@ export async function seed({ joined }) {
   const answerKeys = await keys();
   const { EVENTS } = await import('/js/events.js');
   const { grade, summarize } = await import('/mock/grading.js');
-  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {}, roleplayLogs: {} };
+  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {}, roleplayLogs: {}, flags: {} };
   exams.forEach((e) => { db.exams[e.id] = e; });
   Object.entries(stats).forEach(([id, s]) => { db.examStats[id] = s; });
   // Each question's PI and source without answers (what adminRebuildInsights writes).
@@ -145,6 +145,7 @@ export async function seed({ joined }) {
   // One team already formed; the Buying and Merchandising pair is left for the advisor to try.
   db.teams['demo-team-1'] = { schoolId: 'demo-school', eventCode: 'STDM', memberUids: ['s-ava', 's-noah'], createdBy: ADVISOR_USER.email };
   seedRolePlayLogs(daysAgo);
+  seedRetakes(daysAgo, answerKeys, grade, summarize);
   save();
   return db;
 }
@@ -184,6 +185,39 @@ function seedRolePlayLogs(daysAgo) {
   log('rp-team-1', { ...team, by: 's-ava', byName: 'Ava Thompson', ago: 12, deca: 'Promotion', levels: 'DDNDDDDNDDND', judge: 'Teacher or advisor', feedback: 'Split the PIs between you before you walk in. Noah, speak up more.' });
   log('rp-team-2', { ...team, by: 's-noah', byName: 'Noah Kim', ago: 4, deca: 'Marketing', levels: 'PDPDPPDPPPPP', score: 77, judge: 'Classmate / DECA member', feedback: 'Much smoother handoffs. Add numbers to support your budget.' });
   log('rp-mia-1', { members: ['s-mia'], by: 's-mia', byName: 'Mia Robinson', event: 'PBM', rubric: 'principles', ago: 5, deca: 'Human Resources Management', levels: 'DND-DNDDDDD', judge: 'Classmate / DECA member', feedback: 'Remember to answer all four PIs out loud.' });
+}
+
+// Retakes: Alex retook the 2025-26 District exam (its first try was 20 days ago),
+// and Maya took it 6 times, which raises a site flag.
+function seedRetakes(daysAgo, answerKeys, grade, summarize) {
+  const examId = DEMO_EXAMS[0];
+  const key = answerKeys[examId];
+  const take = (uid, number, ago, correct, schoolUser) => {
+    const wrong = new Set(key.filter((_, n) => ((n * 37 + number * 13) % 100) < 100 - correct).map((k) => k.q));
+    const graded = grade(key, key.map((k) => (wrong.has(k.q) ? (k.answer === 'A' ? 'B' : 'A') : k.answer)));
+    db.attempts[`${uid}_1_${examId}${number > 1 ? `_${number}` : ''}`] = {
+      uid, track: 1, examId, attemptNumber: number, examLabel: db.exams[examId].label, examSubtitle: db.exams[examId].subtitle,
+      cluster: schoolUser.cluster, eventCode: schoolUser.eventCode, schoolId: 'demo-school',
+      answers: graded.answers, correct: graded.correct, total: graded.total, missed: graded.missed,
+      countsForStats: true, statsAtSubmit: summarize(db.examStats[examId], graded.correct),
+      startedAt: timestamp(new Date(daysAgo(ago).getTime() - 80 * 60000)), submittedAt: timestamp(daysAgo(ago)),
+    };
+  };
+  // Alex: the seeded try 2 days ago becomes try 2; try 1 was 20 days ago.
+  const alexId = `${DEMO_USER.uid}_1_${examId}`;
+  const alexLatest = db.attempts[alexId];
+  delete db.attempts[alexId];
+  take(DEMO_USER.uid, 1, 20, 63, db.users[DEMO_USER.uid]);
+  db.attempts[`${alexId}_2`] = { ...alexLatest, attemptNumber: 2 };
+  // Maya: 6 tries, one every 4 days.
+  const maya = db.users['s-maya'];
+  delete db.attempts[`s-maya_1_${examId}`];
+  [[26, 61], [22, 66], [18, 70], [14, 75], [10, 81], [6, 88]].forEach(([ago, correct], i) => take('s-maya', i + 1, ago, correct, maya));
+  db.flags[`attempts_s-maya_${examId}`] = {
+    type: 'many-attempts', uid: 's-maya', studentName: 'Maya Patel', email: maya.email, schoolId: 'demo-school',
+    schoolName: 'BowtieGOAT Academy', examId, examLabel: `Marketing · ${db.exams[examId].label} · ${db.exams[examId].subtitle}`,
+    attempts: 6, status: 'open', createdAt: timestamp(daysAgo(6)), updatedAt: timestamp(daysAgo(6)),
+  };
 }
 
 // A small bar on every page so the preview is never mistaken for the live site.

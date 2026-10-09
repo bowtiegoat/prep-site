@@ -29,7 +29,7 @@
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 class="font-serif text-2xl font-bold">All missed questions <span data-missed-count class="text-ink-400 text-lg"></span></h2>
-          <p class="mt-1 text-sm text-ink-600">Every miss from the exams switched on above, in one place. Click a column heading to sort; sorting by performance indicator shows what you keep missing.</p>
+          <p class="mt-1 text-sm text-ink-600">Every missed question from the tries switched on above, one row per question. "Missed" shows how many of your tries got it wrong, so "2 of 2" is a real gap. Click a column heading to sort; sorting by performance indicator shows what you keep missing.</p>
         </div>
         <button data-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2.5 text-sm font-medium hover:bg-ink-800 disabled:opacity-60">⬇ Download spreadsheet</button>
       </div>
@@ -43,7 +43,8 @@
       collection, doc, getDoc, getDocs, query, where, updateDoc, arrayUnion, arrayRemove,
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText, show, isViewingAs } from './js/app.js';
-    import { missedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
+    import { groupedMissedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
+    import { byExam, latestAttempts } from './js/attempts.js';
 
     const { user, profile } = await requireUser();
     // An advisor viewing as a student must also filter by school, or the
@@ -75,47 +76,78 @@
           if (s.exists()) statsByExam.set(examId, s.data());
         } catch {}
       }));
-      list.innerHTML = `
-        <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
-          <table class="w-full min-w-[640px] text-sm">
-            <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
-              <th class="py-3 px-4">Date</th><th class="py-3 px-4">Exam</th><th class="py-3 px-4">Score</th><th class="py-3 px-4">Rank now</th>
-              <th class="py-3 px-4">In missed list</th><th></th>
-            </tr></thead>
-            <tbody>
-              ${attempts.map((a) => {
-                const s = statsByExam.get(a.examId);
-                const rank = s ? percentileText(percentile(s.histogram || [], a.correct, s.takers), s.takers) : '—';
-                return `
-                  <tr class="border-t border-ink-100">
-                    <td class="py-3 px-4 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
-                    <td class="py-3 px-4"><span class="font-medium">${esc(a.examLabel)}</span><br /><span class="text-xs text-ink-500">${esc(a.cluster)} · ${esc(a.examSubtitle)}</span></td>
-                    <td class="py-3 px-4 font-semibold tabular-nums">${a.correct} / ${a.total}</td>
-                    <td class="py-3 px-4 text-ink-600">${esc(rank)}</td>
-                    <td class="py-3 px-4">
-                      <label class="inline-flex items-center ${isViewingAs() ? 'opacity-60' : 'cursor-pointer'}" title="Include this exam in All missed questions">
-                        <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} ${isViewingAs() ? 'disabled' : ''} />
-                        <span class="relative w-10 h-6 rounded-full bg-ink-200 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400
-                          after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-4"></span>
-                        <span class="sr-only">Include ${esc(a.examLabel)} in All missed questions</span>
-                      </label>
-                    </td>
-                    <td class="py-3 px-4 text-right"><a href="result.html?id=${encodeURIComponent(a.id)}" class="text-blue-600 font-medium whitespace-nowrap">Details →</a></td>
-                  </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-        <p class="mt-2 text-xs text-ink-500">Switch an exam off to leave it out of All missed questions and the download. Your choices are saved.</p>`;
+      // One row per exam showing the latest try; the arrow opens every try.
+      const groups = byExam(attempts);
+      const open = new Set();
+      const toggleHtml = (a) => `
+        <label class="inline-flex items-center ${isViewingAs() ? 'opacity-60' : 'cursor-pointer'}" title="Include this try in All missed questions">
+          <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} ${isViewingAs() ? 'disabled' : ''} />
+          <span class="relative w-10 h-6 rounded-full bg-ink-200 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400
+            after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-4"></span>
+          <span class="sr-only">Include ${esc(a.examLabel)} try ${a.attemptNumber || 1} in All missed questions</span>
+        </label>`;
+      const rankOf = (a) => {
+        const st = statsByExam.get(a.examId);
+        return st ? percentileText(percentile(st.histogram || [], a.correct, st.takers), st.takers) : '—';
+      };
+      function drawTable() {
+        const rows = latestAttempts(attempts).map((latest) => {
+          const tries = groups.get(latest.examId);
+          const isOpen = open.has(latest.examId);
+          const earlier = tries.slice(0, -1).reverse();
+          return `
+            <tr class="border-t border-ink-100">
+              <td class="py-3 pl-3 w-8">${tries.length > 1 ? `
+                <button type="button" data-expand="${esc(latest.examId)}" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Hide' : 'Show'} all ${tries.length} tries"
+                  class="grid place-items-center w-7 h-7 rounded-full border border-ink-200 text-ink-600 hover:border-ink-400 transition-transform ${isOpen ? 'rotate-90' : ''}">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>` : ''}</td>
+              <td class="py-3 px-4 whitespace-nowrap">${esc(formatDate(latest.submittedAt))}</td>
+              <td class="py-3 px-4"><span class="font-medium">${esc(latest.examLabel)}</span><br /><span class="text-xs text-ink-500">${esc(latest.cluster)} · ${esc(latest.examSubtitle)}${tries.length > 1 ? ` · ${tries.length} tries` : ''}</span></td>
+              <td class="py-3 px-4 font-semibold tabular-nums">${latest.correct} / ${latest.total}${tries.length > 1 ? '<br /><span class="text-xs font-normal text-ink-500">latest</span>' : ''}</td>
+              <td class="py-3 px-4 text-ink-600">${esc(rankOf(latest))}</td>
+              <td class="py-3 px-4">${toggleHtml(latest)}</td>
+              <td class="py-3 px-4 text-right"><a href="result.html?id=${encodeURIComponent(latest.id)}" class="text-blue-600 font-medium whitespace-nowrap">Details →</a></td>
+            </tr>
+            ${isOpen ? earlier.map((a) => `
+              <tr class="bg-ink-50/60 text-ink-600">
+                <td></td>
+                <td class="py-2 px-4 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
+                <td class="py-2 px-4 text-sm">Try ${a.attemptNumber || 1}</td>
+                <td class="py-2 px-4 tabular-nums">${a.correct} / ${a.total}</td>
+                <td class="py-2 px-4">${esc(rankOf(a))}</td>
+                <td class="py-2 px-4">${toggleHtml(a)}</td>
+                <td class="py-2 px-4 text-right"><a href="result.html?id=${encodeURIComponent(a.id)}" class="text-blue-600 whitespace-nowrap">Details →</a></td>
+              </tr>`).join('') : ''}`;
+        }).join('');
+        list.innerHTML = `
+          <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
+            <table class="w-full min-w-[680px] text-sm">
+              <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
+                <th></th><th class="py-3 px-4">Date</th><th class="py-3 px-4">Exam</th><th class="py-3 px-4">Score</th><th class="py-3 px-4">Rank now</th>
+                <th class="py-3 px-4">In missed list</th><th></th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <p class="mt-2 text-xs text-ink-500">Each exam shows your latest try. Click the arrow to see every try. Switch a try off to leave it out of All missed questions and the download. Your choices are saved.</p>`;
+      }
+      drawTable();
+      list.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-expand]');
+        if (!b) return;
+        if (open.has(b.dataset.expand)) open.delete(b.dataset.expand); else open.add(b.dataset.expand);
+        drawTable();
+      });
 
-      const table = renderSortableTable(document.querySelector('[data-missed-table]'), missedRows(included()), {
-        columns: ['date', 'exam', 'q', 'yourAnswer', 'correctAnswer', 'area', 'code', 'source'],
+      const table = renderSortableTable(document.querySelector('[data-missed-table]'), groupedMissedRows(included()), {
+        columns: ['date', 'exam', 'q', 'missed', 'yourAnswer', 'correctAnswer', 'area', 'code', 'source'],
         sortBy: 'code',
         minWidth: 900,
         emptyText: 'Switch on an exam above to see its missed questions here.',
       });
       function refreshMissed() {
-        const rows = missedRows(included());
+        const rows = groupedMissedRows(included());
         document.querySelector('[data-missed-count]').textContent = `(${rows.length})`;
         table.update(rows);
       }

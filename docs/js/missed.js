@@ -48,6 +48,7 @@ export function missedRows(attempts) {
     cluster: a.cluster,
     exam: a.examLabel,
     test: a.examSubtitle || '',
+    attempt: a.attemptNumber || 1,
     event: a.eventCode || '',
     q: m.q,
     yourAnswer: m.yourAnswer || '',
@@ -59,9 +60,34 @@ export function missedRows(attempts) {
   })));
 }
 
+// With retakes: one row per missed question, saying how many of the student's
+// tries at that exam missed it ("2 of 3"). Answer and date are from the latest miss.
+export function groupedMissedRows(attempts) {
+  const tries = new Map();
+  attempts.forEach((a) => tries.set(a.examId, (tries.get(a.examId) || 0) + 1));
+  const groups = new Map();
+  attempts.forEach((a) => a.missed.forEach((m) => {
+    const k = `${a.examId}|${m.q}`;
+    const date = a.submittedAt?.toDate ? a.submittedAt.toDate() : null;
+    const g = groups.get(k);
+    if (!g) {
+      groups.set(k, {
+        date, cluster: a.cluster, exam: a.examLabel, test: a.examSubtitle || '', event: a.eventCode || '',
+        q: m.q, yourAnswer: m.yourAnswer || '', correctAnswer: m.correctAnswer, code: m.code, area: areaOf(m.code),
+        indicator: m.indicator, source: m.source, missedTimes: 1, tries: tries.get(a.examId),
+      });
+    } else {
+      g.missedTimes += 1;
+      if ((date?.getTime() || 0) >= (g.date?.getTime() || 0)) Object.assign(g, { date, yourAnswer: m.yourAnswer || '' });
+    }
+  }));
+  return [...groups.values()];
+}
+
 const COLUMNS = {
   date: { label: 'Date', value: (r) => r.date?.getTime() || 0, html: (r) => `<span class="whitespace-nowrap">${esc(formatDate(r.date))}</span>` },
   exam: { label: 'Exam', value: (r) => `${r.exam} ${r.test}`, html: (r) => `<span class="whitespace-nowrap">${esc(r.exam)}</span><br /><span class="text-xs text-ink-500">${esc(r.test)}</span>` },
+  missed: { label: 'Missed', value: (r) => r.missedTimes / r.tries + r.missedTimes / 1000, html: (r) => `<span class="whitespace-nowrap tabular-nums ${r.tries > 1 && r.missedTimes === r.tries ? 'font-semibold text-rose-700' : ''}">${r.missedTimes} of ${r.tries}</span>` },
   q: { label: 'Q#', value: (r) => r.q, html: (r) => `<span class="font-semibold tabular-nums">${r.q}</span>` },
   yourAnswer: { label: 'Yours', value: (r) => r.yourAnswer || '~', html: (r) => (r.yourAnswer ? `<span class="font-semibold text-rose-600">${esc(r.yourAnswer)}</span>` : '<span class="text-ink-400">blank</span>') },
   correctAnswer: { label: 'Correct', value: (r) => r.correctAnswer, html: (r) => `<span class="font-semibold text-green-700">${esc(r.correctAnswer)}</span>` },
@@ -152,6 +178,7 @@ export async function downloadResults({ studentName, attempts, fileName, rolePla
     'Cluster': a.cluster,
     'Exam': a.examLabel,
     'Test': a.examSubtitle || '',
+    'Try': a.attemptNumber || 1,
     'Event': a.eventCode || '',
     'Correct': a.correct,
     'Total': a.total,
@@ -167,6 +194,7 @@ export async function downloadResults({ studentName, attempts, fileName, rolePla
     'Cluster': r.cluster,
     'Exam': r.exam,
     'Test': r.test,
+    'Try': r.attempt,
     'Q#': r.q,
     'Your answer': r.yourAnswer || '(blank)',
     'Correct answer': r.correctAnswer,
@@ -182,8 +210,8 @@ export async function downloadResults({ studentName, attempts, fileName, rolePla
     ws['!cols'] = widths.map((wch) => ({ wch }));
     return ws;
   };
-  XLSX.utils.book_append_sheet(book, sheet(missed, [20, 11, 12, 16, 14, 5, 11, 13, 26, 9, 60, 60]), 'Missed questions');
-  XLSX.utils.book_append_sheet(book, sheet(examRows, [20, 11, 12, 16, 14, 8, 8, 6, 8, 12, 12, 12]), 'Exams');
+  XLSX.utils.book_append_sheet(book, sheet(missed, [20, 11, 12, 16, 14, 5, 5, 11, 13, 26, 9, 60, 60]), 'Missed questions');
+  XLSX.utils.book_append_sheet(book, sheet(examRows, [20, 11, 12, 16, 14, 5, 8, 8, 6, 8, 12, 12, 12]), 'Exams');
   if (rolePlays.length) {
     const widths = Object.keys(rolePlays[0]).map((k) => (k === 'Feedback' ? 60 : k === 'Role play' || k === 'Link' ? 32 : 14));
     XLSX.utils.book_append_sheet(book, sheet(rolePlays, widths), 'Role plays');

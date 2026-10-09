@@ -177,6 +177,7 @@
     import { areaOf, downloadResults, exportFileName } from './js/missed.js';
     import { firstCompetition } from './js/competitions.js';
     import { buildDraft } from './js/email-drafts.js';
+    import { byExam, latestAttempts } from './js/attempts.js';
     import { exportRows as rolePlayRows, gridHtml, logListHtml, rubricTypeFor, trend, latestSummary } from './js/roleplays.js';
 
     const $ = (sel) => document.querySelector(sel);
@@ -407,6 +408,7 @@
     let rolePlayLogs = [];
     let clustersWithExams = new Set();
     const statsCache = new Map();
+    const openTries = new Set(); // exams whose earlier tries are showing
 
     async function load() {
       const [userSnap, attemptSnap, teamSnap, examSnap, logSnap] = await Promise.all([
@@ -626,17 +628,30 @@
         missesByArea.set(area, (missesByArea.get(area) || 0) + 1);
       }));
       const weakest = [...missesByArea.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-      const history = mine.map((a) => {
+      // One row per exam (latest try); the arrow shows every try.
+      const tries = byExam(mine);
+      const attemptRow = (a, { latest, count }) => {
         const st = statsCache.get(a.examId);
         const rank = st ? percentileText(percentile(st.histogram || [], a.correct, st.takers), st.takers) : '—';
+        const isOpen = openTries.has(a.examId);
         return `
-          <tr class="border-t border-ink-100">
+          <tr class="border-t border-ink-100 ${latest ? '' : 'bg-ink-50/60 text-ink-600'}">
+            <td class="py-2 pr-2 w-7">${latest && count > 1 ? `
+              <button type="button" data-tries="${esc(a.examId)}" data-student="${esc(s.id)}" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Hide' : 'Show'} all ${count} tries"
+                class="grid place-items-center w-6 h-6 rounded-full border border-ink-200 text-ink-600 hover:border-ink-400 transition-transform ${isOpen ? 'rotate-90' : ''}">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>` : ''}</td>
             <td class="py-2 pr-3 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
-            <td class="py-2 pr-3">${esc(a.examLabel)} <span class="text-xs text-ink-500">${esc(a.examSubtitle)}</span></td>
-            <td class="py-2 pr-3 font-semibold tabular-nums">${a.correct}/${a.total}</td>
+            <td class="py-2 pr-3">${latest ? `${esc(a.examLabel)} <span class="text-xs text-ink-500">${esc(a.examSubtitle)}${count > 1 ? ` · ${count} tries` : ''}</span>` : `Try ${a.attemptNumber || 1}`}</td>
+            <td class="py-2 pr-3 ${latest ? 'font-semibold' : ''} tabular-nums">${a.correct}/${a.total}</td>
             <td class="py-2 pr-3 text-ink-600">${esc(rank)}</td>
             <td class="py-2 text-right">${viewOnly ? '' : `<button data-delete-attempt="${esc(a.id)}" data-label="${esc(a.examLabel)}" class="text-xs text-rose-600 hover:underline">Delete</button>`}</td>
           </tr>`;
+      };
+      const history = latestAttempts(mine).map((latest) => {
+        const list = tries.get(latest.examId);
+        const earlier = openTries.has(latest.examId) ? list.slice(0, -1).reverse() : [];
+        return attemptRow(latest, { latest: true, count: list.length }) + earlier.map((a) => attemptRow(a, { latest: false })).join('');
       }).join('');
       box.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
@@ -809,8 +824,15 @@
         await load();
         return;
       }
+      const triesButton = e.target.closest('[data-tries]');
+      if (triesButton) {
+        const id = triesButton.dataset.tries;
+        if (openTries.has(id)) openTries.delete(id); else openTries.add(id);
+        await fillPanel(students.find((x) => x.id === triesButton.dataset.student));
+        return;
+      }
       const del = e.target.closest('[data-delete-attempt]');
-      if (del && confirm(`Delete this ${del.dataset.label} attempt?\n\nThe student will be able to take this exam again, and it's removed from the site averages.`)) {
+      if (del && confirm(`Delete this ${del.dataset.label} try?\n\nIt's removed from the student's results and the site averages.`)) {
         await call('deleteAttempt', { attemptId: del.dataset.deleteAttempt });
         await load();
       }

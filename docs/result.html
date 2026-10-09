@@ -81,7 +81,7 @@
       ${params.get('new') ? '<p class="mb-6 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">✅ Submitted! Here\'s how you did. You can come back to these results anytime from <strong>My Results</strong>.</p>' : ''}
       <a href="results.html" class="text-sm text-blue-600">← All my results</a>
       <h1 class="mt-3 font-serif text-3xl sm:text-4xl font-bold">${esc(attempt.cluster)} · ${esc(attempt.examLabel)}</h1>
-      <p class="mt-1 text-ink-500">${esc(attempt.examSubtitle)} · Taken ${esc(formatDate(attempt.submittedAt))}${minutes != null ? ` · ${minutes} minutes` : ''}</p>
+      <p class="mt-1 text-ink-500">${esc(attempt.examSubtitle)}${(attempt.attemptNumber || 1) > 1 ? ` · Try ${attempt.attemptNumber}` : ''} · Taken ${esc(formatDate(attempt.submittedAt))}${minutes != null ? ` · ${minutes} minutes` : ''}</p>
 
       <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="rounded-xl bg-ink-900 text-cream-50 p-6 flex flex-col justify-center">

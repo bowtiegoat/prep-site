@@ -18,6 +18,11 @@ setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 const CALLABLE = { invoker: 'public' };
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,200}$/;
+// Students can retake an exam this many days after their last try (keep in
+// sync with docs/js/attempts.js). Taking one exam more than FLAG_ATTEMPTS
+// times adds a flag for the admin to review.
+const RETAKE_DAYS = 3;
+const FLAG_ATTEMPTS = 5;
 const ADMIN_EMAIL = 'justin@thebowtiegoat.com';
 
 function requireUser(req) {
@@ -85,11 +90,12 @@ exports.joinSchool = onCall(CALLABLE, async (req) => {
   return { ok: true };
 });
 
-// Changing events either keeps the student's results (same "track") or starts
-// them over (a new track). Started-over attempts stay in the database for the admin.
+// Changing events keeps the student's results. (Students used to be able to
+// start over on a new "track"; now they retake exams instead. Old started-over
+// attempts stay in the database for the admin.)
 exports.changeEvent = onCall(CALLABLE, async (req) => {
   const auth = requireUser(req);
-  const { eventCode, keepResults } = req.data || {};
+  const { eventCode } = req.data || {};
   const event = EVENTS.find((e) => e.code === eventCode);
   if (!event) throw invalid('Please pick your event.');
   const userRef = db.doc(`users/${auth.uid}`);
@@ -98,21 +104,22 @@ exports.changeEvent = onCall(CALLABLE, async (req) => {
     if (!snap.exists) throw new HttpsError('failed-precondition', 'Finish signing up first.');
     const user = snap.data();
     if (user.eventCode === event.code) throw invalid("That's already your event.");
-    const keep = keepResults !== false;
-    const track = keep ? (user.track || 1) : (user.track || 1) + 1;
+    const track = user.track || 1;
     tx.update(userRef, {
       eventCode: event.code,
       eventName: event.event,
       cluster: event.cluster,
       track,
-      eventHistory: FieldValue.arrayUnion({ eventCode: event.code, track, keptResults: keep, at: new Date() }),
+      eventHistory: FieldValue.arrayUnion({ eventCode: event.code, track, keptResults: true, at: new Date() }),
     });
     return { ok: true, track };
   });
 });
 
 // Grades a submitted exam, saves the attempt, and updates the site-wide stats.
-// Only a student's first attempt at an exam counts toward the stats.
+// Students may retake an exam RETAKE_DAYS after their last try; every attempt
+// counts toward the stats. Attempt 1 keeps the original id (uid_track_examId);
+// later attempts add _2, _3, ...
 exports.submitAttempt = onCall(CALLABLE, async (req) => {
   const auth = requireUser(req);
   const { examId, answers, startedAt } = req.data || {};
@@ -128,33 +135,41 @@ exports.submitAttempt = onCall(CALLABLE, async (req) => {
   if (!examSnap.exists || !keySnap.exists) throw new HttpsError('not-found', 'That exam is no longer available.');
   const user = userSnap.data();
   const exam = examSnap.data();
-  if (EVENTS.NO_EXAM_EVENTS.has(user.eventCode)) throw new HttpsError('permission-denied', "Your event doesn't take a cluster exam.");
   if (exam.cluster !== user.cluster) throw new HttpsError('permission-denied', "That exam isn't part of your event's cluster.");
+  if (EVENTS.NO_EXAM_EVENTS.has(user.eventCode)) throw new HttpsError('permission-denied', "Your event doesn't take a cluster exam.");
   const key = keySnap.data().questions;
   if (answers.length !== key.length) throw invalid(`Expected ${key.length} answers.`);
 
   const graded = grade(key, answers);
   const started = Number.isFinite(startedAt) && startedAt > 0 && startedAt <= Date.now() ? new Date(startedAt) : null;
-  const attemptId = `${auth.uid}_${user.track || 1}_${examId}`;
-  const attemptRef = db.doc(`attempts/${attemptId}`);
+  const track = user.track || 1;
+  const baseId = `${auth.uid}_${track}_${examId}`;
   const statsRef = db.doc(`examStats/${examId}`);
-  const entryRef = db.doc(`statsEntries/${examId}_${auth.uid}`);
+  const earlierQuery = db.collection('attempts')
+    .where('uid', '==', auth.uid).where('examId', '==', examId).where('track', '==', track);
 
-  await db.runTransaction(async (tx) => {
-    const [attemptSnap, statsSnap, entrySnap] = await Promise.all([tx.get(attemptRef), tx.get(statsRef), tx.get(entryRef)]);
-    if (attemptSnap.exists) throw new HttpsError('already-exists', "You've already submitted this exam.");
-    const countsForStats = !entrySnap.exists;
-    let stats = statsSnap.exists ? statsSnap.data() : { takers: 0, sumCorrect: 0, histogram: [] };
-    if (countsForStats) {
-      stats = addToStats(stats, graded.correct, graded.total);
-      stats = applyQuestionCounts(stats, correctFlags(graded.total, graded.missed), 1, 1);
-      tx.set(statsRef, { ...stats, updatedAt: FieldValue.serverTimestamp() });
-      tx.set(entryRef, { attemptId, createdAt: FieldValue.serverTimestamp() });
+  const attemptId = await db.runTransaction(async (tx) => {
+    const [earlierSnap, statsSnap] = await Promise.all([tx.get(earlierQuery), tx.get(statsRef)]);
+    const earlier = earlierSnap.docs.map((d) => d.data());
+    const last = Math.max(0, ...earlier.map((a) => (a.submittedAt ? a.submittedAt.toMillis() : 0)));
+    const retakeAt = last + RETAKE_DAYS * 86400000;
+    if (earlier.length && Date.now() < retakeAt) {
+      const when = new Date(retakeAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' });
+      throw new HttpsError('failed-precondition', `You can retake this exam on ${when}.`);
     }
+    const number = Math.max(0, ...earlier.map((a) => a.attemptNumber || 1)) + 1;
+    const id = number === 1 ? baseId : `${baseId}_${number}`;
+    const attemptRef = db.doc(`attempts/${id}`);
+
+    let stats = statsSnap.exists ? statsSnap.data() : { takers: 0, sumCorrect: 0, histogram: [] };
+    stats = addToStats(stats, graded.correct, graded.total);
+    stats = applyQuestionCounts(stats, correctFlags(graded.total, graded.missed), 1, 1);
+    tx.set(statsRef, { ...stats, updatedAt: FieldValue.serverTimestamp() });
     tx.set(attemptRef, {
       uid: auth.uid,
-      track: user.track || 1,
+      track,
       examId,
+      attemptNumber: number,
       examLabel: exam.label,
       examSubtitle: exam.subtitle || '',
       cluster: exam.cluster,
@@ -164,11 +179,31 @@ exports.submitAttempt = onCall(CALLABLE, async (req) => {
       correct: graded.correct,
       total: graded.total,
       missed: graded.missed,
-      countsForStats,
+      countsForStats: true,
       statsAtSubmit: summarize(stats, graded.correct),
       startedAt: started,
       submittedAt: FieldValue.serverTimestamp(),
     });
+
+    // Site flag: the same exam taken more than FLAG_ATTEMPTS times. A new try reopens a reviewed flag.
+    if (number > FLAG_ATTEMPTS) {
+      const flagRef = db.doc(`flags/attempts_${auth.uid}_${examId}`);
+      tx.set(flagRef, {
+        type: 'many-attempts',
+        uid: auth.uid,
+        studentName: `${user.firstName} ${user.lastName}`,
+        email: user.email || '',
+        schoolId: user.schoolId,
+        schoolName: user.schoolName || '',
+        examId,
+        examLabel: `${exam.cluster} · ${exam.label}${exam.subtitle ? ` · ${exam.subtitle}` : ''}`,
+        attempts: number,
+        status: 'open',
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(number === FLAG_ATTEMPTS + 1 ? { createdAt: FieldValue.serverTimestamp() } : {}),
+      }, { merge: true });
+    }
+    return id;
   });
   return { attemptId };
 });
@@ -203,18 +238,20 @@ exports.deleteAttempt = onCall(CALLABLE, async (req) => {
     if (!snap.exists) return;
     const attempt = snap.data();
     const statsRef = db.doc(`examStats/${attempt.examId}`);
+    // Attempts from before retakes were tracked in statsEntries (one per student per exam).
     const entryRef = db.doc(`statsEntries/${attempt.examId}_${attempt.uid}`);
     const [statsSnap, entrySnap] = await Promise.all([tx.get(statsRef), tx.get(entryRef)]);
+    const entryMatches = entrySnap.exists && entrySnap.data().attemptId === attemptId;
 
-    if (statsSnap.exists && entrySnap.exists && entrySnap.data().attemptId === attemptId) {
+    if (statsSnap.exists && (attempt.countsForStats || entryMatches)) {
       let stats = removeFromStats(statsSnap.data(), attempt.correct);
       // Skip if per-question counts haven't been built yet (Admin → Rebuild insights data).
       if ((statsSnap.data().questionTakers || 0) > 0) {
         stats = applyQuestionCounts(stats, correctFlags(attempt.total, attempt.missed), 1, -1);
       }
       tx.set(statsRef, { ...stats, updatedAt: FieldValue.serverTimestamp() });
-      tx.delete(entryRef);
     }
+    if (entryMatches) tx.delete(entryRef);
     tx.set(db.doc(`deletedAttempts/${attemptId}`), {
       ...attempt,
       deletedBy: email,

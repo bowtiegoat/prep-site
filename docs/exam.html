@@ -22,11 +22,12 @@
       <a href="eventhub.html" class="text-sm text-blue-600">← Back to Event Hub</a>
       <h1 class="mt-3 font-serif text-3xl font-bold" data-title></h1>
       <p class="mt-1 text-ink-500" data-subtitle></p>
+      <p data-retake-note class="hidden mt-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700"></p>
       <div class="mt-6 bg-white rounded-2xl border border-ink-200 p-6 space-y-3 text-ink-700">
         <p>📄 <strong>Have your printed exam ready.</strong> You'll bubble in your answers here.</p>
         <p>⏱️ <strong>You get 90 minutes</strong>, the same as the real exam. The timer keeps you honest, but it won't lock you out.</p>
         <p>💾 Your answers are saved <strong>on this device</strong> as you go, so a refresh won't erase them.</p>
-        <p>✅ <strong>Nothing is recorded until you click Submit</strong>, and you can only submit this exam once.</p>
+        <p>✅ <strong>Nothing is recorded until you click Submit</strong>, and you can retake this exam 3 days after you submit.</p>
       </div>
       <button data-start class="mt-6 w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800">Start the timer</button>
     </section>
@@ -59,7 +60,7 @@
     <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
       <h2 class="font-serif text-2xl font-bold">Submit your answers?</h2>
       <p data-blank-note class="mt-3 text-sm text-ink-700"></p>
-      <p class="mt-3 text-sm text-ink-700">You <strong>can't retake</strong> this exam after submitting.</p>
+      <p class="mt-3 text-sm text-ink-700">You can retake this exam <strong>3 days</strong> after you submit.</p>
       <p data-submit-error class="hidden mt-3 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700"></p>
       <div class="mt-6 flex gap-3 justify-end">
         <button data-cancel class="rounded-lg px-4 py-2.5 text-ink-700 hover:bg-ink-100">Keep working</button>
@@ -69,10 +70,11 @@
   </div>
 
   <script type="module">
-    import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { collection, doc, getDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, call, esc, show, EXAM_MINUTES, isViewingAs } from './js/app.js';
     import { draftKey, loadDraft, saveDraft, clearDraft } from './js/drafts.js';
     import { takesExam } from './js/events.js';
+    import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
 
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -91,18 +93,24 @@
     }
 
     const examId = new URLSearchParams(location.search).get('id') || '';
-    const attemptId = `${user.uid}_${profile.track}_${examId}`;
-    let examSnap, attemptSnap;
+    let examSnap, earlierSnap;
     try {
-      [examSnap, attemptSnap] = await Promise.all([
+      [examSnap, earlierSnap] = await Promise.all([
         getDoc(doc(db, 'exams', examId)),
-        getDoc(doc(db, 'attempts', attemptId)),
+        getDocs(query(collection(db, 'attempts'), where('uid', '==', user.uid), where('examId', '==', examId))),
       ]);
     } catch {
       examSnap = null;
     }
-    if (attemptSnap?.exists()) {
-      location.replace(`result.html?id=${encodeURIComponent(attemptId)}`);
+    // A retake opens RETAKE_DAYS after the last try.
+    const earlier = byExam((earlierSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.track === profile.track)).get(examId) || [];
+    const waitUntil = retakeAvailableAt(earlier);
+    if (waitUntil) {
+      const last = earlier[earlier.length - 1];
+      show($('[data-loading]'), false);
+      $('[data-error]').innerHTML = `You took this exam recently. You can retake it on <strong>${esc(shortDay(waitUntil))}</strong>.
+        <a href="result.html?id=${encodeURIComponent(last.id)}" class="underline">See your results</a> · <a href="eventhub.html" class="underline">Back to Event Hub</a>`;
+      show($('[data-error]'), true);
       await new Promise(() => {});
     }
     if (!examSnap?.exists()) {
@@ -130,6 +138,12 @@
     $('[data-sheet-title]').textContent = `${exam.cluster} · ${exam.label} · ${exam.subtitle}`;
     $('[data-count]').textContent = count;
     show($('[data-loading]'), false);
+
+    if (earlier.length) {
+      const best = Math.max(...earlier.map((a) => a.correct));
+      $('[data-retake-note]').textContent = `This is your retake (try ${earlier.length + 1}). Your latest score was ${earlier[earlier.length - 1].correct}/${earlier[earlier.length - 1].total}${earlier.length > 1 ? `, and your best was ${best}` : ''}. Every try counts in My Results; your first try is what the Exam Deep Dive uses.`;
+      show($('[data-retake-note]'), true);
+    }
 
     if (draft) startSheet();
     else show($('[data-intro]'), true);
@@ -245,7 +259,7 @@
       } catch (err) {
         if (/already submitted/i.test(err.message)) {
           clearDraft(key);
-          location.replace(`result.html?id=${encodeURIComponent(attemptId)}`);
+          location.replace('results.html');
           return;
         }
         $('[data-submit-error]').textContent = `${err.message} Your answers are still saved on this device.`;

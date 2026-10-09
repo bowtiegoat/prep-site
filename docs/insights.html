@@ -31,6 +31,7 @@
     import { db, requireUser, renderHeader, esc, linkify, isViewingAs, today, loadIcdc } from './js/app.js';
     import { firstCompetition } from './js/competitions.js';
     import { areaOf } from './js/missed.js';
+    import { firstAttempts } from './js/attempts.js';
     import { takesExam } from './js/events.js';
     import {
       LEVELS, MIN_TAKERS, accuracy, answerLetters, blueprint, cheapestPoints, examsAtLevel, levelComparison,
@@ -60,8 +61,10 @@
     const questions = new Map(questionSnap.docs.map((d) => [d.id, d.data()]));
     // Same exams as My Results: this event's cluster, current track, and not switched off there.
     const excluded = new Set(profile.excludedAttempts || []);
-    const attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    let attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       .filter((a) => a.track === profile.track && questions.has(a.examId) && !excluded.has(a.id));
+    // Retakes: only each exam's first try counts here (what the student knew at first).
+    attempts = firstAttempts(attempts);
     const stats = new Map();
     await Promise.all([...questions.keys()].map(async (id) => {
       try { const s = await getDoc(doc(db, 'examStats', id)); if (s.exists()) stats.set(id, s.data()); } catch {}

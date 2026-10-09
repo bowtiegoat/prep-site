@@ -21,35 +21,42 @@ const handlers = {
     return { ok: true };
   },
 
-  async changeEvent({ eventCode, keepResults }) {
+  async changeEvent({ eventCode }) {
     const user = table('users')[DEMO_USER.uid];
     const event = EVENTS.find((e) => e.code === eventCode) || fail('Please pick your event.');
     if (user.eventCode === event.code) fail("That's already your event.");
-    const keep = keepResults !== false;
-    user.track = keep ? user.track : user.track + 1;
     Object.assign(user, { eventCode: event.code, eventName: event.event, cluster: event.cluster });
-    user.eventHistory = [...(user.eventHistory || []), { eventCode: event.code, track: user.track, keptResults: keep, at: timestamp(new Date()) }];
+    user.eventHistory = [...(user.eventHistory || []), { eventCode: event.code, track: user.track, keptResults: true, at: timestamp(new Date()) }];
     save();
     return { ok: true, track: user.track };
   },
 
+  // Same rules as the real server: a retake 3 days after the last try, every try counts, flag after 5.
   async submitAttempt({ examId, answers, startedAt }) {
     const user = table('users')[DEMO_USER.uid];
     const exam = table('exams')[examId];
     const key = (await keys())[examId];
-    const attemptId = `${DEMO_USER.uid}_${user.track}_${examId}`;
-    if (table('attempts')[attemptId]) fail("You've already submitted this exam.");
+    const earlier = Object.values(table('attempts')).filter((a) => a.uid === DEMO_USER.uid && a.examId === examId && a.track === user.track);
+    const last = Math.max(0, ...earlier.map((a) => a.submittedAt.toMillis()));
+    if (earlier.length && Date.now() < last + 3 * 86400000) fail(`You can retake this exam on ${new Date(last + 3 * 86400000).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}.`);
+    const number = Math.max(0, ...earlier.map((a) => a.attemptNumber || 1)) + 1;
+    const attemptId = `${DEMO_USER.uid}_${user.track}_${examId}${number > 1 ? `_${number}` : ''}`;
     const graded = grade(key, answers);
-    const counts = !Object.values(table('attempts')).some((a) => a.examId === examId && a.countsForStats);
-    let stats = table('examStats')[examId] || { takers: 0, sumCorrect: 0, histogram: [] };
-    if (counts) stats = table('examStats')[examId] = addToStats(stats, graded.correct, graded.total);
+    const stats = table('examStats')[examId] = addToStats(table('examStats')[examId] || { takers: 0, sumCorrect: 0, histogram: [] }, graded.correct, graded.total);
     table('attempts')[attemptId] = {
-      uid: DEMO_USER.uid, track: user.track, examId, examLabel: exam.label, examSubtitle: exam.subtitle,
+      uid: DEMO_USER.uid, track: user.track, examId, attemptNumber: number, examLabel: exam.label, examSubtitle: exam.subtitle,
       cluster: exam.cluster, eventCode: user.eventCode, schoolId: user.schoolId,
       answers: graded.answers, correct: graded.correct, total: graded.total, missed: graded.missed,
-      countsForStats: counts, statsAtSubmit: summarize(stats, graded.correct),
+      countsForStats: true, statsAtSubmit: summarize(stats, graded.correct),
       startedAt: startedAt ? timestamp(startedAt) : null, submittedAt: timestamp(new Date()),
     };
+    if (number > 5) {
+      table('flags')[`attempts_${DEMO_USER.uid}_${examId}`] = {
+        type: 'many-attempts', uid: DEMO_USER.uid, studentName: `${user.firstName} ${user.lastName}`, email: user.email,
+        schoolId: user.schoolId, schoolName: user.schoolName, examId, examLabel: `${exam.cluster} · ${exam.label} · ${exam.subtitle}`,
+        attempts: number, status: 'open', updatedAt: timestamp(new Date()),
+      };
+    }
     save();
     return { attemptId };
   },
