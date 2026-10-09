@@ -200,6 +200,7 @@ export function logListHtml(logs, { actions = () => '', viewerUid = null } = {})
           <p class="text-ink-600">${links}</p>
         </div>
         ${log.feedback ? `<p class="mt-1 text-ink-700 whitespace-pre-line">${linkify(log.feedback)}</p>` : ''}
+        ${log.fixNext ? `<p class="mt-1 text-sm"><span class="font-semibold">Fix next time:</span> ${esc(log.fixNext)}${log.timed ? ' <span class="ml-1 rounded-full bg-ink-100 text-ink-600 text-[11px] font-semibold px-2 py-0.5">Full timing</span>' : ''}</p>` : (log.timed ? '<p class="mt-1"><span class="rounded-full bg-ink-100 text-ink-600 text-[11px] font-semibold px-2 py-0.5">Full timing</span></p>' : '')}
       </li>`;
   }).join('')}</ul>`;
 }
@@ -223,6 +224,8 @@ export function exportRows(logs, studentName) {
       row[r.label] = levelName(log.levels?.[r.key]);
     });
     row['Feedback'] = log.feedback || '';
+    row['Fix next time'] = log.fixNext || '';
+    row['Full timing'] = log.timed ? 'Yes' : '';
     row['Video'] = log.videoUrl || '';
     return row;
   });

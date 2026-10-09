@@ -26,6 +26,7 @@ export async function initRolePlayDrawer({ user, profile, event }) {
   const rubric = rubricTypeFor(profile.eventCode);
   const isTeamEvent = Number(String(event.competitors).split('-').pop()) > 1;
   const [prep, present] = isTeamEvent ? [30, 15] : [10, 10];
+  document.querySelector('[data-timed-hint]').textContent = `(${prep} minutes to prepare, ${present} to present)`;
 
   $('[data-rp-steps]').innerHTML = [
     ['Pick a role play', `Use a <a href="${GOAT_PAGE}" target="_blank" rel="noopener noreferrer" class="${linkClass}">GOAT role play</a> or a sample from <a href="${DECA_PAGE}" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA's resources page</a>.`],
@@ -143,6 +144,8 @@ export async function initRolePlayDrawer({ user, profile, event }) {
     $m('[data-score]').value = log?.score ?? '';
     $m('[data-video]').value = log?.videoUrl || '';
     $m('[data-feedback]').value = log?.feedback || '';
+    $m('[data-fix-next]').value = log?.fixNext || '';
+    $m('[data-timed]').checked = !!log?.timed;
     $m('[data-delete]').classList.toggle('hidden', !log);
     $m('[data-error]').textContent = '';
     setSource(log?.source || 'goat');
@@ -184,12 +187,16 @@ export async function initRolePlayDrawer({ user, profile, event }) {
     if (score != null && !(Number.isInteger(score) && score >= 0 && score <= 100)) return error('The overall score must be a whole number from 0 to 100.');
     const videoUrl = $m('[data-video]').value.trim();
     if (videoUrl && !isUrl(videoUrl)) return error('The video link should start with https://.');
+    const fixNext = $m('[data-fix-next]').value.trim().slice(0, 500);
+    if (!fixNext) return error('Write one thing to fix next time. It\'s what makes each practice count.');
 
     const data = {
       // An edited log keeps the rubric it was saved with.
       date, source, goatFile, title, url, ia, pis, rubric: editing?.rubric || rubric, levels: rated, score, videoUrl,
       judge: $m('[data-judge]').value,
       feedback: $m('[data-feedback]').value.trim().slice(0, 5000),
+      fixNext,
+      timed: $m('[data-timed]').checked,
       updatedAt: serverTimestamp(),
     };
     const button = $m('[data-save]');
@@ -211,6 +218,7 @@ export async function initRolePlayDrawer({ user, profile, event }) {
       }
       closeForm();
       await load();
+      document.dispatchEvent(new CustomEvent('prep:logs-changed')); // the prep plan re-checks role play tasks
     } catch {
       error("Your log couldn't be saved. Check your connection and try again.");
     } finally {
@@ -224,6 +232,7 @@ export async function initRolePlayDrawer({ user, profile, event }) {
       await deleteDoc(doc(db, 'roleplayLogs', editing.id));
       closeForm();
       await load();
+      document.dispatchEvent(new CustomEvent('prep:logs-changed'));
     } catch {
       $m('[data-error]').textContent = "The log couldn't be deleted. Try again.";
     }

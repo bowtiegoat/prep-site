@@ -27,12 +27,18 @@ service cloud.firestore {
     }
 
     // School names for the sign-up picker (codes live in schoolCodes).
-    // Advisors may set their school's competition dates.
+    // Advisors may set their school's competition dates and adjust its prep
+    // plan (removed tasks, their own info-only items).
     match /schools/{schoolId} {
       allow read: if signedIn();
       allow write: if isAdmin();
       allow update: if isAdvisorOf(schoolId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['competitionDates']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['competitionDates', 'planSettings'])
+        && (!('planSettings' in request.resource.data)
+          || (request.resource.data.planSettings is map
+            && request.resource.data.planSettings.keys().hasOnly(['removed', 'items', 'catchupHandled'])
+            && (!('removed' in request.resource.data.planSettings) || request.resource.data.planSettings.removed.size() <= 60)
+            && (!('items' in request.resource.data.planSettings) || request.resource.data.planSettings.items.size() <= 100)));
     }
 
     // Site-wide settings, e.g. this year's ICDC dates.
@@ -78,7 +84,7 @@ service cloud.firestore {
     function validLog(d) {
       return d.keys().hasOnly(['memberUids', 'teamId', 'schoolId', 'eventCode', 'rubric', 'date', 'source',
           'goatFile', 'title', 'url', 'ia', 'pis', 'levels', 'score', 'videoUrl', 'judge', 'feedback',
-          'createdBy', 'createdByName', 'createdAt', 'updatedAt'])
+          'fixNext', 'timed', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'])
         && d.memberUids is list && d.memberUids.size() >= 1 && d.memberUids.size() <= 3
         && d.date is string && d.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
         && d.source in ['goat', 'deca']
@@ -93,6 +99,8 @@ service cloud.firestore {
         && isUrlOrEmpty(d.videoUrl)
         && d.judge is string && d.judge.size() <= 60
         && d.feedback is string && d.feedback.size() <= 5000
+        && (!('fixNext' in d) || (d.fixNext is string && d.fixNext.size() <= 500))
+        && (!('timed' in d) || d.timed is bool)
         && d.updatedAt == request.time;
     }
 
@@ -120,7 +128,7 @@ service cloud.firestore {
       allow update: if signedIn() && request.auth.uid in resource.data.memberUids
         && validLog(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'source', 'goatFile', 'title',
-          'url', 'ia', 'pis', 'levels', 'score', 'videoUrl', 'judge', 'feedback', 'rubric', 'updatedAt'])
+          'url', 'ia', 'pis', 'levels', 'score', 'videoUrl', 'judge', 'feedback', 'fixNext', 'timed', 'rubric', 'updatedAt'])
         && request.resource.data.rubric == resource.data.rubric;
       allow delete: if signedIn() && request.auth.uid in resource.data.memberUids;
     }
@@ -147,15 +155,23 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
+      // Advisors may excuse prep plan items for their own students.
+      allow update: if isAdvisorOf(resource.data.schoolId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['planExcused', 'planLateHandled'])
+        && (!('planExcused' in request.resource.data)
+          || (request.resource.data.planExcused is map && request.resource.data.planExcused.size() <= 60));
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin() || isAdvisorOf(resource.data.schoolId));
       // Students may only change which attempts are left out of their
-      // "All missed questions" table, and their last active day.
+      // "All missed questions" table, their last active day, and the
+      // checkboxes on their prep plan.
       allow update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts', 'lastActiveDate'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts', 'lastActiveDate', 'planChecks'])
         && (!('excludedAttempts' in request.resource.data)
           || (request.resource.data.excludedAttempts is list && request.resource.data.excludedAttempts.size() <= 1000))
         && (!('lastActiveDate' in request.resource.data)
-          || (request.resource.data.lastActiveDate is string && request.resource.data.lastActiveDate.size() == 10));
+          || (request.resource.data.lastActiveDate is string && request.resource.data.lastActiveDate.size() == 10))
+        && (!('planChecks' in request.resource.data)
+          || (request.resource.data.planChecks is map && request.resource.data.planChecks.size() <= 60));
     }
 
     // resource == null lets a student check whether they've taken an exam yet.

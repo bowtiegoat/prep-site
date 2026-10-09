@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v6'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v8'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -121,6 +121,8 @@ export async function seed({ joined }) {
       schoolId: 'demo-school', schoolName: 'BowtieGOAT Academy',
       eventCode: code, eventName: event.event, cluster: event.cluster, track: 1,
       eventHistory: [{ eventCode: code, track: 1, at: timestamp(daysAgo(60)) }],
+      // Liam joined late (in week 2 of the prep plan); everyone else joined in August.
+      createdAt: timestamp(daysAgo(uid === 's-liam' ? 10 : 60)),
       ...(active == null ? {} : { lastActiveDate: daysAgo(active).toLocaleDateString('en-CA') }),
     };
     taken.forEach(([ago, correct], i) => {
@@ -146,6 +148,7 @@ export async function seed({ joined }) {
   db.teams['demo-team-1'] = { schoolId: 'demo-school', eventCode: 'STDM', memberUids: ['s-ava', 's-noah'], createdBy: ADVISOR_USER.email };
   seedRolePlayLogs(daysAgo);
   seedRetakes(daysAgo, answerKeys, grade, summarize);
+  seedPrepPlan(daysAgo, answerKeys, grade, summarize);
   save();
   return db;
 }
@@ -218,6 +221,26 @@ function seedRetakes(daysAgo, answerKeys, grade, summarize) {
     schoolName: 'BowtieGOAT Academy', examId, examLabel: `Marketing · ${db.exams[examId].label} · ${db.exams[examId].subtitle}`,
     attempts: 6, status: 'open', createdAt: timestamp(daysAgo(6)), updatedAt: timestamp(daysAgo(6)),
   };
+}
+
+// Prep plan: Districts about 6 weeks away (so the plan is in week 3), with
+// Alex part way through: the 2020-21 exam and a checked "read guidelines".
+function seedPrepPlan(daysAgo, answerKeys, grade, summarize) {
+  const inDays = (n) => new Date(Date.now() + n * 86400000).toLocaleDateString('en-CA');
+  db.schools['demo-school'].competitionDates = { district: inDays(41), state: inDays(120), noDistrict: false, preparedFirstAt: 'state' };
+  const examId = 'marketing-20-21-districts-1226';
+  const key = answerKeys[examId];
+  if (!key) return;
+  const wrong = new Set(key.filter((_, n) => ((n * 41) % 100) < 36).map((k) => k.q));
+  const graded = grade(key, key.map((k) => (wrong.has(k.q) ? (k.answer === 'A' ? 'B' : 'A') : k.answer)));
+  db.attempts[`${DEMO_USER.uid}_1_${examId}`] = {
+    uid: DEMO_USER.uid, track: 1, examId, attemptNumber: 1, examLabel: db.exams[examId].label, examSubtitle: db.exams[examId].subtitle,
+    cluster: 'Marketing', eventCode: 'AAM', schoolId: 'demo-school',
+    answers: graded.answers, correct: graded.correct, total: graded.total, missed: graded.missed,
+    countsForStats: true, statsAtSubmit: summarize(db.examStats[examId], graded.correct),
+    startedAt: timestamp(new Date(daysAgo(15).getTime() - 85 * 60000)), submittedAt: timestamp(daysAgo(15)),
+  };
+  db.users[DEMO_USER.uid].planChecks = { guidelines: true };
 }
 
 // A small bar on every page so the preview is never mistaken for the live site.

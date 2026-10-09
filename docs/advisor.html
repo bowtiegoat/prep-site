@@ -84,6 +84,15 @@
       </form>
     </section>
 
+    <!-- Prep plan for the chapter: remove tasks, add items, excuse past items -->
+    <section data-plan-admin class="mt-4 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-serif text-xl font-bold">Prep plan</h2>
+        <p class="text-xs text-ink-500">The 8-week Districts plan for role play students. Shared by every advisor at your school.</p>
+      </div>
+      <div data-plan-admin-body class="mt-3 text-sm"></div>
+    </section>
+
     <!-- Students -->
     <section class="mt-10">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -91,7 +100,7 @@
           <h2 class="font-serif text-2xl font-bold">Students <span data-count class="text-ink-400 text-lg"></span></h2>
           <p data-rp-total class="mt-1 text-sm text-ink-600"></p>
           <p class="mt-1 text-xs text-ink-500">
-            Progress (for now): 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet (no exams for their cluster, or a virtual event)
+            Progress: role play events follow their 8-week prep plan: 🟢 caught up · 🟡 1–2 tasks overdue · 🔴 3+ overdue. Other events (for now): 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet
           </p>
         </div>
         <input data-search type="search" placeholder="Search students or events…"
@@ -125,6 +134,22 @@
       </div>
       <p data-qr-note class="mt-2 text-xs text-green-700 h-4"></p>
       <p class="mt-1 text-xs text-ink-500">If the school code is reset, this QR code changes too. Old copies stop working.</p>
+    </div>
+  </div>
+
+  <!-- Excuse past plan items for every role play student -->
+  <div data-excuse-modal class="hidden fixed inset-0 z-30 bg-ink-950/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6">
+      <div class="flex items-start justify-between gap-4">
+        <h2 class="font-serif text-2xl font-bold">Excuse past items</h2>
+        <button data-excuse-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button>
+      </div>
+      <p class="mt-2 text-sm text-ink-600">Checked items are hidden from every role play student who hasn't done them yet, and stop counting toward the stoplight. You can undo this for any student from their panel.</p>
+      <ul data-excuse-list class="mt-4 divide-y divide-ink-100 text-sm"></ul>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button data-excuse-apply class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800 disabled:opacity-50">Excuse checked items</button>
+        <button data-excuse-close class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -178,6 +203,7 @@
     import { firstCompetition } from './js/competitions.js';
     import { buildDraft } from './js/email-drafts.js';
     import { byExam, latestAttempts } from './js/attempts.js';
+    import { advisorItems, planApplies, planStatus, planTemplate, planWeeks, shortDate as planShortDate } from './js/prep-plan.js';
     import { exportRows as rolePlayRows, gridHtml, logListHtml, rubricTypeFor, trend, latestSummary } from './js/roleplays.js';
 
     const $ = (sel) => document.querySelector(sel);
@@ -407,6 +433,7 @@
     let teams = [];
     let rolePlayLogs = [];
     let clustersWithExams = new Set();
+    let allExams = [];
     const statsCache = new Map();
     const openTries = new Set(); // exams whose earlier tries are showing
 
@@ -422,7 +449,8 @@
       attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       teams = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       rolePlayLogs = logSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      clustersWithExams = new Set(examSnap.docs.map((d) => d.data()).filter((e) => e.active !== false).map((e) => e.cluster));
+      allExams = examSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false);
+      clustersWithExams = new Set(allExams.map((e) => e.cluster));
       render();
     }
 
@@ -440,10 +468,25 @@
       virtual: { dot: '⚪', label: 'Virtual event (not supported yet)', rank: 2 },
       noExam: { dot: '⚪', label: 'No cluster exam for this event', rank: 2 },
     };
+    // The student's 8-week prep plan, or null (not a role play event, or no date set).
+    function planOf(s) {
+      if (!planApplies(s.eventCode)) return null;
+      const first = firstCompetition(s.eventCode, school.competitionDates);
+      if (!first?.date) return null;
+      return planStatus({
+        eventCode: s.eventCode, cluster: s.cluster, exams: allExams, competitionDate: first.date,
+        attempts: attemptsOf(s), logs: logsOf(s), checks: s.planChecks || {},
+        removed: planSettings().removed || [], excused: s.planExcused || {},
+      });
+    }
+
     function statusOf(s) {
       // Prep for virtual events (VBC, Stock Market Game) isn't offered this year.
       if (eventOf(s.eventCode)?.type === 'Virtual') return 'virtual';
       if (!takesExam(s.eventCode)) return 'noExam';
+      // Role play events with a competition date follow the 8-week prep plan.
+      const plan = planOf(s);
+      if (plan) return plan.stoplight;
       if (!clustersWithExams.has(s.cluster)) return 'gray';
       const last = attemptsOf(s)[0];
       if (!last) return 'red';
@@ -501,6 +544,7 @@
     }
 
     function render() {
+      renderPlanAdmin();
       const search = $('[data-search]').value.trim().toLowerCase();
       const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
       const bucket = (s) => (['virtual', 'noExam'].includes(statusOf(s)) ? 'gray' : statusOf(s));
@@ -583,7 +627,8 @@
             </button>
           </td>
           <td class="py-3 px-3 align-top">${esc(event?.event || s.eventCode)} <span class="text-xs text-ink-500">${esc(s.eventCode)}</span>
-            ${!inTeam && minTeamSize(s.eventCode) > 1 ? '<span class="ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-[11px] font-medium px-2 py-0.5">Needs a teammate</span>' : ''}</td>
+            ${!inTeam && minTeamSize(s.eventCode) > 1 ? '<span class="ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-[11px] font-medium px-2 py-0.5">Needs a teammate</span>' : ''}
+            ${lateJoin(s) ? '<span class="ml-1 inline-block rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium px-2 py-0.5">Joined late</span>' : ''}</td>
           <td class="py-3 px-3 align-top whitespace-nowrap">${lastActiveText(s)}</td>
           <td class="py-3 px-3 align-top whitespace-nowrap">${status.dot} ${status.label}</td>
         </tr>
@@ -669,8 +714,8 @@
               ${firstCompetitionHtml(s)}
             </div>
             <div class="rounded-xl border-2 border-dashed border-ink-200 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Prep path</p>
-              <p class="mt-1 text-sm text-ink-500">Coming soon: where ${esc(s.firstName)} is on the prep schedule.</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Prep plan</p>
+              ${planHtml(s)}
             </div>
           </div>
         </div>
@@ -680,6 +725,204 @@
           ${mine.length || allLogsOf(s).length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">⬇ Export results</button>` : ''}
         </div>`;
     }
+
+    function planHtml(s) {
+      const plan = planOf(s);
+      if (!plan) {
+        return planApplies(s.eventCode)
+          ? '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to start this student\'s 8-week plan.</p>'
+          : `<p class="mt-1 text-sm text-ink-500">Coming soon for ${esc(eventOf(s.eventCode)?.type || '')} events.</p>`;
+      }
+      const when = !plan.started ? `Starts ${planShortDate(plan.weeks[0].start)}`
+        : plan.currentWeek <= 8 ? `Week ${plan.currentWeek} of 8` : '8 weeks done';
+      const late = lateJoin(s);
+      const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} hover:underline">${label}</button>`);
+      return `
+        <p class="mt-1 text-sm"><strong>${esc(when)}</strong> · ${plan.doneCount} of ${plan.totalCount} tasks done</p>
+        ${late && !viewOnly ? `<div class="mt-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+          Joined in week ${late.week}. Excuse the ${late.tasks.length} item${late.tasks.length === 1 ? '' : 's'} from before they joined?
+          <span class="block mt-1 space-x-3">${btn(`data-excuse-late="${esc(s.id)}"`, 'Excuse them', 'font-semibold text-blue-700')}${btn(`data-keep-late="${esc(s.id)}"`, 'Keep them', 'text-ink-600')}</span></div>` : ''}
+        ${plan.overdue.length ? `<p class="mt-2 text-xs font-semibold text-rose-700">Overdue (${plan.overdue.length}) ${btn(`data-excuse-all="${esc(s.id)}"`, 'Excuse all', 'ml-2 font-normal text-blue-600')}</p>
+          <ul class="mt-1 space-y-1 text-xs text-ink-700">${plan.overdue.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-excuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Excuse')}</li>`).join('')}</ul>`
+          : '<p class="mt-1 text-xs text-green-700">Nothing overdue.</p>'}
+        ${plan.excusedTasks.length ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-ink-500">Excused (${plan.excusedTasks.length})</summary>
+          <ul class="mt-1 space-y-1 text-ink-500">${plan.excusedTasks.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-unexcuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Undo')}</li>`).join('')}</ul></details>` : ''}`;
+    }
+
+    // ---------- Prep plan: chapter settings ----------
+    const planSettings = () => school.planSettings || {};
+    const chapterFirst = () => firstCompetition('AAM', school.competitionDates); // any role play event
+    const rolePlayStudents = () => students.filter((s) => planOf(s));
+    let planAdminOpen = false;
+
+    async function saveSettings(changes) {
+      const next = { removed: [], items: [], catchupHandled: false, ...planSettings(), ...changes };
+      await updateDoc(doc(db, 'schools', schoolId), { planSettings: next });
+      school.planSettings = next;
+      render();
+    }
+
+    // Excuse task ids for one student (only ones they haven't done).
+    async function excuseFor(s, ids, { lateHandled = false } = {}) {
+      const plan = planOf(s);
+      const notDone = new Set(plan ? plan.tasks.filter((t) => t.state !== 'done').map((t) => t.id) : []);
+      const next = { ...(s.planExcused || {}) };
+      ids.filter((id) => notDone.has(id)).forEach((id) => { next[id] = true; });
+      const changes = { planExcused: next, ...(lateHandled ? { planLateHandled: true } : {}) };
+      await updateDoc(doc(db, 'users', s.id), changes);
+      Object.assign(s, changes);
+    }
+
+    // A student who joined after week 1 started and still has items from before then.
+    function lateJoin(s) {
+      if (s.planLateHandled || !s.createdAt?.toDate) return null;
+      const plan = planOf(s);
+      if (!plan || !plan.started) return null;
+      const joined = s.createdAt.toDate().toLocaleDateString('en-CA');
+      if (joined <= plan.weeks[0].start) return null;
+      const tasks = plan.overdue.filter((t) => t.weekEnd < joined);
+      if (!tasks.length) return null;
+      return { week: plan.weeks.find((w) => joined >= w.start && joined <= w.end)?.number || 8, tasks };
+    }
+
+    function renderPlanAdmin() {
+      const box = $('[data-plan-admin-body]');
+      const first = chapterFirst();
+      if (!first?.date) {
+        box.innerHTML = '<p class="text-ink-500">Set your competition dates above. The plan counts back 8 weeks from your first competition.</p>';
+        return;
+      }
+      const weeks = planWeeks(first.date);
+      const today = new Date().toLocaleDateString('en-CA');
+      const current = weeks.find((w) => today >= w.start && today <= w.end)?.number || (today < weeks[0].start ? 0 : 9);
+      const settings = planSettings();
+      const removed = new Set(settings.removed || []);
+      const template = planTemplate();
+      const items = advisorItems(settings.items || [], weeks, { rolePlay: true })
+        .concat(advisorItems((settings.items || []).filter((it) => it.group === 'prepared'), weeks, { rolePlay: false }));
+      const overdueStudents = rolePlayStudents().filter((s) => planOf(s).overdue.length).length;
+      const GROUP = { roleplay: 'Role play students', prepared: 'Prepared event students', everyone: 'Everyone' };
+      const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} text-xs hover:underline">${label}</button>`);
+
+      const catchup = !viewOnly && !settings.catchupHandled && current >= 2 && overdueStudents ? `
+        <div class="mb-4 rounded-xl border border-tan-200 bg-tan-50 px-4 py-3 text-tan-700">
+          <p><strong>Your role play students are in week ${Math.min(current, 8)} of their plan.</strong> ${overdueStudents} student${overdueStudents === 1 ? ' has' : 's have'} overdue items from earlier weeks.
+          You can excuse them so students start fresh, or keep them as catch-up work.</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button type="button" data-catchup-all class="rounded-lg bg-ink-900 text-cream-50 px-3 py-1.5 text-sm font-medium">Excuse all past items</button>
+            <button type="button" data-catchup-choose class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-sm font-medium">Choose items</button>
+            <button type="button" data-catchup-keep class="rounded-lg px-3 py-1.5 text-sm text-tan-700 underline">Keep them</button>
+          </div>
+        </div>` : '';
+
+      const weekBlocks = weeks.map((w) => {
+        const tasks = template.filter((t) => t.week === w.number);
+        const notes = items.filter((it) => it.week === w.number);
+        return `
+          <div class="py-2 ${w.number === current ? 'bg-blue-50/50 -mx-2 px-2 rounded-lg' : ''}">
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-ink-500">Week ${w.number} · ${esc(planShortDate(w.start))}–${esc(planShortDate(w.end))}${w.number === current ? ' · this week' : ''}</p>
+            <ul class="mt-1 space-y-1">
+              ${tasks.map((t) => `<li class="flex items-baseline justify-between gap-3 ${removed.has(t.id) ? 'text-ink-400 line-through' : ''}">
+                <span>${esc(t.label)}</span>${removed.has(t.id) ? btn(`data-restore-task="${esc(t.id)}"`, 'Restore') : btn(`data-remove-task="${esc(t.id)}"`, 'Remove', 'text-rose-600')}</li>`).join('')}
+              ${notes.map((it) => `<li class="flex items-baseline justify-between gap-3 text-blue-800">
+                <span>${esc(it.text)} <span class="text-xs text-blue-600">· ${esc(GROUP[it.group])}${it.date ? ` · ${esc(planShortDate(it.date))}` : ''}</span></span>${btn(`data-delete-item="${esc(it.id)}"`, 'Delete', 'text-rose-600')}</li>`).join('')}
+            </ul>
+          </div>`;
+      }).join('');
+
+      box.innerHTML = `${catchup}
+        <p>${current === 0 ? `Plan starts Monday, ${esc(planShortDate(weeks[0].start))}.` : current <= 8 ? `Role play students are in <strong>week ${current} of 8</strong>.` : 'The 8 weeks are done.'}
+          ${rolePlayStudents().length} role play student${rolePlayStudents().length === 1 ? '' : 's'} · ${overdueStudents} with overdue items.
+          ${viewOnly || current < 2 ? '' : '<button type="button" data-catchup-choose class="ml-1 text-blue-600 underline">Excuse past items…</button>'}</p>
+        <details data-plan-weeks class="mt-3" ${planAdminOpen ? 'open' : ''}>
+          <summary class="cursor-pointer font-semibold text-blue-600">See the plan, remove tasks, or add your own items</summary>
+          <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-x-8 divide-y lg:divide-y-0 divide-ink-100">${weekBlocks}</div>
+          <p class="mt-2 text-xs text-ink-500">Removing a task hides it for every role play student. Exam names vary by cluster, so each student sees their own cluster's exam.</p>
+          ${viewOnly ? '' : `
+          <form data-add-item class="mt-4 rounded-xl border border-ink-200 p-4 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
+            <label class="sm:col-span-6 block"><span class="font-semibold">Add an item</span> <span class="text-ink-500">(shows on students' plans as information, with no checkbox)</span>
+              <input name="text" required maxlength="200" placeholder="e.g. Chapter mock competition after school in Room 204" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">For</span>
+              <select name="group" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
+                <option value="roleplay">Role play students</option><option value="prepared">Prepared event students</option><option value="everyone">Everyone</option>
+              </select></label>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">Week</span>
+              <select name="week" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
+                <option value="">Pick a week…</option>${weeks.map((w) => `<option value="${w.number}">Week ${w.number} (${esc(planShortDate(w.start))})</option>`).join('')}
+              </select></label>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">…or a date</span>
+              <input name="date" type="date" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+            <div class="sm:col-span-6 flex flex-wrap items-center gap-3">
+              <button class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">Add to plan</button>
+              <span data-add-error class="text-sm text-rose-600"></span>
+            </div>
+          </form>`}
+        </details>`;
+    }
+
+    $('[data-plan-admin]').addEventListener('toggle', (e) => {
+      if (e.target.matches('[data-plan-weeks]')) planAdminOpen = e.target.open;
+    }, true);
+
+    $('[data-plan-admin]').addEventListener('click', async (e) => {
+      const t = e.target;
+      const settings = planSettings();
+      if (t.matches('[data-remove-task]')) await saveSettings({ removed: [...new Set([...(settings.removed || []), t.dataset.removeTask])] });
+      else if (t.matches('[data-restore-task]')) await saveSettings({ removed: (settings.removed || []).filter((id) => id !== t.dataset.restoreTask) });
+      else if (t.matches('[data-delete-item]')) {
+        if (confirm('Delete this item from everyone\'s plan?')) await saveSettings({ items: (settings.items || []).filter((it) => it.id !== t.dataset.deleteItem) });
+      } else if (t.matches('[data-catchup-keep]')) await saveSettings({ catchupHandled: true });
+      else if (t.matches('[data-catchup-all]')) {
+        if (!confirm('Excuse every overdue item from earlier weeks for all role play students?')) return;
+        await Promise.all(rolePlayStudents().map((s) => excuseFor(s, planOf(s).overdue.map((x) => x.id))));
+        await saveSettings({ catchupHandled: true });
+      } else if (t.matches('[data-catchup-choose]')) openExcuseModal();
+    });
+
+    $('[data-plan-admin]').addEventListener('submit', async (e) => {
+      if (!e.target.matches('[data-add-item]')) return;
+      e.preventDefault();
+      const f = e.target;
+      const text = f.text.value.trim();
+      const week = Number(f.week.value) || null;
+      const date = f.date.value || null;
+      const error = f.querySelector('[data-add-error]');
+      if (!text) { error.textContent = 'Type the item first.'; return; }
+      if (!week && !date) { error.textContent = 'Pick a week or a date.'; return; }
+      // Week items also keep their week's Monday, for students who don't have plan weeks (prepared events).
+      const weekStart = week ? planWeeks(chapterFirst().date)[week - 1].start : null;
+      const item = { id: Math.random().toString(36).slice(2, 10), text, group: f.group.value, ...(date ? { date } : { week, weekStart }), createdBy: advisor.name || user.email };
+      await saveSettings({ items: [...(planSettings().items || []), item] });
+    });
+
+    // ---------- Excuse past items (choose) ----------
+    const excuseModal = $('[data-excuse-modal]');
+    function openExcuseModal() {
+      const first = chapterFirst();
+      if (!first?.date) return;
+      const today = new Date().toLocaleDateString('en-CA');
+      const pastIds = planTemplate().filter((t) => planWeeks(first.date)[t.week - 1].end < today && t.kind !== 'cards');
+      const overdueCount = (id) => rolePlayStudents().filter((s) => planOf(s).overdue.some((x) => x.id === id)).length;
+      excuseModal.querySelector('[data-excuse-list]').innerHTML = pastIds.map((t) => `
+        <li class="py-2"><label class="flex items-start gap-3">
+          <input type="checkbox" data-excuse-pick="${esc(t.id)}" ${overdueCount(t.id) ? 'checked' : ''} class="mt-0.5 w-4 h-4" />
+          <span class="flex-1">Week ${t.week}: ${esc(t.label)}<span class="block text-xs text-ink-500">Overdue for ${overdueCount(t.id)} student${overdueCount(t.id) === 1 ? '' : 's'}</span></span>
+        </label></li>`).join('') || '<li class="py-2 text-ink-500">No past items yet.</li>';
+      excuseModal.classList.remove('hidden');
+    }
+    excuseModal.addEventListener('click', async (e) => {
+      if (e.target === excuseModal || e.target.matches('[data-excuse-close]')) { excuseModal.classList.add('hidden'); return; }
+      if (!e.target.matches('[data-excuse-apply]')) return;
+      const ids = [...excuseModal.querySelectorAll('[data-excuse-pick]:checked')].map((b) => b.dataset.excusePick);
+      e.target.disabled = true;
+      try {
+        await Promise.all(rolePlayStudents().map((s) => excuseFor(s, ids)));
+        excuseModal.classList.add('hidden');
+        await saveSettings({ catchupHandled: true });
+      } finally {
+        e.target.disabled = false;
+      }
+    });
 
     function firstCompetitionHtml(s) {
       const first = firstCompetition(s.eventCode, school.competitionDates);
@@ -787,6 +1030,24 @@
       updateTeamBar();
     });
     $('[data-students]').addEventListener('click', async (e) => {
+      const planButton = e.target.closest('[data-excuse], [data-excuse-all], [data-unexcuse], [data-excuse-late], [data-keep-late]');
+      if (planButton) {
+        const d = planButton.dataset;
+        const s = students.find((x) => x.id === (d.excuse || d.excuseAll || d.unexcuse || d.excuseLate || d.keepLate));
+        const plan = planOf(s);
+        if (d.excuse) await excuseFor(s, [d.task]);
+        else if (d.excuseAll) await excuseFor(s, plan.overdue.map((t) => t.id));
+        else if (d.excuseLate) await excuseFor(s, lateJoin(s).tasks.map((t) => t.id), { lateHandled: true });
+        else if (d.keepLate) { await updateDoc(doc(db, 'users', s.id), { planLateHandled: true }); s.planLateHandled = true; }
+        else if (d.unexcuse) {
+          const next = { ...(s.planExcused || {}) };
+          delete next[d.task];
+          await updateDoc(doc(db, 'users', s.id), { planExcused: next });
+          s.planExcused = next;
+        }
+        render();
+        return;
+      }
       const sortButton = e.target.closest('[data-sort]');
       if (sortButton) {
         if (sortButton.dataset.sort === sortKey) sortDir = -sortDir;

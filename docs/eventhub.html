@@ -22,20 +22,24 @@
       <div data-resources class="mt-5 flex flex-wrap gap-2 text-sm"></div>
     </section>
 
-    <!-- Prep plan to-do list (placeholder until the prep plan is built). -->
-    <section class="mt-8 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+    <!-- Prep plan: the 8-week Districts plan for role play events (js/prep-plan-card.js);
+         other events still see the placeholder. -->
+    <section data-plan-card class="mt-8 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
       <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div class="flex items-center gap-3">
           <div>
-            <h2 class="font-serif text-xl sm:text-2xl font-bold">Your Prep Plan <span class="align-middle ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-xs font-sans font-semibold px-2 py-0.5">Coming soon</span></h2>
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">Your Prep Plan <span data-plan-soon class="align-middle ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-xs font-sans font-semibold px-2 py-0.5">Coming soon</span></h2>
             <p data-countdown class="mt-0.5 text-sm text-ink-500"></p>
           </div>
         </div>
         <div class="w-full sm:w-48">
           <div class="flex justify-between text-xs text-ink-500"><span>Progress</span><span data-plan-count>0 of 4 done</span></div>
-          <div class="mt-1 h-2 rounded-full bg-ink-100"><div class="h-2 w-0 rounded-full bg-green-600"></div></div>
+          <div class="mt-1 h-2 rounded-full bg-ink-100"><div data-plan-bar class="h-2 w-0 rounded-full bg-green-600"></div></div>
         </div>
       </div>
+      <div data-plan-body class="hidden"></div>
+      <div data-plan-notes class="hidden"></div>
+      <div data-plan-placeholder>
       <p class="mt-4 text-sm text-ink-600">Your week-by-week to-do list will appear here, built around your competition date. Check off each task as you finish it. Your advisor will see how you're doing.</p>
       <p class="mt-4 text-xs font-semibold uppercase tracking-[0.15em] text-ink-400">Example tasks</p>
       <ul class="mt-2 divide-y divide-ink-100 opacity-60" aria-label="Example tasks (not active yet)">
@@ -44,6 +48,7 @@
         <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Review your missed questions on My Results</span><span class="text-xs text-ink-500">Week 2</span></li>
         <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Study your weakest instructional area</span><span class="text-xs text-ink-500">Week 2</span></li>
       </ul>
+      </div>
     </section>
 
     <!-- Prep sections: each one is a drawer that opens when clicked. -->
@@ -144,6 +149,10 @@
       </div>
       <label class="mt-4 block text-sm"><span class="font-semibold">Competitor feedback</span>
         <textarea data-feedback rows="4" maxlength="5000" placeholder="What did your judge say went well? What should you work on next?" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2"></textarea></label>
+      <label class="mt-4 block text-sm"><span class="font-semibold">One thing to fix next time</span>
+        <input data-fix-next maxlength="500" placeholder="e.g. Cover every PI before the questions start" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+      <label class="mt-3 flex items-start gap-2 text-sm"><input data-timed type="checkbox" class="mt-0.5 w-4 h-4" />
+        <span><span class="font-semibold">Done at full competition timing</span> <span data-timed-hint class="text-ink-500"></span></span></label>
 
       <p data-error class="mt-3 text-sm text-rose-600" role="alert"></p>
       <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -164,6 +173,8 @@
     import { firstCompetition } from './js/competitions.js';
     import { initRolePlayDrawer } from './js/roleplay-drawer.js';
     import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
+    import { planApplies } from './js/prep-plan.js';
+    import { initPrepPlan, showAdvisorNotes } from './js/prep-plan-card.js';
 
     const { user, profile } = await requireUser();
     // An advisor viewing as a student must also filter by school, or the
@@ -202,9 +213,15 @@
       document.querySelector('[data-rp-summary]').textContent = "Your role play logs couldn't load. Refresh to try again.";
     });
 
-    // ---------- Prep plan countdown (the plan will count back from this date) ----------
+    // ---------- Prep plan (counts back from the first competition) ----------
     getDoc(doc(db, 'schools', profile.schoolId)).then((snap) => {
       const first = firstCompetition(profile.eventCode, snap.exists() ? snap.data().competitionDates : null);
+      const settings = (snap.exists() && snap.data().planSettings) || {};
+      if (planApplies(profile.eventCode)) {
+        initPrepPlan({ user, profile, first, links, attemptFilters, settings }).catch((err) => console.error(err));
+      } else {
+        showAdvisorNotes({ settings });
+      }
       const box = document.querySelector('[data-countdown]');
       if (!first) { box.textContent = "Your advisor hasn't set your competition dates yet."; return; }
       if (!first.date) { box.textContent = first.label; return; }
