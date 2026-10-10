@@ -13,28 +13,63 @@
 <body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
   <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
 
-  <main class="max-w-6xl mx-auto px-4 py-10">
+  <main class="max-w-4xl mx-auto px-4 py-10">
     <h1 class="font-serif text-3xl sm:text-4xl font-bold">My Results</h1>
-    <p class="mt-2 text-ink-600">Every exam you've submitted, newest first.</p>
-    <a href="insights.html" class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-ink-900 text-cream-50 p-5 hover:bg-ink-800">
-      <span class="flex-1 min-w-[16rem]">
-        <span class="block font-serif text-xl font-bold">Exam Deep Dive</span>
-        <span class="block text-sm opacity-80">Your projected score at each level, the PIs DECA tests most, and what to study next.</span>
-      </span>
-      <span class="font-semibold whitespace-nowrap">Dig in →</span>
-    </a>
-    <div data-list class="mt-8"><p class="text-ink-500 text-sm">Loading…</p></div>
+    <p class="mt-2 text-ink-600">How your practice is going. Open any row for more.</p>
 
-    <section data-all-missed class="hidden mt-12">
-      <div class="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 class="font-serif text-2xl font-bold">All missed questions <span data-missed-count class="text-ink-400 text-lg"></span></h2>
-          <p class="mt-1 text-sm text-ink-600">Every missed question from the tries switched on above, one row per question. "Missed" shows how many of your tries got it wrong, so "2 of 2" is a real gap. Click a column heading to sort; sorting by performance indicator shows what you keep missing.</p>
+    <!-- The quick look: one card for exams, one for role plays. -->
+    <div data-snapshot class="mt-6 grid gap-4 sm:grid-cols-2"><p class="text-ink-500 text-sm">Loading…</p></div>
+
+    <section data-exams class="hidden mt-12">
+      <h2 class="font-serif text-2xl font-bold">Cluster exams</h2>
+      <p data-exam-note class="mt-1 text-sm text-ink-500"></p>
+      <div data-exam-list class="mt-4 space-y-2"></div>
+
+      <details data-all-missed class="hidden drawer group mt-6 rounded-2xl bg-white border border-ink-200">
+        <summary class="flex items-center gap-4 cursor-pointer select-none p-4 sm:p-5 rounded-2xl hover:bg-ink-50/60">
+          <span class="flex-1 min-w-0">
+            <span class="block font-semibold">All missed questions <span data-missed-count class="text-ink-400 font-normal"></span></span>
+            <span class="block text-sm text-ink-500">Every miss in one sortable table, plus a spreadsheet download.</span>
+          </span>
+          <span class="shrink-0 grid place-items-center w-8 h-8 rounded-full border border-ink-200 text-ink-600 transition-transform group-open:rotate-180" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </summary>
+        <div class="px-4 sm:px-5 pb-5 pt-4 border-t border-ink-100">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <p class="flex-1 min-w-[16rem] text-sm text-ink-600">"Missed" shows how many of your tries got it wrong, so "2 of 2" is a real gap. Click a column heading to sort. To leave a try out, open its exam above and switch it off.</p>
+            <button data-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2.5 text-sm font-medium hover:bg-ink-800 disabled:opacity-60">Download spreadsheet</button>
+          </div>
+          <div data-missed-table class="mt-4"></div>
         </div>
-        <button data-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2.5 text-sm font-medium hover:bg-ink-800 disabled:opacity-60">⬇ Download spreadsheet</button>
-      </div>
-      <p class="mt-2 text-xs text-ink-500">The download opens in Excel, Numbers, or Google Sheets (in Google Drive: New → File upload).</p>
-      <div data-missed-table class="mt-4"></div>
+      </details>
+
+      <a href="insights.html" class="mt-3 flex items-center gap-4 rounded-2xl border border-ink-200 bg-white p-4 sm:p-5 hover:border-ink-400">
+        <span class="flex-1 min-w-0">
+          <span class="block font-semibold">Exam Deep Dive</span>
+          <span class="block text-sm text-ink-500">Your projected score at each level and the PIs DECA tests most.</span>
+        </span>
+        <span class="text-blue-600 font-semibold whitespace-nowrap">Open →</span>
+      </a>
+    </section>
+
+    <section data-roleplays class="hidden mt-12">
+      <h2 class="font-serif text-2xl font-bold">Role plays</h2>
+      <p data-rp-note class="mt-1 text-sm text-ink-500"></p>
+      <div data-rp-list class="mt-4 space-y-2"></div>
+
+      <details data-rp-grid-wrap class="hidden drawer group mt-6 rounded-2xl bg-white border border-ink-200">
+        <summary class="flex items-center gap-4 cursor-pointer select-none p-4 sm:p-5 rounded-2xl hover:bg-ink-50/60">
+          <span class="flex-1 min-w-0">
+            <span class="block font-semibold">Compare all your runs</span>
+            <span class="block text-sm text-ink-500">Every rubric row side by side, oldest to newest.</span>
+          </span>
+          <span class="shrink-0 grid place-items-center w-8 h-8 rounded-full border border-ink-200 text-ink-600 transition-transform group-open:rotate-180" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </summary>
+        <div data-rp-grid class="px-4 sm:px-5 pb-5 pt-4 border-t border-ink-100"></div>
+      </details>
     </section>
   </main>
 
@@ -42,119 +77,183 @@
     import {
       collection, doc, getDoc, getDocs, query, where, updateDoc, arrayUnion, arrayRemove,
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-    import { db, requireUser, renderHeader, esc, formatDate, percentile, percentileText, show, isViewingAs } from './js/app.js';
-    import { groupedMissedRows, renderSortableTable, downloadResults, exportFileName } from './js/missed.js';
+    import { db, requireUser, renderHeader, esc, linkify, formatDate, percentile, percentileText, show, isViewingAs } from './js/app.js';
+    import { groupedMissedRows, renderSortableTable, downloadResults, exportFileName, areaOf } from './js/missed.js';
     import { byExam, latestAttempts } from './js/attempts.js';
+    import { EVENTS, takesExam } from './js/events.js';
+    import {
+      gridHtml, levelName, mostlyLevel, rubricRows, rubricTypeFor, shortDate, sortLogs, trend,
+    } from './js/roleplays.js';
 
     const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'results' });
+    const $ = (sel) => document.querySelector(sel);
+    const event = EVENTS.find((e) => e.code === profile.eventCode);
+    const hasExam = takesExam(profile.eventCode);
+    const hasRolePlays = event?.type === 'Role Play';
+
+    const chevron = `
+      <span class="shrink-0 grid place-items-center w-7 h-7 rounded-full border border-ink-200 text-ink-500 transition-transform group-open:rotate-180" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>`;
+    const card = (label, body) => `
+      <div class="rounded-2xl bg-white border border-ink-200 p-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">${label}</p>
+        ${body}
+      </div>`;
+    const emptyCard = (label, text, href, cta) => card(label, `
+      <p class="mt-3 text-ink-600">${text}</p>
+      <a href="${href}" class="mt-4 inline-block rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-semibold hover:bg-ink-800">${cta}</a>`);
+    const pct = (a) => Math.round((a.correct / a.total) * 100);
+    // Lists show the newest few; a button below reveals the rest.
+    const SHOW_FIRST = 3;
+    function limitList(list, noun) {
+      const items = [...list.children];
+      if (items.length <= SHOW_FIRST) return;
+      items.slice(SHOW_FIRST).forEach((el) => el.classList.add('hidden'));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'w-full rounded-xl border border-dashed border-ink-300 py-2.5 text-sm font-semibold text-ink-600 hover:border-ink-500 hover:text-ink-900';
+      button.textContent = `Show all ${items.length} ${noun}`;
+      button.addEventListener('click', () => {
+        items.forEach((el) => el.classList.remove('hidden'));
+        button.remove();
+      });
+      list.appendChild(button);
+    }
+
+    // ---------- Load ----------
     // An advisor viewing as a student must also filter by school, or the
     // database rules refuse the search. Students' own view is unchanged.
-    const attemptFilters = () => [where('uid', '==', user.uid), ...(isViewingAs() ? [where('schoolId', '==', profile.schoolId)] : [])];
-    renderHeader({ user, profile, active: 'results' });
-
-    const snap = await getDocs(query(collection(db, 'attempts'), ...attemptFilters()));
-    const attempts = snap.docs
+    const viewFilter = isViewingAs() ? [where('schoolId', '==', profile.schoolId)] : [];
+    const [attemptSnap, logSnap] = await Promise.all([
+      hasExam ? getDocs(query(collection(db, 'attempts'), where('uid', '==', user.uid), ...viewFilter)) : null,
+      hasRolePlays ? getDocs(query(collection(db, 'roleplayLogs'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid))).catch(() => null) : null,
+    ]);
+    const attempts = (attemptSnap?.docs || [])
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((a) => a.track === profile.track)
       .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+    // Only this event's runs; a different event has a different rubric.
+    const logs = sortLogs((logSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() })).filter((l) => l.eventCode === profile.eventCode));
+    const rubric = rubricTypeFor(profile.eventCode);
+
     // Exams the student switched off; saved on their account so it sticks.
     const excluded = new Set(profile.excludedAttempts || []);
     const included = () => attempts.filter((a) => !excluded.has(a.id));
+    const latest = latestAttempts(attempts);
+    const groups = byExam(attempts);
 
-    const list = document.querySelector('[data-list]');
-    if (!attempts.length) {
-      list.innerHTML = `
-        <div class="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
-          <p class="text-ink-600">You haven't submitted an exam yet.</p>
-          <a href="eventhub.html" class="mt-4 inline-block rounded-lg bg-ink-900 text-cream-50 px-5 py-2.5 font-medium">Pick an exam</a>
-        </div>`;
-    } else {
+    // ---------- Snapshot ----------
+    function examCard() {
+      if (!attempts.length) return emptyCard('Cluster exams', "You haven't submitted an exam yet.", 'eventhub.html', 'Pick an exam');
+      const last = attempts[0];
+      const best = Math.max(...attempts.map(pct));
+      const average = Math.round(latest.reduce((sum, a) => sum + pct(a), 0) / latest.length);
+      return card('Cluster exams', `
+        <p class="mt-2 flex items-baseline gap-2"><span class="font-serif text-4xl font-bold tabular-nums">${pct(last)}%</span><span class="text-sm text-ink-500">on your latest exam</span></p>
+        <p class="text-sm text-ink-600">${esc(last.examLabel)} · ${esc(formatDate(last.submittedAt))}</p>
+        <p class="mt-3 text-sm text-ink-600">${latest.length} exam${latest.length === 1 ? '' : 's'} taken · average ${average}% · best ${best}%</p>`);
+    }
+
+    function rolePlayCard() {
+      if (!logs.length) return emptyCard('Role plays', "You haven't logged a role play yet.", 'eventhub.html', 'Log one on the Event Hub');
+      const last = logs[0];
+      const top = mostlyLevel(last);
+      const direction = trend(logs);
+      return card('Role plays', `
+        <p class="mt-2 flex items-center gap-3 flex-wrap">
+          ${last.score != null ? `<span class="font-serif text-4xl font-bold tabular-nums">${last.score}<span class="text-xl text-ink-400">/100</span></span>` : ''}
+          ${top ? `<span class="lv-${top.key} rounded-lg px-2.5 py-1 font-serif text-lg font-bold">${esc(top.name)}</span>` : ''}
+          <span class="text-sm text-ink-500">${top || last.score != null ? 'on your latest run' : 'Latest run not rated'}</span>
+        </p>
+        <p class="mt-2 text-sm text-ink-600">${esc(last.title)} · ${esc(shortDate(last.date))}</p>
+        <p class="mt-3 text-sm text-ink-600">${logs.length} logged${direction ? ` · ${direction}` : ''}</p>`);
+    }
+
+    const snapshot = [hasExam ? examCard() : '', hasRolePlays ? rolePlayCard() : ''].filter(Boolean);
+    $('[data-snapshot]').innerHTML = snapshot.length
+      ? snapshot.join('')
+      : card('My Results', `<p class="mt-3 text-ink-600">${esc(profile.eventName || 'Your event')} doesn't have a cluster exam or role play, so there's nothing to show here yet.</p>`);
+    if (snapshot.length === 1) $('[data-snapshot]').classList.remove('sm:grid-cols-2');
+
+    // ---------- Cluster exams ----------
+    if (hasExam && attempts.length) {
+      show($('[data-exams]'), true);
+      $('[data-exam-note]').textContent = 'Newest first. Each row shows your latest try.';
       const statsByExam = new Map();
-      await Promise.all([...new Set(attempts.map((a) => a.examId))].map(async (examId) => {
+      await Promise.all([...groups.keys()].map(async (examId) => {
         try {
           const s = await getDoc(doc(db, 'examStats', examId));
           if (s.exists()) statsByExam.set(examId, s.data());
         } catch {}
       }));
-      // One row per exam showing the latest try; the arrow opens every try.
-      const groups = byExam(attempts);
-      const open = new Set();
-      const toggleHtml = (a) => `
-        <label class="inline-flex items-center ${isViewingAs() ? 'opacity-60' : 'cursor-pointer'}" title="Include this try in All missed questions">
-          <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} ${isViewingAs() ? 'disabled' : ''} />
-          <span class="relative w-10 h-6 rounded-full bg-ink-200 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400
-            after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-4"></span>
-          <span class="sr-only">Include ${esc(a.examLabel)} try ${a.attemptNumber || 1} in All missed questions</span>
-        </label>`;
       const rankOf = (a) => {
         const st = statsByExam.get(a.examId);
-        return st ? percentileText(percentile(st.histogram || [], a.correct, st.takers), st.takers) : '—';
+        return st ? percentileText(percentile(st.histogram || [], a.correct, st.takers), st.takers) : '';
       };
-      function drawTable() {
-        const rows = latestAttempts(attempts).map((latest) => {
-          const tries = groups.get(latest.examId);
-          const isOpen = open.has(latest.examId);
-          const earlier = tries.slice(0, -1).reverse();
-          return `
-            <tr class="border-t border-ink-100">
-              <td class="py-3 pl-3 w-8">${tries.length > 1 ? `
-                <button type="button" data-expand="${esc(latest.examId)}" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Hide' : 'Show'} all ${tries.length} tries"
-                  class="grid place-items-center w-7 h-7 rounded-full border border-ink-200 text-ink-600 hover:border-ink-400 transition-transform ${isOpen ? 'rotate-90' : ''}">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>` : ''}</td>
-              <td class="py-3 px-4 whitespace-nowrap">${esc(formatDate(latest.submittedAt))}</td>
-              <td class="py-3 px-4"><span class="font-medium">${esc(latest.examLabel)}</span><br /><span class="text-xs text-ink-500">${esc(latest.cluster)} · ${esc(latest.examSubtitle)}${tries.length > 1 ? ` · ${tries.length} tries` : ''}</span></td>
-              <td class="py-3 px-4 font-semibold tabular-nums">${latest.correct} / ${latest.total}${tries.length > 1 ? '<br /><span class="text-xs font-normal text-ink-500">latest</span>' : ''}</td>
-              <td class="py-3 px-4 text-ink-600">${esc(rankOf(latest))}</td>
-              <td class="py-3 px-4">${toggleHtml(latest)}</td>
-              <td class="py-3 px-4 text-right"><a href="result.html?id=${encodeURIComponent(latest.id)}" class="text-blue-600 font-medium whitespace-nowrap">Details →</a></td>
-            </tr>
-            ${isOpen ? earlier.map((a) => `
-              <tr class="bg-ink-50/60 text-ink-600">
-                <td></td>
-                <td class="py-2 px-4 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
-                <td class="py-2 px-4 text-sm">Try ${a.attemptNumber || 1}</td>
-                <td class="py-2 px-4 tabular-nums">${a.correct} / ${a.total}</td>
-                <td class="py-2 px-4">${esc(rankOf(a))}</td>
-                <td class="py-2 px-4">${toggleHtml(a)}</td>
-                <td class="py-2 px-4 text-right"><a href="result.html?id=${encodeURIComponent(a.id)}" class="text-blue-600 whitespace-nowrap">Details →</a></td>
-              </tr>`).join('') : ''}`;
-        }).join('');
-        list.innerHTML = `
-          <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
-            <table class="w-full min-w-[680px] text-sm">
-              <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
-                <th></th><th class="py-3 px-4">Date</th><th class="py-3 px-4">Exam</th><th class="py-3 px-4">Score</th><th class="py-3 px-4">Rank now</th>
-                <th class="py-3 px-4">In missed list</th><th></th>
-              </tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-          <p class="mt-2 text-xs text-ink-500">Each exam shows your latest try. Click the arrow to see every try. Switch a try off to leave it out of All missed questions and the download. Your choices are saved.</p>`;
-      }
-      drawTable();
-      list.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-expand]');
-        if (!b) return;
-        if (open.has(b.dataset.expand)) open.delete(b.dataset.expand); else open.add(b.dataset.expand);
-        drawTable();
-      });
+      const toggleHtml = (a) => `
+        <label class="inline-flex items-center gap-2 text-xs text-ink-600 ${isViewingAs() ? 'opacity-60' : 'cursor-pointer'}">
+          <input type="checkbox" data-include="${esc(a.id)}" class="sr-only peer" ${excluded.has(a.id) ? '' : 'checked'} ${isViewingAs() ? 'disabled' : ''} />
+          <span class="relative w-9 h-5 rounded-full bg-ink-200 transition peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400
+            after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-4"></span>
+          In missed list
+        </label>`;
+      // The three areas this try missed most.
+      const topMisses = (a) => {
+        const counts = new Map();
+        (a.missed || []).forEach((m) => { const area = areaOf(m.code); counts.set(area, (counts.get(area) || 0) + 1); });
+        return [...counts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3);
+      };
 
-      const table = renderSortableTable(document.querySelector('[data-missed-table]'), groupedMissedRows(included()), {
+      $('[data-exam-list]').innerHTML = latest.map((a) => {
+        const tries = groups.get(a.examId);
+        const rank = rankOf(a);
+        const misses = topMisses(a);
+        return `
+          <details class="drawer group rounded-xl bg-white border border-ink-200">
+            <summary class="flex items-center gap-3 sm:gap-4 cursor-pointer select-none p-4 rounded-xl hover:bg-ink-50/60">
+              <span class="flex-1 min-w-0">
+                <span class="block font-semibold">${esc(a.examLabel)}</span>
+                <span class="block text-xs text-ink-500">${esc(a.examSubtitle)} · ${esc(formatDate(a.submittedAt))}${tries.length > 1 ? ` · ${tries.length} tries` : ''}</span>
+              </span>
+              <span class="hidden sm:block w-28 h-2 rounded-full bg-ink-100 overflow-hidden" aria-hidden="true"><span class="block h-full bg-blue-600" style="width:${pct(a)}%"></span></span>
+              <span class="w-12 text-right font-semibold tabular-nums">${pct(a)}%</span>
+              ${chevron}
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-ink-100 text-sm">
+              <p class="text-ink-700"><span class="font-semibold tabular-nums">${a.correct} of ${a.total}</span> right${rank ? ` · ${esc(rank)}` : ''}</p>
+              ${misses.length ? `
+                <p class="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Missed most in</p>
+                <p class="mt-1 flex flex-wrap gap-1.5">${misses.map(([area, n]) => `<span class="rounded-full bg-ink-100 px-2.5 py-1 text-xs">${esc(area)} <strong>${n}</strong></span>`).join('')}</p>` : ''}
+              <ul class="mt-4 divide-y divide-ink-100 rounded-lg border border-ink-100">
+                ${[...tries].reverse().map((t) => `
+                  <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
+                    <span class="flex-1 min-w-[9rem]">${tries.length > 1 ? `Try ${t.attemptNumber || 1} · ` : ''}${esc(formatDate(t.submittedAt))} · <span class="tabular-nums">${t.correct}/${t.total}</span></span>
+                    ${toggleHtml(t)}
+                    <a href="result.html?id=${encodeURIComponent(t.id)}" class="text-blue-600 font-medium whitespace-nowrap">See missed questions →</a>
+                  </li>`).join('')}
+              </ul>
+            </div>
+          </details>`;
+      }).join('');
+      limitList($('[data-exam-list]'), 'exams');
+
+      const table = renderSortableTable($('[data-missed-table]'), groupedMissedRows(included()), {
         columns: ['date', 'exam', 'q', 'missed', 'yourAnswer', 'correctAnswer', 'area', 'code', 'source'],
         sortBy: 'code',
         minWidth: 900,
-        emptyText: 'Switch on an exam above to see its missed questions here.',
+        emptyText: 'Switch on a try above to see its missed questions here.',
       });
       function refreshMissed() {
         const rows = groupedMissedRows(included());
-        document.querySelector('[data-missed-count]').textContent = `(${rows.length})`;
+        $('[data-missed-count]').textContent = `(${rows.length})`;
         table.update(rows);
       }
       refreshMissed();
-      show(document.querySelector('[data-all-missed]'), true);
+      show($('[data-all-missed]'), true);
 
-      list.addEventListener('change', async (e) => {
+      $('[data-exam-list]').addEventListener('change', async (e) => {
         const toggle = e.target.closest('[data-include]');
         if (!toggle) return;
         const id = toggle.dataset.include;
@@ -171,10 +270,10 @@
       });
 
       const name = `${profile.firstName} ${profile.lastName}`;
-      const downloadButton = document.querySelector('[data-download]');
+      const downloadButton = $('[data-download]');
       downloadButton.addEventListener('click', async () => {
         const chosen = included();
-        if (!chosen.length) { alert('Switch on at least one exam to download.'); return; }
+        if (!chosen.length) { alert('Switch on at least one try to download.'); return; }
         downloadButton.disabled = true;
         try {
           await downloadResults({ studentName: name, attempts: chosen, fileName: exportFileName(name) });
@@ -184,6 +283,57 @@
           downloadButton.disabled = false;
         }
       });
+    }
+
+    // ---------- Role plays ----------
+    if (hasRolePlays && logs.length) {
+      show($('[data-roleplays]'), true);
+      $('[data-rp-note]').innerHTML = 'Newest first. To log or edit a run, go to the <a href="eventhub.html" class="text-blue-600 underline">Event Hub</a>.';
+      const levelPill = (v) => (v
+        ? `<span class="lv-${v} rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap">${esc(levelName(v))}</span>`
+        : '<span class="rounded border border-dashed border-ink-300 px-2 py-0.5 text-xs text-ink-400 whitespace-nowrap">Not rated</span>');
+
+      $('[data-rp-list]').innerHTML = logs.map((log) => {
+        const top = mostlyLevel(log);
+        let group = '';
+        const rows = rubricRows(rubric).map((row) => {
+          const head = row.group !== group ? `<li class="pt-3 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">${esc((group = row.group))}</li>` : '';
+          const piText = row.pi != null ? log.pis?.[row.pi] : '';
+          return `${head}
+            <li class="flex items-start justify-between gap-3 py-1">
+              <span>${esc(row.label)}${piText ? `<span class="block text-xs text-ink-500">${esc(piText)}</span>` : ''}</span>
+              ${levelPill(log.levels?.[row.key])}
+            </li>`;
+        }).join('');
+        const links = [
+          log.url ? `<a href="${esc(log.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Role play</a>` : '',
+          log.videoUrl ? `<a href="${esc(log.videoUrl)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Video</a>` : '',
+        ].filter(Boolean).join(' · ');
+        return `
+          <details class="drawer group rounded-xl bg-white border border-ink-200">
+            <summary class="flex items-center gap-3 sm:gap-4 cursor-pointer select-none p-4 rounded-xl hover:bg-ink-50/60">
+              <span class="flex-1 min-w-0">
+                <span class="block font-semibold">${esc(log.title)}</span>
+                <span class="block text-xs text-ink-500">${[shortDate(log.date), log.ia].filter(Boolean).map(esc).join(' · ')}</span>
+              </span>
+              ${log.score != null ? `<span class="hidden sm:block text-sm text-ink-500 tabular-nums">${log.score}/100</span>` : ''}
+              ${top ? `<span class="lv-${top.key} rounded-md px-2.5 py-1 text-xs font-semibold whitespace-nowrap"><span class="hidden sm:inline">Mostly </span>${esc(top.name)}</span>` : ''}
+              ${chevron}
+            </summary>
+            <div class="px-4 pb-4 pt-3 border-t border-ink-100 text-sm">
+              ${log.feedback ? `<p class="text-ink-700 whitespace-pre-line"><span class="font-semibold">Feedback:</span> ${linkify(log.feedback)}</p>` : ''}
+              ${log.fixNext ? `<p class="mt-2"><span class="font-semibold">Fix next time:</span> ${esc(log.fixNext)}</p>` : ''}
+              <ul class="mt-2 sm:columns-2 sm:gap-8 [&>li]:break-inside-avoid">${rows}</ul>
+              <p class="mt-4 text-xs text-ink-500">${[log.judge ? `Judged by: ${esc(log.judge)}` : '', log.score != null ? `Score ${log.score}/100` : '', log.timed ? 'Full timing' : '', links].filter(Boolean).join(' · ')}</p>
+            </div>
+          </details>`;
+      }).join('');
+      limitList($('[data-rp-list]'), 'role plays');
+
+      if (logs.length > 1) {
+        $('[data-rp-grid]').innerHTML = gridHtml(logs, rubric);
+        show($('[data-rp-grid-wrap]'), true);
+      }
     }
   </script>
 </body>

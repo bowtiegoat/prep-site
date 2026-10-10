@@ -119,13 +119,16 @@ export function shortDate(ymd) {
   return new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// The level a run got most often (a LEVELS entry), or null if nothing was rated.
+export function mostlyLevel(log) {
+  const counts = {};
+  Object.values(log?.levels || {}).forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
+  return LEVELS.filter((l) => counts[l.key]).sort((a, b) => counts[b.key] - counts[a.key])[0] || null;
+}
+
 // Where the student stands on their most recent run.
 export function latestSummary(logs) {
-  const last = sortLogs(logs)[0];
-  if (!last) return '';
-  const counts = {};
-  Object.values(last.levels || {}).forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
-  const top = LEVELS.filter((l) => counts[l.key]).sort((a, b) => counts[b.key] - counts[a.key])[0];
+  const top = mostlyLevel(sortLogs(logs)[0]);
   return top ? `mostly ${top.name} on the latest run` : '';
 }
 
