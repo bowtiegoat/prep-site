@@ -88,7 +88,7 @@
     <section data-plan-admin class="mt-4 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
       <div class="flex flex-wrap items-baseline justify-between gap-2">
         <h2 class="font-serif text-xl font-bold">Prep plan</h2>
-        <p class="text-xs text-ink-500">The 8-week Districts plan for role play students. Shared by every advisor at your school.</p>
+        <p class="text-xs text-ink-500">Each event's week-by-week plan, counted back from its first competition. Shared by every advisor at your school.</p>
       </div>
       <div data-plan-admin-body class="mt-3 text-sm"></div>
     </section>
@@ -100,7 +100,7 @@
           <h2 class="font-serif text-2xl font-bold">Students <span data-count class="text-ink-400 text-lg"></span></h2>
           <p data-rp-total class="mt-1 text-sm text-ink-600"></p>
           <p class="mt-1 text-xs text-ink-500">
-            Progress: role play events follow their 8-week prep plan: 🟢 caught up · 🟡 1–2 tasks overdue · 🔴 3+ overdue. Other events (for now): 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet
+            Progress follows each student's prep plan: 🟢 caught up · 🟡 1–2 tasks overdue · 🔴 3+ overdue. Before competition dates are set: 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet
           </p>
         </div>
         <input data-search type="search" placeholder="Search students or events…"
@@ -144,7 +144,7 @@
         <h2 class="font-serif text-2xl font-bold">Excuse past items</h2>
         <button data-excuse-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button>
       </div>
-      <p class="mt-2 text-sm text-ink-600">Checked items are hidden from every role play student who hasn't done them yet, and stop counting toward the stoplight. You can undo this for any student from their panel.</p>
+      <p data-excuse-intro class="mt-2 text-sm text-ink-600"></p>
       <ul data-excuse-list class="mt-4 divide-y divide-ink-100 text-sm"></ul>
       <div class="mt-5 flex flex-wrap gap-2">
         <button data-excuse-apply class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800 disabled:opacity-50">Excuse checked items</button>
@@ -203,7 +203,9 @@
     import { firstCompetition } from './js/competitions.js';
     import { buildDraft } from './js/email-drafts.js';
     import { byExam, latestAttempts } from './js/attempts.js';
-    import { advisorItems, planApplies, planStatus, planTemplate, planWeeks, shortDate as planShortDate } from './js/prep-plan.js';
+    import {
+      PLANS, advisorItems, mergeProgress, planApplies, planStatus, planTemplate, planType, planWeeks, sharedTaskIds, shortDate as planShortDate,
+    } from './js/prep-plan.js';
     import { exportRows as rolePlayRows, gridHtml, logListHtml, rubricTypeFor, trend, latestSummary } from './js/roleplays.js';
 
     const $ = (sel) => document.querySelector(sel);
@@ -468,14 +470,28 @@
       virtual: { dot: '⚪', label: 'Virtual event (not supported yet)', rank: 2 },
       noExam: { dot: '⚪', label: 'No cluster exam for this event', rank: 2 },
     };
-    // The student's 8-week prep plan, or null (not a role play event, or no date set).
+    // The student's team for their current event, if they're on one.
+    const teamOfStudent = (s) => teams.find((t) => t.memberUids.includes(s.id) && t.eventCode === s.eventCode) || null;
+
+    // A student's plan progress: tasks the team shares come from the team,
+    // everything else (exams, studying) from the student.
+    function progressOf(s) {
+      const team = teamOfStudent(s);
+      if (!team) return { checks: s.planChecks || {}, links: s.planLinks || {} };
+      const shared = sharedTaskIds(s.eventCode);
+      const mine = Object.fromEntries(Object.entries(s.planChecks || {}).filter(([id]) => !shared.has(id)));
+      return { checks: { ...mine, ...(team.planChecks || {}) }, links: team.planLinks || {} };
+    }
+
+    // The student's prep plan, or null (virtual event, or no date set).
     function planOf(s) {
       if (!planApplies(s.eventCode)) return null;
       const first = firstCompetition(s.eventCode, school.competitionDates);
       if (!first?.date) return null;
+      const { checks, links } = progressOf(s);
       return planStatus({
         eventCode: s.eventCode, cluster: s.cluster, exams: allExams, competitionDate: first.date,
-        attempts: attemptsOf(s), logs: logsOf(s), checks: s.planChecks || {},
+        attempts: attemptsOf(s), logs: logsOf(s), checks, links,
         removed: planSettings().removed || [], excused: s.planExcused || {},
       });
     }
@@ -483,10 +499,10 @@
     function statusOf(s) {
       // Prep for virtual events (VBC, Stock Market Game) isn't offered this year.
       if (eventOf(s.eventCode)?.type === 'Virtual') return 'virtual';
-      if (!takesExam(s.eventCode)) return 'noExam';
-      // Role play events with a competition date follow the 8-week prep plan.
+      // Once the school's dates are set, every event follows its prep plan.
       const plan = planOf(s);
       if (plan) return plan.stoplight;
+      if (!takesExam(s.eventCode)) return 'noExam';
       if (!clustersWithExams.has(s.cluster)) return 'gray';
       const last = attemptsOf(s)[0];
       if (!last) return 'red';
@@ -605,6 +621,7 @@
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span class="font-semibold text-blue-700">👥 Team · ${esc(event?.event || team.eventCode)}</span>
               <span class="text-xs text-ink-500">${unit.students.length} of ${maxTeamSize(team.eventCode)} students</span>
+              ${writtenSummary(unit.students[0])}
               ${mismatch ? '<span class="text-xs text-rose-600">⚠️ A member changed events</span>' : ''}
               ${viewOnly ? '' : `<button data-break-team="${esc(team.id)}" class="ml-auto text-xs text-ink-500 underline hover:text-rose-600">Break up team</button>`}
             </div>
@@ -719,6 +736,7 @@
             </div>
           </div>
         </div>
+        ${writtenEntryHtml(s)}
         ${rolePlayHtml(s)}
         <div class="mt-3 flex flex-wrap gap-3 text-sm">
           <button data-view-as="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">👁️ View as ${esc(s.firstName)}</button>
@@ -730,11 +748,12 @@
       const plan = planOf(s);
       if (!plan) {
         return planApplies(s.eventCode)
-          ? '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to start this student\'s 8-week plan.</p>'
+          ? '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to start this student\'s plan.</p>'
           : `<p class="mt-1 text-sm text-ink-500">Coming soon for ${esc(eventOf(s.eventCode)?.type || '')} events.</p>`;
       }
+      const total = plan.weeks.length;
       const when = !plan.started ? `Starts ${planShortDate(plan.weeks[0].start)}`
-        : plan.currentWeek <= 8 ? `Week ${plan.currentWeek} of 8` : '8 weeks done';
+        : plan.currentWeek <= total ? `Week ${plan.currentWeek} of ${total}` : `${total} weeks done`;
       const late = lateJoin(s);
       const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} hover:underline">${label}</button>`);
       return `
@@ -749,10 +768,51 @@
           <ul class="mt-1 space-y-1 text-ink-500">${plan.excusedTasks.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-unexcuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Undo')}</li>`).join('')}</ul></details>` : ''}`;
     }
 
+    // The links a written-event team (or student) shared, for the advisor to open.
+    function writtenEntryHtml(s) {
+      const plan = planOf(s);
+      if (plan?.type !== 'written') return '';
+      const { links } = progressOf(s);
+      const team = teamOfStudent(s);
+      const rows = plan.tasks.filter((t) => t.kind === 'link').map((t) => {
+        const history = links[t.id] || [];
+        const latest = history[history.length - 1];
+        const when = (l) => new Date(l.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return `
+          <tr class="border-t border-ink-100 align-top">
+            <td class="py-2 pr-3 font-medium">${esc(t.linkLabel)} <span class="block text-xs font-normal text-ink-500">Week ${t.week}</span></td>
+            <td class="py-2 pr-3">${latest ? `<a href="${esc(latest.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 font-medium underline">Open →</a>` : '<span class="text-ink-400">Not yet</span>'}</td>
+            <td class="py-2 text-ink-600">${latest ? `${esc(when(latest))} · ${esc(latest.byName)}` : `due ${esc(planShortDate(t.weekEnd))}${t.state === 'overdue' ? ' · <span class="text-rose-700 font-semibold">overdue</span>' : ''}`}
+              ${history.length > 1 ? `<details class="mt-1 text-xs"><summary class="cursor-pointer text-ink-500">Earlier versions (${history.length - 1})</summary>
+                <ul class="mt-1 space-y-0.5">${history.slice(0, -1).reverse().map((l) => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${esc(when(l))}</a> · ${esc(l.byName)}</li>`).join('')}</ul></details>` : ''}</td>
+          </tr>`;
+      }).join('');
+      return `
+        <div class="mt-4 rounded-xl bg-white border border-ink-200 p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Written entry${team ? ' · shared by the team' : ''}</p>
+          <table class="mt-2 w-full text-sm"><tbody>${rows}</tbody></table>
+        </div>`;
+    }
+
+    // "Written entry: 2 of 4 links" for a team's header row.
+    function writtenSummary(s) {
+      const plan = planOf(s);
+      if (plan?.type !== 'written') return '';
+      const linkTasks = plan.tasks.filter((t) => t.kind === 'link');
+      const shared = linkTasks.filter((t) => t.state === 'done').length;
+      return `<span class="text-xs text-ink-600">Written entry: ${shared} of ${linkTasks.length} links shared</span>`;
+    }
+
     // ---------- Prep plan: chapter settings ----------
     const planSettings = () => school.planSettings || {};
-    const chapterFirst = () => firstCompetition('AAM', school.competitionDates); // any role play event
-    const rolePlayStudents = () => students.filter((s) => planOf(s));
+    // The plan the chapter card is showing: roleplay, written, or selling.
+    let adminPlan = 'roleplay';
+    const SAMPLE_EVENT = { roleplay: 'AAM', written: 'BOR', selling: 'PSE' };
+    const chapterFirst = (type = adminPlan) => firstCompetition(SAMPLE_EVENT[type], school.competitionDates);
+    const planStudents = (type = adminPlan) => students.filter((s) => planOf(s)?.type === type);
+    const PLAN_STUDENTS = { roleplay: 'role play students', written: 'written event students', selling: 'selling event students' };
+    // Whether advisors already answered the catch-up prompt for a plan.
+    const CATCHUP_KEY = { roleplay: 'catchupHandled', written: 'catchupHandledWritten', selling: 'catchupHandledSelling' };
     let planAdminOpen = false;
 
     async function saveSettings(changes) {
@@ -762,15 +822,37 @@
       render();
     }
 
-    // Excuse task ids for one student (only ones they haven't done).
+    // Excuse task ids for one student (only ones they haven't done). On a
+    // team, tasks the team shares are excused for every teammate.
     async function excuseFor(s, ids, { lateHandled = false } = {}) {
       const plan = planOf(s);
       const notDone = new Set(plan ? plan.tasks.filter((t) => t.state !== 'done').map((t) => t.id) : []);
-      const next = { ...(s.planExcused || {}) };
-      ids.filter((id) => notDone.has(id)).forEach((id) => { next[id] = true; });
-      const changes = { planExcused: next, ...(lateHandled ? { planLateHandled: true } : {}) };
-      await updateDoc(doc(db, 'users', s.id), changes);
-      Object.assign(s, changes);
+      const picked = ids.filter((id) => notDone.has(id));
+      const team = teamOfStudent(s);
+      const shared = sharedTaskIds(s.eventCode);
+      const mates = team ? students.filter((x) => x.id !== s.id && team.memberUids.includes(x.id)) : [];
+      const write = async (who, list, extra = {}) => {
+        const next = { ...(who.planExcused || {}) };
+        list.forEach((id) => { next[id] = true; });
+        const changes = { planExcused: next, ...extra };
+        await updateDoc(doc(db, 'users', who.id), changes);
+        Object.assign(who, changes);
+      };
+      await write(s, picked, lateHandled ? { planLateHandled: true } : {});
+      const teamIds = picked.filter((id) => shared.has(id));
+      if (teamIds.length) await Promise.all(mates.map((m) => write(m, teamIds)));
+    }
+
+    // Undo an excuse (for the whole team when the team shares the task).
+    async function unexcuseFor(s, id) {
+      const team = teamOfStudent(s);
+      const who = team && sharedTaskIds(s.eventCode).has(id) ? students.filter((x) => team.memberUids.includes(x.id)) : [s];
+      await Promise.all(who.map(async (x) => {
+        const next = { ...(x.planExcused || {}) };
+        delete next[id];
+        await updateDoc(doc(db, 'users', x.id), { planExcused: next });
+        x.planExcused = next;
+      }));
     }
 
     // A student who joined after week 1 started and still has items from before then.
@@ -782,31 +864,46 @@
       if (joined <= plan.weeks[0].start) return null;
       const tasks = plan.overdue.filter((t) => t.weekEnd < joined);
       if (!tasks.length) return null;
-      return { week: plan.weeks.find((w) => joined >= w.start && joined <= w.end)?.number || 8, tasks };
+      return { week: plan.weeks.find((w) => joined >= w.start && joined <= w.end)?.number || plan.weeks.length, tasks };
     }
 
     function renderPlanAdmin() {
       const box = $('[data-plan-admin-body]');
+      const tabs = `
+        <div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Plans">
+          ${Object.entries(PLANS).map(([key, p]) => `
+            <button type="button" role="tab" aria-selected="${key === adminPlan}" data-plan-tab="${key}"
+              class="rounded-full border px-3 py-1.5 text-sm ${key === adminPlan ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">
+              ${esc(p.name)} <span class="opacity-70">${planStudents(key).length}</span>
+            </button>`).join('')}
+        </div>
+        <p class="mb-3 text-xs text-ink-500">${{
+          roleplay: 'All role play events. Counts back 8 weeks from your first competition.',
+          written: 'Prepared events with a written entry, including Integrated Marketing Campaign (which also gets the cluster exams). Counts back 16 weeks from the first prepared event competition. Teams share one plan.',
+          selling: 'Professional Selling, Financial Consulting, and Hospitality and Tourism Professional Selling. Counts back 8 weeks from the first prepared event competition.',
+        }[adminPlan]}</p>`;
       const first = chapterFirst();
       if (!first?.date) {
-        box.innerHTML = '<p class="text-ink-500">Set your competition dates above. The plan counts back 8 weeks from your first competition.</p>';
+        box.innerHTML = `${tabs}<p class="text-ink-500">Set your competition dates above. Each plan counts back from its first competition.</p>`;
         return;
       }
-      const weeks = planWeeks(first.date);
+      const total = PLANS[adminPlan].weeks;
+      const weeks = planWeeks(first.date, total);
       const today = new Date().toLocaleDateString('en-CA');
-      const current = weeks.find((w) => today >= w.start && today <= w.end)?.number || (today < weeks[0].start ? 0 : 9);
+      const current = weeks.find((w) => today >= w.start && today <= w.end)?.number || (today < weeks[0].start ? 0 : total + 1);
       const settings = planSettings();
       const removed = new Set(settings.removed || []);
-      const template = planTemplate();
-      const items = advisorItems(settings.items || [], weeks, { rolePlay: true })
-        .concat(advisorItems((settings.items || []).filter((it) => it.group === 'prepared'), weeks, { rolePlay: false }));
-      const overdueStudents = rolePlayStudents().filter((s) => planOf(s).overdue.length).length;
+      const template = planTemplate(adminPlan);
+      const group = adminPlan === 'roleplay' ? 'roleplay' : 'prepared';
+      const items = advisorItems(settings.items || [], weeks, { group });
+      const who = PLAN_STUDENTS[adminPlan];
+      const overdueStudents = planStudents().filter((s) => planOf(s).overdue.length).length;
       const GROUP = { roleplay: 'Role play students', prepared: 'Prepared event students', everyone: 'Everyone' };
       const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} text-xs hover:underline">${label}</button>`);
 
-      const catchup = !viewOnly && !settings.catchupHandled && current >= 2 && overdueStudents ? `
+      const catchup = !viewOnly && !settings[CATCHUP_KEY[adminPlan]] && current >= 2 && overdueStudents ? `
         <div class="mb-4 rounded-xl border border-tan-200 bg-tan-50 px-4 py-3 text-tan-700">
-          <p><strong>Your role play students are in week ${Math.min(current, 8)} of their plan.</strong> ${overdueStudents} student${overdueStudents === 1 ? ' has' : 's have'} overdue items from earlier weeks.
+          <p><strong>Your ${who} are in week ${Math.min(current, total)} of their plan.</strong> ${overdueStudents} student${overdueStudents === 1 ? ' has' : 's have'} overdue items from earlier weeks.
           You can excuse them so students start fresh, or keep them as catch-up work.</p>
           <div class="mt-2 flex flex-wrap gap-2">
             <button type="button" data-catchup-all class="rounded-lg bg-ink-900 text-cream-50 px-3 py-1.5 text-sm font-medium">Excuse all past items</button>
@@ -823,30 +920,30 @@
             <p class="text-xs font-semibold uppercase tracking-[0.12em] text-ink-500">Week ${w.number} · ${esc(planShortDate(w.start))}–${esc(planShortDate(w.end))}${w.number === current ? ' · this week' : ''}</p>
             <ul class="mt-1 space-y-1">
               ${tasks.map((t) => `<li class="flex items-baseline justify-between gap-3 ${removed.has(t.id) ? 'text-ink-400 line-through' : ''}">
-                <span>${esc(t.label)}</span>${removed.has(t.id) ? btn(`data-restore-task="${esc(t.id)}"`, 'Restore') : btn(`data-remove-task="${esc(t.id)}"`, 'Remove', 'text-rose-600')}</li>`).join('')}
+                <span>${esc(t.label)}${t.kind === 'link' ? ' <span class="text-xs text-blue-600">· link</span>' : ''}</span>${removed.has(t.id) ? btn(`data-restore-task="${esc(t.id)}"`, 'Restore') : btn(`data-remove-task="${esc(t.id)}"`, 'Remove', 'text-rose-600')}</li>`).join('')}
               ${notes.map((it) => `<li class="flex items-baseline justify-between gap-3 text-blue-800">
                 <span>${esc(it.text)} <span class="text-xs text-blue-600">· ${esc(GROUP[it.group])}${it.date ? ` · ${esc(planShortDate(it.date))}` : ''}</span></span>${btn(`data-delete-item="${esc(it.id)}"`, 'Delete', 'text-rose-600')}</li>`).join('')}
             </ul>
           </div>`;
       }).join('');
 
-      box.innerHTML = `${catchup}
-        <p>${current === 0 ? `Plan starts Monday, ${esc(planShortDate(weeks[0].start))}.` : current <= 8 ? `Role play students are in <strong>week ${current} of 8</strong>.` : 'The 8 weeks are done.'}
-          ${rolePlayStudents().length} role play student${rolePlayStudents().length === 1 ? '' : 's'} · ${overdueStudents} with overdue items.
+      box.innerHTML = `${tabs}${catchup}
+        <p>${current === 0 ? `Plan starts Monday, ${esc(planShortDate(weeks[0].start))}.` : current <= total ? `Your ${who} are in <strong>week ${current} of ${total}</strong>.` : `The ${total} weeks are done.`}
+          ${planStudents().length} ${who.replace(/s$/, planStudents().length === 1 ? '' : 's')} · ${overdueStudents} with overdue items.
           ${viewOnly || current < 2 ? '' : '<button type="button" data-catchup-choose class="ml-1 text-blue-600 underline">Excuse past items…</button>'}</p>
         <details data-plan-weeks class="mt-3" ${planAdminOpen ? 'open' : ''}>
           <summary class="cursor-pointer font-semibold text-blue-600">See the plan, remove tasks, or add your own items</summary>
           <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-x-8 divide-y lg:divide-y-0 divide-ink-100">${weekBlocks}</div>
-          <p class="mt-2 text-xs text-ink-500">Removing a task hides it for every role play student. Exam names vary by cluster, so each student sees their own cluster's exam.</p>
+          <p class="mt-2 text-xs text-ink-500">Removing a task hides it for all your ${who}. Exam names vary by cluster, so each student sees their own cluster's exam.</p>
           ${viewOnly ? '' : `
           <form data-add-item class="mt-4 rounded-xl border border-ink-200 p-4 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
             <label class="sm:col-span-6 block"><span class="font-semibold">Add an item</span> <span class="text-ink-500">(shows on students' plans as information, with no checkbox)</span>
               <input name="text" required maxlength="200" placeholder="e.g. Chapter mock competition after school in Room 204" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
             <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">For</span>
               <select name="group" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
-                <option value="roleplay">Role play students</option><option value="prepared">Prepared event students</option><option value="everyone">Everyone</option>
+                ${['roleplay', 'prepared', 'everyone'].map((g) => `<option value="${g}" ${g === group ? 'selected' : ''}>${GROUP[g]}</option>`).join('')}
               </select></label>
-            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">Week</span>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">Week of this plan</span>
               <select name="week" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
                 <option value="">Pick a week…</option>${weeks.map((w) => `<option value="${w.number}">Week ${w.number} (${esc(planShortDate(w.start))})</option>`).join('')}
               </select></label>
@@ -867,15 +964,17 @@
     $('[data-plan-admin]').addEventListener('click', async (e) => {
       const t = e.target;
       const settings = planSettings();
+      const tab = t.closest('[data-plan-tab]');
+      if (tab) { adminPlan = tab.dataset.planTab; renderPlanAdmin(); return; }
       if (t.matches('[data-remove-task]')) await saveSettings({ removed: [...new Set([...(settings.removed || []), t.dataset.removeTask])] });
       else if (t.matches('[data-restore-task]')) await saveSettings({ removed: (settings.removed || []).filter((id) => id !== t.dataset.restoreTask) });
       else if (t.matches('[data-delete-item]')) {
         if (confirm('Delete this item from everyone\'s plan?')) await saveSettings({ items: (settings.items || []).filter((it) => it.id !== t.dataset.deleteItem) });
-      } else if (t.matches('[data-catchup-keep]')) await saveSettings({ catchupHandled: true });
+      } else if (t.matches('[data-catchup-keep]')) await saveSettings({ [CATCHUP_KEY[adminPlan]]: true });
       else if (t.matches('[data-catchup-all]')) {
-        if (!confirm('Excuse every overdue item from earlier weeks for all role play students?')) return;
-        await Promise.all(rolePlayStudents().map((s) => excuseFor(s, planOf(s).overdue.map((x) => x.id))));
-        await saveSettings({ catchupHandled: true });
+        if (!confirm(`Excuse every overdue item from earlier weeks for all ${PLAN_STUDENTS[adminPlan]}?`)) return;
+        for (const s of planStudents()) await excuseFor(s, planOf(s).overdue.map((x) => x.id));
+        await saveSettings({ [CATCHUP_KEY[adminPlan]]: true });
       } else if (t.matches('[data-catchup-choose]')) openExcuseModal();
     });
 
@@ -889,8 +988,8 @@
       const error = f.querySelector('[data-add-error]');
       if (!text) { error.textContent = 'Type the item first.'; return; }
       if (!week && !date) { error.textContent = 'Pick a week or a date.'; return; }
-      // Week items also keep their week's Monday, for students who don't have plan weeks (prepared events).
-      const weekStart = week ? planWeeks(chapterFirst().date)[week - 1].start : null;
+      // A week item keeps its week's Monday, so plans with different weeks place it on the same date.
+      const weekStart = week ? planWeeks(chapterFirst().date, PLANS[adminPlan].weeks)[week - 1].start : null;
       const item = { id: Math.random().toString(36).slice(2, 10), text, group: f.group.value, ...(date ? { date } : { week, weekStart }), createdBy: advisor.name || user.email };
       await saveSettings({ items: [...(planSettings().items || []), item] });
     });
@@ -901,8 +1000,10 @@
       const first = chapterFirst();
       if (!first?.date) return;
       const today = new Date().toLocaleDateString('en-CA');
-      const pastIds = planTemplate().filter((t) => planWeeks(first.date)[t.week - 1].end < today && t.kind !== 'cards');
-      const overdueCount = (id) => rolePlayStudents().filter((s) => planOf(s).overdue.some((x) => x.id === id)).length;
+      const weeks = planWeeks(first.date, PLANS[adminPlan].weeks);
+      const pastIds = planTemplate(adminPlan).filter((t) => weeks[t.week - 1].end < today && t.kind !== 'cards');
+      const overdueCount = (id) => planStudents().filter((s) => planOf(s).overdue.some((x) => x.id === id)).length;
+      excuseModal.querySelector('[data-excuse-intro]').textContent = `Checked items are hidden from all your ${PLAN_STUDENTS[adminPlan]} who haven't done them yet, and stop counting toward the stoplight. You can undo this for any student from their panel.`;
       excuseModal.querySelector('[data-excuse-list]').innerHTML = pastIds.map((t) => `
         <li class="py-2"><label class="flex items-start gap-3">
           <input type="checkbox" data-excuse-pick="${esc(t.id)}" ${overdueCount(t.id) ? 'checked' : ''} class="mt-0.5 w-4 h-4" />
@@ -916,9 +1017,9 @@
       const ids = [...excuseModal.querySelectorAll('[data-excuse-pick]:checked')].map((b) => b.dataset.excusePick);
       e.target.disabled = true;
       try {
-        await Promise.all(rolePlayStudents().map((s) => excuseFor(s, ids)));
+        for (const s of planStudents()) await excuseFor(s, ids);
         excuseModal.classList.add('hidden');
-        await saveSettings({ catchupHandled: true });
+        await saveSettings({ [CATCHUP_KEY[adminPlan]]: true });
       } finally {
         e.target.disabled = false;
       }
@@ -954,8 +1055,11 @@
 
     $('[data-team-make]').addEventListener('click', async () => {
       const chosen = [...selected].map((id) => students.find((s) => s.id === id));
+      // The team starts with everything its members already did on their own.
+      const progress = mergeProgress(chosen, sharedTaskIds(chosen[0].eventCode));
       await addDoc(collection(db, 'teams'), {
         schoolId, eventCode: chosen[0].eventCode, memberUids: chosen.map((s) => s.id),
+        planChecks: progress.planChecks, planLinks: progress.planLinks,
         createdBy: user.email, createdAt: serverTimestamp(),
       });
       selected.clear();
@@ -1039,12 +1143,7 @@
         else if (d.excuseAll) await excuseFor(s, plan.overdue.map((t) => t.id));
         else if (d.excuseLate) await excuseFor(s, lateJoin(s).tasks.map((t) => t.id), { lateHandled: true });
         else if (d.keepLate) { await updateDoc(doc(db, 'users', s.id), { planLateHandled: true }); s.planLateHandled = true; }
-        else if (d.unexcuse) {
-          const next = { ...(s.planExcused || {}) };
-          delete next[d.task];
-          await updateDoc(doc(db, 'users', s.id), { planExcused: next });
-          s.planExcused = next;
-        }
+        else if (d.unexcuse) await unexcuseFor(s, d.task);
         render();
         return;
       }
@@ -1080,7 +1179,15 @@
         return;
       }
       const breakTeam = e.target.closest('[data-break-team]');
-      if (breakTeam && confirm('Break up this team? The students stay on the dashboard; they just won\'t be grouped.')) {
+      if (breakTeam && confirm('Break up this team? The students stay on the dashboard; they just won\'t be grouped. Each keeps a copy of the team\'s plan progress.')) {
+        // Each member keeps a copy of the team's plan progress on their own account.
+        const team = teams.find((t) => t.id === breakTeam.dataset.breakTeam);
+        const members = students.filter((x) => team.memberUids.includes(x.id));
+        await Promise.all(members.map((m) => {
+          const kept = mergeProgress([m, team], sharedTaskIds(team.eventCode));
+          const ownOnly = Object.fromEntries(Object.entries(m.planChecks || {}).filter(([id]) => !sharedTaskIds(team.eventCode).has(id)));
+          return updateDoc(doc(db, 'users', m.id), { planChecks: { ...ownOnly, ...kept.planChecks }, planLinks: { ...(m.planLinks || {}), ...kept.planLinks } });
+        }));
         await deleteDoc(doc(db, 'teams', breakTeam.dataset.breakTeam));
         await load();
         return;

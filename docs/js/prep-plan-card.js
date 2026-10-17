@@ -1,10 +1,18 @@
-// The "Your Prep Plan" card on the Event Hub for role play events: this
-// week's tasks, anything overdue, and what's coming up. The rules live in
-// prep-plan.js.
+// The "Your Prep Plan" card on the Event Hub: this week's tasks, anything
+// overdue, and what's coming up. The rules live in prep-plan.js.
+//
+// Teams share one plan: tasks the team shares (and the links they submit)
+// are saved on the team, so a check-off by one teammate counts for everyone.
+// Exams and studying stay each student's own.
 
-import { collection, doc, getDocs, query, updateDoc, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import {
+  arrayUnion, collection, deleteField, doc, getDocs, query, updateDoc, where,
+} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, esc, isViewingAs } from './app.js';
-import { advisorItems, planStatus, shortDate } from './prep-plan.js';
+import { takesExam } from './events.js';
+import {
+  PLANS, advisorItems, planStatus, planType, sharedTaskIds, shortDate,
+} from './prep-plan.js';
 
 const PLAN_NAME = { district: 'Districts', state: 'States' };
 
@@ -21,10 +29,10 @@ function noteRow(n, { showWeek = false } = {}) {
     </li>`;
 }
 
-// Prepared (and other) events don't have a plan yet, but advisors can still
-// send them items, shown under the placeholder.
+// Events without a plan (virtual events) still see advisor items meant for
+// everyone, shown under the placeholder.
 export function showAdvisorNotes({ settings }) {
-  const items = (settings?.items || []).filter((it) => it.group === 'everyone' || it.group === 'prepared');
+  const items = (settings?.items || []).filter((it) => it.group === 'everyone');
   if (!items.length) return;
   // These students have no plan weeks yet, so show each item's date (or its week's Monday), soonest first.
   const notes = items.map((it) => ({ ...it, sortKey: it.date || it.weekStart || '' })).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
@@ -35,54 +43,105 @@ export function showAdvisorNotes({ settings }) {
   box.classList.remove('hidden');
 }
 
-export async function initPrepPlan({ user, profile, first, links, attemptFilters, settings = {} }) {
+export async function initPrepPlan({ user, profile, first, links: eventLinks, attemptFilters, settings = {} }) {
   const card = document.querySelector('[data-plan-card]');
   const $ = (sel) => card.querySelector(sel);
   const body = $('[data-plan-body]');
   $('[data-plan-placeholder]').classList.add('hidden');
   $('[data-plan-soon]').classList.add('hidden');
   body.classList.remove('hidden');
+  const type = planType(profile.eventCode);
+  const weekCount = PLANS[type].weeks;
 
   if (!first?.date) {
-    body.innerHTML = `<p class="mt-4 text-sm text-ink-600">Your advisor hasn't set your ${first?.label || 'District'} date yet. Your 8-week plan will appear here once they do.</p>`;
+    body.innerHTML = `<p class="mt-4 text-sm text-ink-600">Your advisor hasn't set your ${first?.label || 'District'} date yet. Your ${weekCount}-week plan will appear here once they do.</p>`;
     return;
   }
 
-  const logQuery = () => getDocs(query(collection(db, 'roleplayLogs'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid)))
-    .then((snap) => snap.docs.map((d) => d.data()).filter((l) => l.eventCode === profile.eventCode));
-  const [examSnap, attemptSnap, firstLogs] = await Promise.all([
-    getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))),
+  const logQuery = () => (type === 'roleplay'
+    ? getDocs(query(collection(db, 'roleplayLogs'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid)))
+      .then((snap) => snap.docs.map((d) => d.data()).filter((l) => l.eventCode === profile.eventCode))
+    : Promise.resolve([]));
+  const [examSnap, attemptSnap, firstLogs, teamSnap] = await Promise.all([
+    takesExam(profile.eventCode) ? getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))) : null,
     getDocs(query(collection(db, 'attempts'), ...attemptFilters())),
     logQuery(),
+    getDocs(query(collection(db, 'teams'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid))).catch(() => null),
   ]);
-  const exams = examSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false);
+  const exams = (examSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false);
   const attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.track === profile.track);
+  // The student's team for this event, if their advisor paired them.
+  const teamDoc = (teamSnap?.docs || []).find((d) => d.data().eventCode === profile.eventCode);
+  const team = teamDoc ? { id: teamDoc.id, ...teamDoc.data() } : null;
+  const sharedIds = sharedTaskIds(profile.eventCode);
   let logs = firstLogs;
-  let checks = { ...(profile.planChecks || {}) };
+  let myChecks = { ...(profile.planChecks || {}) };
+  let myLinks = { ...(profile.planLinks || {}) };
+  let teamChecks = { ...(team?.planChecks || {}) };
+  let teamLinks = { ...(team?.planLinks || {}) };
   const viewOnly = isViewingAs();
   const open = new Set(); // collapsed sections the student opened
+  const replacing = new Set(); // link tasks showing the "replace link" box
+  const onTeam = (id) => team && sharedIds.has(id);
+  // Shared tasks come from the team; everything else is the student's own.
+  const effectiveChecks = () => {
+    const mine = Object.fromEntries(Object.entries(myChecks).filter(([id]) => !onTeam(id)));
+    return team ? { ...mine, ...teamChecks } : mine;
+  };
+  const effectiveLinks = () => (team ? teamLinks : myLinks);
+  const myName = `${profile.firstName} ${profile.lastName}`;
+  // On a team, label team tasks only when the plan also has personal ones (exams).
+  const mixed = !!team && takesExam(profile.eventCode);
+  const INTRO = {
+    roleplay: `An 8-week plan to get you ready for ${PLAN_NAME[first.level] || first.label}. Each week runs Monday to Sunday; finish that week's list by Sunday. Exams and role plays check off by themselves.`,
+    written: `A 16-week plan for your written entry and presentation, ready for ${PLAN_NAME[first.level] || first.label}. Each week runs Monday to Sunday; finish that week's list by Sunday. Tasks with a link box check off when you share the link with your advisor.`,
+    selling: `An 8-week plan to get you ready for ${PLAN_NAME[first.level] || first.label}: your cluster exams, plus building and practicing your presentation. Each week runs Monday to Sunday; finish that week's list by Sunday. Exams check off by themselves.`,
+  };
+  const teamNote = team
+    ? `<p class="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800">Your team shares this plan. When one of you checks off a team task or shares a link, it counts for everyone.${takesExam(profile.eventCode) ? ' Exams and studying are your own.' : ''}</p>`
+    : '';
 
   function render() {
     const plan = planStatus({
-      eventCode: profile.eventCode, cluster: profile.cluster, exams, competitionDate: first.date, attempts, logs, checks,
-      removed: settings.removed || [], excused: profile.planExcused || {},
+      eventCode: profile.eventCode, cluster: profile.cluster, exams, competitionDate: first.date, attempts, logs,
+      checks: effectiveChecks(), links: effectiveLinks(), removed: settings.removed || [], excused: profile.planExcused || {},
     });
-    const notes = advisorItems(settings.items, plan.weeks, { rolePlay: true });
+    const notes = advisorItems(settings.items, plan.weeks, { group: type === 'roleplay' ? 'roleplay' : 'prepared' });
     const pct = plan.totalCount ? Math.round((plan.doneCount / plan.totalCount) * 100) : 0;
     $('[data-plan-count]').textContent = `${plan.doneCount} of ${plan.totalCount} done`;
     $('[data-plan-bar]').style.width = `${pct}%`;
 
-    const linkFor = (t) => (t.link === 'guidelines' && links.guidelines
-      ? `<a href="${esc(links.guidelines)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Open guidelines</a>`
+    const linkFor = (t) => (t.link === 'guidelines' && eventLinks.guidelines
+      ? `<a href="${esc(eventLinks.guidelines)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Open guidelines</a>`
       : t.link === 'results' ? '<a href="results.html" class="text-blue-600 underline">My Results</a> · <a href="insights.html" class="text-blue-600 underline">Exam Deep Dive</a>'
         : t.kind === 'exam' && t.state !== 'done' ? `<a href="exam.html?id=${encodeURIComponent(t.examId)}" class="text-blue-600 underline">Go to exam</a>` : '');
     const BADGE = {
       overdue: '<span class="rounded-full bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5">Overdue</span>',
       soon: '<span class="rounded-full bg-tan-100 text-tan-700 text-[11px] font-semibold px-2 py-0.5">Coming soon</span>',
     };
+    // A link task: the latest link shared, or a box to share one.
+    const linkBox = (t) => {
+      const history = effectiveLinks()[t.id] || [];
+      const latest = history[history.length - 1];
+      const form = viewOnly ? '' : `
+        <form data-link-form="${esc(t.id)}" class="mt-1.5 flex flex-wrap gap-2">
+          <input name="url" type="url" required maxlength="500" placeholder="Paste the link (Google Docs, Canva, Drive…)"
+            class="flex-1 min-w-[12rem] rounded-lg border border-ink-300 px-2.5 py-1.5 text-sm" />
+          <button class="rounded-lg bg-ink-900 text-cream-50 px-3 py-1.5 text-xs font-semibold hover:bg-ink-800">${latest ? 'Save new link' : 'Share link'}</button>
+          ${latest ? `<button type="button" data-link-cancel="${esc(t.id)}" class="text-xs text-ink-500 underline">Cancel</button>` : ''}
+        </form>
+        <span class="block text-xs text-ink-500">Make sure your advisor can open it (in Google Docs: Share, then add your advisor or allow anyone with the link).</span>`;
+      if (!latest) return form || '<span class="block text-xs text-ink-500">No link shared yet</span>';
+      const when = new Date(latest.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      return `
+        <span class="block text-xs text-ink-500"><a href="${esc(latest.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Open your link</a> · shared ${esc(when)}${team ? ` by ${esc(latest.byName)}` : ''}${history.length > 1 ? ` · ${history.length} versions` : ''}
+          ${viewOnly || replacing.has(t.id) ? '' : ` · <button type="button" data-link-replace="${esc(t.id)}" class="text-blue-600 underline">Replace</button>`}</span>
+        ${replacing.has(t.id) ? form : ''}`;
+    };
     const row = (t, { showWeek = false } = {}) => {
       const manual = t.kind === 'check';
-      const extra = [t.note, linkFor(t), !manual && t.kind !== 'cards' && t.state !== 'done' ? 'Checks off automatically' : ''].filter(Boolean).join(' · ');
+      const auto = !manual && !['cards', 'link'].includes(t.kind) && t.state !== 'done' ? 'Checks off automatically' : '';
+      const extra = [t.note, linkFor(t), auto, mixed && onTeam(t.id) && !/^(roleplay|judge|areas)$/.test(t.kind) ? 'Team task' : ''].filter(Boolean).join(' · ');
       return `
         <li class="flex items-start gap-3 py-2.5 ${t.state === 'done' ? 'text-ink-400' : ''}">
           <input type="checkbox" ${t.state === 'done' ? 'checked' : ''} ${manual && !viewOnly ? `data-plan-check="${esc(t.id)}"` : 'disabled'}
@@ -90,6 +149,7 @@ export async function initPrepPlan({ user, profile, first, links, attemptFilters
           <span class="flex-1 min-w-0 text-sm">
             <span class="${t.state === 'done' ? 'line-through' : 'text-ink-900'}">${esc(t.label)}</span>
             ${extra ? `<span class="block text-xs text-ink-500">${extra}</span>` : ''}
+            ${t.kind === 'link' ? linkBox(t) : ''}
           </span>
           <span class="shrink-0 flex items-center gap-2 text-xs text-ink-500">${BADGE[t.state] || ''}${showWeek ? `Week ${t.week}` : ''}</span>
         </li>`;
@@ -104,7 +164,7 @@ export async function initPrepPlan({ user, profile, first, links, attemptFilters
     const status = plan.overdue.length
       ? `<span class="font-semibold text-rose-700">${plan.overdue.length} task${plan.overdue.length === 1 ? '' : 's'} overdue</span>`
       : '<span class="font-semibold text-green-700">You\'re on track</span>';
-    const intro = `<p class="mt-4 text-sm text-ink-600">An 8-week plan to get you ready for ${PLAN_NAME[first.level] || first.label}. Each week runs Monday to Sunday; finish that week's list by Sunday. Exams and role plays check off by themselves.</p>`;
+    const intro = `<p class="mt-4 text-sm text-ink-600">${INTRO[type]}</p>${teamNote}`;
 
     if (!plan.started) {
       const w1 = plan.weeks[0];
@@ -119,7 +179,7 @@ export async function initPrepPlan({ user, profile, first, links, attemptFilters
     const later = plan.tasks.filter((t) => t.week > plan.currentWeek);
     const earlierDone = plan.tasks.filter((t) => t.week < plan.currentWeek && t.state === 'done');
     body.innerHTML = `${intro}
-      <p class="mt-2 text-sm">${week ? `<strong>Week ${week.number} of 8</strong> · ${esc(shortDate(week.start))}–${esc(shortDate(week.end))} · ` : '<strong>Your 8 weeks are done.</strong> Use the days before your competition for your own review. · '}${status}</p>
+      <p class="mt-2 text-sm">${week ? `<strong>Week ${week.number} of ${weekCount}</strong> · ${esc(shortDate(week.start))}–${esc(shortDate(week.end))} · ` : `<strong>Your ${weekCount} weeks are done.</strong> Use the days before your competition for your own review. · `}${status}</p>
       ${overdue.length ? `<div class="mt-4 rounded-xl border border-rose-200 bg-rose-50/60 px-4 py-1">
         <p class="pt-2 text-xs font-semibold uppercase tracking-[0.15em] text-rose-700">Catch up</p>${list(overdue, { showWeek: true })}</div>` : ''}
       ${week ? `<p class="mt-5 text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">This week</p>${list(thisWeek, {}, notes.filter((n) => n.week === plan.currentWeek))}` : ''}
@@ -132,20 +192,53 @@ export async function initPrepPlan({ user, profile, first, links, attemptFilters
     if (!key) return;
     if (e.target.open) open.add(key); else open.delete(key);
   }, true);
+  // Saves one key of a map (planChecks or planLinks) on the team or the student.
+  const target = (id) => (onTeam(id) ? doc(db, 'teams', team.id) : doc(db, 'users', user.uid));
+
   body.addEventListener('change', async (e) => {
     const box = e.target.closest('[data-plan-check]');
     if (!box) return;
     const id = box.dataset.planCheck;
-    const before = checks;
-    checks = { ...checks };
-    if (box.checked) checks[id] = true; else delete checks[id];
+    const checked = box.checked;
+    const saved = { myChecks, teamChecks };
+    const apply = (map) => { const next = { ...map }; if (checked) next[id] = true; else delete next[id]; return next; };
+    if (onTeam(id)) teamChecks = apply(teamChecks); else myChecks = apply(myChecks);
     render();
     try {
-      await updateDoc(doc(db, 'users', user.uid), { planChecks: checks });
+      await updateDoc(target(id), { [`planChecks.${id}`]: checked ? true : deleteField() });
     } catch {
-      checks = before;
+      ({ myChecks, teamChecks } = saved);
       render();
       alert("Couldn't save that. Please try again.");
+    }
+  });
+
+  body.addEventListener('click', (e) => {
+    const replace = e.target.closest('[data-link-replace]');
+    const cancel = e.target.closest('[data-link-cancel]');
+    if (replace) { replacing.add(replace.dataset.linkReplace); render(); }
+    if (cancel) { replacing.delete(cancel.dataset.linkCancel); render(); }
+  });
+
+  body.addEventListener('submit', async (e) => {
+    const form = e.target.closest('[data-link-form]');
+    if (!form) return;
+    e.preventDefault();
+    const id = form.dataset.linkForm;
+    const url = form.url.value.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) { alert('Paste a full link that starts with https://'); return; }
+    const entry = { url, by: user.uid, byName: myName, at: new Date().toISOString() };
+    const button = form.querySelector('button');
+    button.disabled = true;
+    try {
+      await updateDoc(target(id), { [`planLinks.${id}`]: arrayUnion(entry) });
+      const add = (map) => ({ ...map, [id]: [...(map[id] || []), entry] });
+      if (onTeam(id)) teamLinks = add(teamLinks); else myLinks = add(myLinks);
+      replacing.delete(id);
+      render();
+    } catch {
+      button.disabled = false;
+      alert("Couldn't save that link. Please try again.");
     }
   });
   // A role play saved or deleted in the drawer below can check off a task.

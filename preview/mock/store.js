@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v8'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v9'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -83,6 +83,7 @@ const DEMO_STUDENTS = [
   ['demo-student-2', 'Jordan', 'Lee', 'ACT', 3, []],
   ['s-mia', 'Mia', 'Robinson', 'PBM', 7, []],
   ['s-owen', 'Owen', 'Hughes', 'BLTDM', null, []],
+  ['s-riley', 'Riley', 'Shah', 'PSE', 2, [[6, 71]]],
 ];
 const DEMO_EXAMS = ['marketing-25-26-districts-1322', 'marketing-24-25-states-1309', 'marketing-25-26-states-1329', 'marketing-24-25-districts-1302', 'marketing-25-26-icdc-1340'];
 // Alex's weak and strong areas, so the exam deep dive has a story to tell.
@@ -227,7 +228,9 @@ function seedRetakes(daysAgo, answerKeys, grade, summarize) {
 // Alex part way through: the 2020-21 exam and a checked "read guidelines".
 function seedPrepPlan(daysAgo, answerKeys, grade, summarize) {
   const inDays = (n) => new Date(Date.now() + n * 86400000).toLocaleDateString('en-CA');
-  db.schools['demo-school'].competitionDates = { district: inDays(41), state: inDays(120), noDistrict: false, preparedFirstAt: 'state' };
+  // Prepared events start at State (like Pennsylvania), about 12 weeks out:
+  // the 16-week written plan is in week 5, and the 8-week selling plan hasn't started.
+  db.schools['demo-school'].competitionDates = { district: inDays(41), state: inDays(85), noDistrict: false, preparedFirstAt: 'state' };
   const examId = 'marketing-20-21-districts-1226';
   const key = answerKeys[examId];
   if (!key) return;
@@ -241,6 +244,21 @@ function seedPrepPlan(daysAgo, answerKeys, grade, summarize) {
     startedAt: timestamp(new Date(daysAgo(15).getTime() - 85 * 60000)), submittedAt: timestamp(daysAgo(15)),
   };
   db.users[DEMO_USER.uid].planChecks = { guidelines: true };
+
+  // Emma and Lucas share an Integrated Marketing Campaign plan: Emma shared the
+  // outline; the rough draft (week 4) is late. Harper works alone.
+  const at = (n) => daysAgo(n).toISOString();
+  db.teams['demo-team-imc'] = {
+    schoolId: 'demo-school', eventCode: 'IMCP', memberUids: ['s-emma', 's-lucas'], createdBy: ADVISOR_USER.email,
+    planChecks: { 'w-guidelines': true, 'w-topic': true, 'w-split': true, 'w-outline-meeting': true, 'w-research': true, 'w-first-sections': true },
+    planLinks: {
+      'w-outline': [
+        { url: 'https://docs.google.com/document/d/example-outline-v1', by: 's-emma', byName: 'Emma Wilson', at: at(26) },
+        { url: 'https://docs.google.com/document/d/example-outline-v2', by: 's-lucas', byName: 'Lucas Garcia', at: at(22) },
+      ],
+    },
+  };
+  db.users['s-harper'].planChecks = { 'w-guidelines': true, 'w-topic': true };
 }
 
 // A small bar on every page so the preview is never mistaken for the live site.

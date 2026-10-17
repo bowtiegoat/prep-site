@@ -36,8 +36,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['competitionDates', 'planSettings'])
         && (!('planSettings' in request.resource.data)
           || (request.resource.data.planSettings is map
-            && request.resource.data.planSettings.keys().hasOnly(['removed', 'items', 'catchupHandled'])
-            && (!('removed' in request.resource.data.planSettings) || request.resource.data.planSettings.removed.size() <= 60)
+            && request.resource.data.planSettings.keys().hasOnly(['removed', 'items', 'catchupHandled', 'catchupHandledWritten', 'catchupHandledSelling'])
+            && (!('removed' in request.resource.data.planSettings) || request.resource.data.planSettings.removed.size() <= 150)
             && (!('items' in request.resource.data.planSettings) || request.resource.data.planSettings.items.size() <= 100)));
     }
 
@@ -56,6 +56,14 @@ service cloud.firestore {
         && request.resource.data.memberUids is list
         && request.resource.data.memberUids.size() >= 2
         && request.resource.data.memberUids.size() <= 3;
+      // Teammates share one prep plan: they may check off team tasks and
+      // share links (outline, drafts, final paper), and nothing else.
+      allow update: if signedIn() && request.auth.uid in resource.data.memberUids
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['planChecks', 'planLinks'])
+        && (!('planChecks' in request.resource.data)
+          || (request.resource.data.planChecks is map && request.resource.data.planChecks.size() <= 80))
+        && (!('planLinks' in request.resource.data)
+          || (request.resource.data.planLinks is map && request.resource.data.planLinks.size() <= 20));
     }
 
     // Advisors can see their own school's code to share with students.
@@ -155,23 +163,30 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      // Advisors may excuse prep plan items for their own students.
+      // Advisors may excuse prep plan items for their own students, and give
+      // each member a copy of their team's plan progress when they break up a team.
       allow update: if isAdvisorOf(resource.data.schoolId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['planExcused', 'planLateHandled'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['planExcused', 'planLateHandled', 'planChecks', 'planLinks'])
+        && (!('planChecks' in request.resource.data)
+          || (request.resource.data.planChecks is map && request.resource.data.planChecks.size() <= 80))
+        && (!('planLinks' in request.resource.data)
+          || (request.resource.data.planLinks is map && request.resource.data.planLinks.size() <= 20))
         && (!('planExcused' in request.resource.data)
           || (request.resource.data.planExcused is map && request.resource.data.planExcused.size() <= 60));
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin() || isAdvisorOf(resource.data.schoolId));
       // Students may only change which attempts are left out of their
       // "All missed questions" table, their last active day, and the
-      // checkboxes on their prep plan.
+      // checkboxes and links on their prep plan.
       allow update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts', 'lastActiveDate', 'planChecks'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['excludedAttempts', 'lastActiveDate', 'planChecks', 'planLinks'])
         && (!('excludedAttempts' in request.resource.data)
           || (request.resource.data.excludedAttempts is list && request.resource.data.excludedAttempts.size() <= 1000))
         && (!('lastActiveDate' in request.resource.data)
           || (request.resource.data.lastActiveDate is string && request.resource.data.lastActiveDate.size() == 10))
         && (!('planChecks' in request.resource.data)
-          || (request.resource.data.planChecks is map && request.resource.data.planChecks.size() <= 60));
+          || (request.resource.data.planChecks is map && request.resource.data.planChecks.size() <= 80))
+        && (!('planLinks' in request.resource.data)
+          || (request.resource.data.planLinks is map && request.resource.data.planLinks.size() <= 20));
     }
 
     // resource == null lets a student check whether they've taken an exam yet.

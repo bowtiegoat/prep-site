@@ -9,6 +9,7 @@ export const query = (ref, ...conditions) => ({ name: ref.name, conditions });
 export const serverTimestamp = () => timestamp(new Date());
 export const arrayUnion = (...items) => ({ __arrayUnion: items });
 export const arrayRemove = (...items) => ({ __arrayRemove: items });
+export const deleteField = () => ({ __deleteField: true });
 
 function snapshot(id, data) {
   return { id, exists: () => data !== undefined, data: () => data };
@@ -31,11 +32,17 @@ export async function getDocs(ref) {
 export async function updateDoc(ref, changes) {
   await ready();
   const data = table(ref.name)[ref.id];
-  for (const [key, value] of Object.entries(changes)) {
-    const current = data[key] || [];
-    if (value && value.__arrayUnion) data[key] = [...new Set([...current, ...value.__arrayUnion])];
-    else if (value && value.__arrayRemove) data[key] = current.filter((v) => !value.__arrayRemove.includes(v));
-    else data[key] = value;
+  for (const [path, value] of Object.entries(changes)) {
+    // "planChecks.w-topic" updates one key inside a map, like Firestore.
+    const keys = path.split('.');
+    let parent = data;
+    keys.slice(0, -1).forEach((k) => { parent = parent[k] ||= {}; });
+    const key = keys[keys.length - 1];
+    const current = parent[key] || [];
+    if (value && value.__deleteField) delete parent[key];
+    else if (value && value.__arrayUnion) parent[key] = [...current, ...value.__arrayUnion.filter((v) => !current.some((c) => JSON.stringify(c) === JSON.stringify(v)))];
+    else if (value && value.__arrayRemove) parent[key] = current.filter((v) => !value.__arrayRemove.includes(v));
+    else parent[key] = value;
   }
   save();
 }
