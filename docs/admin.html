@@ -21,6 +21,7 @@
       <button data-tab="schools" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Schools</button>
       <button data-tab="advisors" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Advisors</button>
       <button data-tab="exams" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Exams</button>
+      <button data-tab="cards" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">PI cards</button>
       <button data-tab="students" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Students</button>
       <button data-tab="flags" class="px-4 py-2 -mb-px border-b-2 font-medium whitespace-nowrap">Site flags <span data-flag-count class="ml-1 hidden rounded-full bg-rose-600 text-white text-xs font-semibold px-2 py-0.5"></span></button>
     </nav>
@@ -103,6 +104,23 @@
       </div>
     </section>
 
+    <!-- PI flashcards -->
+    <section data-panel="cards" class="hidden mt-6 space-y-6">
+      <form data-cards-form class="bg-white rounded-2xl border border-ink-200 p-5 space-y-4">
+        <h2 class="font-semibold text-lg">Upload a PI card deck</h2>
+        <p class="text-sm text-ink-600">Use the review spreadsheet's <strong>Cards</strong> sheet. Columns: <code>Instructional Area, PI Code, Performance Indicator (front), Short Meaning (back), District decks</code>. "District decks" lists the events whose district area includes the card, like <em>PBM, PFN</em>. Uploading again replaces the whole deck; students keep their progress and missed-PI records.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block"><span class="text-sm font-medium text-ink-700">Deck</span>
+            <select name="deck" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 bg-white"></select></label>
+          <label class="block"><span class="text-sm font-medium text-ink-700">Spreadsheet (.xlsx)</span>
+            <input name="file" type="file" required accept=".xlsx,.xls,.csv" class="mt-1 w-full text-sm" /></label>
+        </div>
+        <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Check spreadsheet</button>
+        <div data-cards-preview></div>
+      </form>
+      <div data-decks></div>
+    </section>
+
     <!-- Site flags -->
     <section data-panel="flags" class="hidden mt-6 space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -129,13 +147,14 @@
 
   <script type="module">
     import {
-      collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
+      collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, call, esc, show, formatDate, compareExams, startViewingAs, startViewingHub, loadIcdc } from './js/app.js';
     import { CLUSTERS } from './js/events.js';
     import { parseExamRows } from './js/exam-import.js';
     import { downloadResults, exportFileName } from './js/missed.js';
     import { parseZipGradeRows } from './js/score-import.js';
+    import { DECKS, parseCardRows, parseDistrictRows } from './js/flashcards.js';
 
     const { user } = await requireUser({ adminOnly: true });
     renderHeader({ user, profile: null, active: 'admin' });
@@ -605,6 +624,67 @@
         flash(`Couldn't update the flag: ${err.message}`, false);
       }
     });
+
+    // ---------- PI flashcard decks ----------
+    const cardsForm = $('[data-cards-form]');
+    cardsForm.deck.innerHTML = Object.entries(DECKS).map(([id, d]) => `<option value="${id}">${esc(d.name)} (${d.events.join(', ')})</option>`).join('');
+    let pendingDeck = null;
+
+    async function renderDecks() {
+      const snaps = await Promise.all(Object.keys(DECKS).map((id) => getDoc(doc(db, 'flashDecks', id)).catch(() => null)));
+      $('[data-decks]').innerHTML = table(['Deck', 'Cards', 'District cards per event', 'Updated'], Object.keys(DECKS).map((id, i) => {
+        const d = snaps[i]?.exists() ? snaps[i].data() : null;
+        const per = DECKS[id].events.map((e) => `${e} ${d ? d.cards.filter((c) => c.districts.includes(e)).length : 0}`).join(' · ');
+        return `<tr class="border-t border-ink-100"><td class="py-2 px-3 font-medium">${esc(DECKS[id].name)}</td><td class="py-2 px-3">${d ? d.cards.length : 'Not uploaded'}</td><td class="py-2 px-3">${d ? esc(per) : ''}</td><td class="py-2 px-3 text-ink-500">${d?.updatedAt ? esc(new Date(d.updatedAt).toLocaleDateString()) : ''}</td></tr>`;
+      }));
+    }
+
+    cardsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = cardsForm.file.files[0];
+      const deckId = cardsForm.deck.value;
+      const workbook = XLSX.read(await file.arrayBuffer());
+      const sheet = workbook.Sheets.Cards || workbook.Sheets[workbook.SheetNames[0]];
+      const parsed = parseCardRows(XLSX.utils.sheet_to_json(sheet, { defval: '' }), deckId);
+      // Each event's district area, from the "District decks" sheet.
+      const districtSheet = workbook.Sheets['District decks'];
+      parsed.districtAreas = districtSheet ? parseDistrictRows(XLSX.utils.sheet_to_json(districtSheet, { defval: '' }), deckId) : {};
+      DECKS[deckId].events.filter((ev) => !parsed.districtAreas[ev]).forEach((ev) => parsed.errors.push(`The "District decks" sheet has no district area for ${ev}.`));
+      pendingDeck = { deckId, ...parsed };
+      const ok = !parsed.errors.length;
+      const per = DECKS[deckId].events.map((ev) => `${ev} (${esc(parsed.districtAreas[ev] || '?')}): <strong>${parsed.cards.filter((c) => c.districts.includes(ev)).length}</strong>`).join(' · ');
+      $('[data-cards-preview]').innerHTML = `
+        <div class="mt-2 rounded-xl border border-ink-200 p-4 space-y-3 text-sm">
+          <p><strong>${parsed.cards.length}</strong> cards · district cards ${per}</p>
+          ${parsed.errors.length ? `<div class="rounded-lg bg-rose-50 border border-rose-200 p-3 text-rose-700"><p class="font-semibold">This file can't be uploaded:</p><ul class="list-disc ml-5 mt-1">${parsed.errors.slice(0, 20).map((m) => `<li>${esc(m)}</li>`).join('')}</ul></div>` : ''}
+          ${ok ? `<p class="text-ink-600">Sample: <strong>${esc(parsed.cards[0].pi)}</strong> <span class="font-mono text-xs">${esc(parsed.cards[0].code)}</span> · ${esc(parsed.cards[0].back)}</p>
+            <button type="button" data-save-deck class="rounded-lg bg-blue-600 text-white px-5 py-2 font-medium">Save the ${esc(DECKS[deckId].name)} deck</button>` : ''}
+        </div>`;
+    });
+
+    $('[data-cards-preview]').addEventListener('click', async (e) => {
+      if (!e.target.matches('[data-save-deck]') || !pendingDeck) return;
+      e.target.disabled = true;
+      try {
+        const { deckId, cards, districtAreas } = pendingDeck;
+        // publishedAt stays the first upload's date: the prep plan only asks for card study from then on.
+        const existing = await getDoc(doc(db, 'flashDecks', deckId)).catch(() => null);
+        const now = new Date().toISOString();
+        await setDoc(doc(db, 'flashDecks', deckId), {
+          name: DECKS[deckId].name, events: DECKS[deckId].events, cards, districtAreas, updatedAt: now,
+          publishedAt: (existing?.exists() && existing.data().publishedAt) || now,
+        });
+        flash(`Saved ${cards.length} cards to the ${DECKS[deckId].name} deck.`);
+        pendingDeck = null;
+        $('[data-cards-preview]').innerHTML = '';
+        cardsForm.reset();
+        await renderDecks();
+      } catch (err) {
+        flash(err.message, false);
+        e.target.disabled = false;
+      }
+    });
+    renderDecks();
 
     // ---------- Tabs ----------
     function selectTab(name) {

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PI Cards | BowtieGOAT · GOATS get GLASS</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" href="images/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-xl mx-auto px-4 py-8">
+    <a href="eventhub.html" class="text-sm text-blue-600 underline">← Event Hub</a>
+    <div class="mt-3 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p data-deck-label class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500"></p>
+        <h1 class="font-serif text-2xl sm:text-3xl font-bold">PI Cards</h1>
+      </div>
+      <div data-switch class="flex gap-1 rounded-full bg-ink-100 p-1 text-sm"></div>
+    </div>
+
+    <div data-body class="mt-6"><p class="text-sm text-ink-500">Loading…</p></div>
+  </main>
+
+  <script type="module">
+    import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { db, requireUser, renderHeader, esc, isViewingAs } from './js/app.js';
+    import { DECKS, SESSION_KINDS, answer, deckIdFor, districtAreaFor, newSession, sessionCards, syncSession } from './js/flashcards.js';
+
+    const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'exams' });
+    const $ = (sel) => document.querySelector(sel);
+    const body = $('[data-body]');
+    const viewOnly = isViewingAs();
+    const kind = new URLSearchParams(location.search).get('deck') === 'all' ? 'all' : 'district';
+    const deckId = deckIdFor(profile.eventCode);
+
+    const message = (title, text) => `
+      <div class="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
+        <p class="font-semibold">${title}</p>
+        <p class="mt-1 text-sm text-ink-600">${text}</p>
+        <a href="eventhub.html" class="mt-4 inline-block rounded-lg bg-ink-900 text-cream-50 px-5 py-2.5 text-sm font-medium">Back to the Event Hub</a>
+      </div>`;
+
+    const deckSnap = deckId ? await getDoc(doc(db, 'flashDecks', deckId)).catch(() => null) : null;
+    const deck = deckSnap?.exists() ? deckSnap.data() : null;
+    if (!deck) {
+      body.innerHTML = message('PI cards for your event are coming soon', `Cards for ${esc(profile.eventName)} aren't ready yet. Check back soon.`);
+      await new Promise(() => {});
+    }
+    const cards = sessionCards(deck, profile.eventCode, kind);
+    const byCode = new Map(cards.map((c) => [c.code, c]));
+    const districtArea = districtAreaFor(deck, profile.eventCode);
+    $('[data-deck-label]').textContent = kind === 'district' ? `Districts deck${districtArea ? ` · ${districtArea}` : ''}` : `All PIs deck · ${DECKS[deckId].name}`;
+    $('[data-switch]').innerHTML = Object.entries(SESSION_KINDS).map(([k, label]) => `
+      <a href="flashcards.html?deck=${k}" class="rounded-full px-3 py-1.5 ${k === kind ? 'bg-white shadow-sm font-semibold' : 'text-ink-600 hover:text-ink-900'}">${label}</a>`).join('');
+    if (!cards.length) {
+      body.innerHTML = message('No district cards for your event yet', 'Try the All PIs deck instead.');
+      await new Promise(() => {});
+    }
+
+    // ---------- Progress ----------
+    const ref = doc(db, 'cardProgress', user.uid);
+    const snap = await getDoc(ref).catch(() => null);
+    let progress = snap?.exists() ? snap.data() : { schoolId: profile.schoolId, sessions: {}, stats: {}, studyDays: {} };
+    progress.sessions ||= {};
+    // A district session belongs to one event; a new event starts fresh.
+    let session = progress.sessions[kind];
+    session = session && (kind === 'all' || session.eventCode === profile.eventCode) ? syncSession(session, cards) : null;
+    progress.sessions[kind] = session || { ...newSession(cards), eventCode: profile.eventCode };
+    let flipped = false;
+
+    async function save() {
+      if (viewOnly) return;
+      try {
+        await setDoc(ref, { ...progress, schoolId: profile.schoolId, updatedAt: new Date().toISOString() });
+      } catch {
+        alert("Couldn't save your progress. Check your connection.");
+      }
+    }
+
+    function render() {
+      const s = progress.sessions[kind];
+      const total = cards.length;
+      const known = s.known.length;
+      const pct = Math.round((known / total) * 100);
+      const bar = `
+        <div class="flex justify-between text-xs text-ink-500"><span><strong class="text-ink-900">${known} of ${total}</strong> known this session</span><span>${s.pile.length} left</span></div>
+        <div class="mt-1 h-2 rounded-full bg-ink-100"><div class="h-2 rounded-full bg-green-600" style="width:${pct}%"></div></div>`;
+      const reset = viewOnly ? '' : '<button data-reset class="text-sm text-ink-500 underline hover:text-ink-900">Reset session</button>';
+
+      if (!s.pile.length) {
+        body.innerHTML = `${bar}
+          <div class="mt-6 rounded-2xl bg-white border border-ink-200 p-8 text-center">
+            <p class="font-serif text-2xl font-bold">You know all ${total}!</p>
+            <p class="mt-2 text-sm text-ink-600">Reset the session to shuffle the deck and go again, or try the ${kind === 'district' ? 'All PIs' : 'Districts'} deck.</p>
+            <div class="mt-5 flex flex-wrap justify-center gap-3">
+              ${viewOnly ? '' : '<button data-reset class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2.5 text-sm font-semibold hover:bg-ink-800">Reset session</button>'}
+              <a href="results.html" class="rounded-lg border border-ink-300 px-5 py-2.5 text-sm font-semibold hover:border-ink-500">See what you miss most</a>
+            </div>
+          </div>`;
+        return;
+      }
+      const card = byCode.get(s.pile[0]);
+      body.innerHTML = `${bar}
+        <button type="button" data-flip class="flashcard ${flipped ? 'is-flipped' : ''} mt-6 block w-full text-left" aria-label="${flipped ? 'Card back' : 'Flip the card'}">
+          <span class="flashcard-inner">
+            <span class="flashcard-face rounded-2xl bg-white border border-ink-200 shadow-sm p-6 sm:p-8 flex flex-col items-center justify-center text-center">
+              <span class="font-serif text-xl sm:text-2xl font-bold leading-snug">${esc(card.pi)}</span>
+              <span class="mt-3 font-mono text-xs text-ink-500">${esc(card.code)}</span>
+              <span class="mt-6 text-xs text-ink-400">Tap to flip</span>
+            </span>
+            <span class="flashcard-face flashcard-back rounded-2xl bg-ink-900 text-cream-50 p-6 sm:p-8 flex flex-col justify-center">
+              <span class="text-xs font-semibold uppercase tracking-[0.15em] text-cream-50/60">${esc(card.code)} · ${esc(kind === 'district' && districtArea ? districtArea : card.area)}</span>
+              <span class="mt-2 font-semibold">${esc(card.pi)}</span>
+              <span class="mt-3 text-sm leading-relaxed text-cream-50/90">${esc(card.back)}</span>
+            </span>
+          </span>
+        </button>
+        <div class="mt-4 grid grid-cols-2 gap-3 ${flipped && !viewOnly ? '' : 'invisible'}">
+          <button data-answer="learning" class="rounded-xl border-2 border-ink-300 bg-white px-4 py-3 font-semibold hover:border-ink-500">Still learning</button>
+          <button data-answer="known" class="rounded-xl bg-green-700 text-white px-4 py-3 font-semibold hover:bg-green-800">I know it</button>
+        </div>
+        <div class="mt-6 flex items-center justify-between text-sm">
+          <span class="text-ink-500">${flipped ? '' : 'Say what it means out loud, then flip.'}</span>
+          ${reset}
+        </div>`;
+    }
+
+    body.addEventListener('click', async (e) => {
+      if (e.target.closest('[data-flip]')) { flipped = !flipped; render(); return; }
+      const choice = e.target.closest('[data-answer]');
+      if (choice && !viewOnly) {
+        progress = answer(progress, kind, choice.dataset.answer === 'known');
+        flipped = false;
+        render();
+        await save();
+        return;
+      }
+      if (e.target.closest('[data-reset]') && !viewOnly) {
+        if (!confirm('Reset this session? All the cards come back and get shuffled. Your record of missed PIs stays.')) return;
+        progress.sessions[kind] = { ...newSession(cards), eventCode: profile.eventCode };
+        flipped = false;
+        render();
+        await save();
+      }
+    });
+    // Keyboard: space flips; 1 = still learning, 2 = I know it.
+    document.addEventListener('keydown', async (e) => {
+      if (e.target.matches('input, textarea, select') || viewOnly) return;
+      if (e.key === ' ') { e.preventDefault(); flipped = !flipped; render(); }
+      else if (flipped && (e.key === '1' || e.key === '2')) {
+        progress = answer(progress, kind, e.key === '2');
+        flipped = false;
+        render();
+        await save();
+      }
+    });
+
+    render();
+    if (!snap?.exists() || !session) await save();
+  </script>
+</body>
+</html>

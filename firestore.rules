@@ -121,6 +121,24 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/teams/$(d.teamId)).data.memberUids == d.memberUids;
     }
 
+    // PI flashcard decks: any signed-in student can study them; only the admin uploads.
+    match /flashDecks/{deckId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Each student's PI card sessions, missed-PI record, and study days.
+    // Students keep their own; advisors see their school's.
+    match /cardProgress/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin() || isAdvisorOf(resource.data.schoolId));
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.schoolId == userDoc().schoolId
+        && request.resource.data.keys().hasOnly(['schoolId', 'sessions', 'stats', 'studyDays', 'updatedAt'])
+        && request.resource.data.sessions is map && request.resource.data.sessions.size() <= 4
+        && request.resource.data.stats is map && request.resource.data.stats.size() <= 600
+        && request.resource.data.studyDays is map && request.resource.data.studyDays.size() <= 400;
+    }
+
     match /roleplayLogs/{logId} {
       allow read: if signedIn() && (request.auth.uid in resource.data.memberUids
         || isAdmin() || isAdvisorOf(resource.data.schoolId));

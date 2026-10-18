@@ -58,3 +58,12 @@ details.drawer > summary:focus-visible { outline: 2px solid #2f8cc2; outline-off
 .level-btn[aria-pressed="true"].D { background: #93c7e6; color: #124563; border-color: #124563; }
 .level-btn[aria-pressed="true"].P { background: #2f8cc2; color: #fff; border-color: #2f8cc2; }
 .level-btn[aria-pressed="true"].E { background: #124563; color: #fff; border-color: #124563; }
+
+/* PI flashcards: both faces share one grid cell; the card turns over to show the back. */
+.flashcard { perspective: 1200px; }
+.flashcard-inner { display: grid; transition: transform 0.45s ease; transform-style: preserve-3d; }
+.flashcard-face { grid-area: 1 / 1; min-height: 17rem; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flashcard-back { transform: rotateY(180deg); }
+.flashcard.is-flipped .flashcard-inner { transform: rotateY(180deg); }
+.flashcard:focus-visible { outline: 2px solid #2f8cc2; outline-offset: 4px; border-radius: 1rem; }
+@media (prefers-reduced-motion: reduce) { .flashcard-inner { transition: none; } }

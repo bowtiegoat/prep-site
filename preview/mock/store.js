@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v9'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v11'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -95,7 +95,7 @@ export async function seed({ joined }) {
   const answerKeys = await keys();
   const { EVENTS } = await import('/js/events.js');
   const { grade, summarize } = await import('/mock/grading.js');
-  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {}, roleplayLogs: {}, flags: {} };
+  db = { exams: {}, examStats: {}, users: {}, attempts: {}, schools: {}, teams: {}, advisors: {}, settings: {}, roleplayLogs: {}, flags: {}, flashDecks: {}, cardProgress: {} };
   exams.forEach((e) => { db.exams[e.id] = e; });
   Object.entries(stats).forEach(([id, s]) => { db.examStats[id] = s; });
   // Each question's PI and source without answers (what adminRebuildInsights writes).
@@ -150,6 +150,7 @@ export async function seed({ joined }) {
   seedRolePlayLogs(daysAgo);
   seedRetakes(daysAgo, answerKeys, grade, summarize);
   seedPrepPlan(daysAgo, answerKeys, grade, summarize);
+  await seedFlashcards(daysAgo);
   save();
   return db;
 }
@@ -259,6 +260,25 @@ function seedPrepPlan(daysAgo, answerKeys, grade, summarize) {
     },
   };
   db.users['s-harper'].planChecks = { 'w-guidelines': true, 'w-topic': true };
+}
+
+// The Principles PI card deck (from the review spreadsheet), and Mia (PBM)
+// part way through it: a few study days and some PIs that keep tripping Mia up.
+async function seedFlashcards(daysAgo) {
+  const res = await fetch('/mock/data/flashcards.json').catch(() => null);
+  if (!res?.ok) return;
+  const { cards, districtAreas } = await res.json();
+  db.flashDecks.principles = { name: 'Principles', events: ['PBM', 'PEN', 'PFN', 'PHT', 'PMK'], cards, districtAreas, updatedAt: daysAgo(1).toISOString(), publishedAt: daysAgo(10).toISOString() };
+  const district = cards.filter((c) => c.districts.includes('PBM')).map((c) => c.code);
+  const stats = {};
+  district.forEach((code, i) => { stats[code] = { seen: 3, missed: i % 4 === 0 ? 3 : i % 3 === 0 ? 1 : 0 }; });
+  const day = (n) => daysAgo(n).toLocaleDateString('en-CA');
+  db.cardProgress['s-mia'] = {
+    schoolId: 'demo-school',
+    sessions: { district: { id: 'demo', eventCode: 'PBM', pile: district.slice(9), known: district.slice(0, 9), seen: district, missed: district.filter((_, i) => i % 4 === 0), startedAt: daysAgo(2).toISOString() } },
+    stats,
+    studyDays: { [day(1)]: 14, [day(2)]: 22, [day(4)]: 11, [day(9)]: 16 },
+  };
 }
 
 // A small bar on every page so the preview is never mistaken for the live site.

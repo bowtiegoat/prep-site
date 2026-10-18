@@ -18,6 +18,7 @@
 //   green = caught up, yellow = 1-2 overdue, red = 3+.
 
 import { EVENTS, takesExam } from './events.js';
+import { studyDaysBetween } from './flashcards.js';
 
 const DAY = 86400000;
 // Exam years, oldest to newest. PFL only has District exams from 22-23, so
@@ -227,13 +228,18 @@ export function advisorItems(items = [], weeks, { group }) {
 // links = their progress (team progress already merged in by the caller).
 // removed = task ids the school's advisors took off the plan; excused = task
 // ids an advisor excused for this student. Both are hidden and not counted.
+// cardDays = the student's PI card study days (cardProgress studyDays), or
+// null when their event has no PI cards yet (the task shows "coming soon").
+// cardsSince = the day their deck went live; card tasks from weeks that
+// ended before then are dropped, since students couldn't have done them.
 export function planStatus({
-  eventCode, cluster, exams, competitionDate, attempts, logs = [], checks = {}, links = {}, removed = [], excused = {}, today = ymd(new Date()),
+  eventCode, cluster, exams, competitionDate, attempts, logs = [], checks = {}, links = {}, removed = [], excused = {}, cardDays = null, cardsSince = null, today = ymd(new Date()),
 }) {
   const type = planType(eventCode) || 'roleplay';
   const weeks = planWeeks(competitionDate, PLANS[type].weeks);
   const allTasks = planTasks({ eventCode, cluster, exams, type });
-  const tasks = allTasks.filter((t) => !removed.includes(t.id) && !excused[t.id]);
+  const beforeCards = (t) => t.kind === 'cards' && cardsSince && weeks[t.week - 1].end < cardsSince;
+  const tasks = allTasks.filter((t) => !removed.includes(t.id) && !excused[t.id] && !beforeCards(t));
   const tries = (examId) => attempts.filter((a) => a.examId === examId).length;
   // A role play counts once it has its "one thing to fix" (logs from before that box existed count too).
   const counted = logs.filter((l) => l.fixNext === undefined || String(l.fixNext).trim());
@@ -247,6 +253,7 @@ export function planStatus({
 
   const done = (t) => {
     switch (t.kind) {
+      case 'cards': return !!cardDays && studyDaysBetween(cardDays, weeks[t.week - 1].start, weeks[t.week - 1].end) >= 3;
       case 'exam': return tries(t.examId) >= t.tryNumber;
       case 'roleplay': return counted.length >= t.count && timedCount >= t.timedNeeded;
       case 'judge': return counted.some((l) => ADULT_JUDGES.includes(l.judge));
@@ -254,16 +261,17 @@ export function planStatus({
       case 'retake': return retakesInPlan - pflRetakes >= 1;
       case 'link': return !!links[t.id]?.length;
       case 'check': return !!checks[t.id];
-      default: return false; // cards: not built yet
+      default: return false;
     }
   };
   const result = tasks.map((t) => {
     const week = weeks[t.week - 1];
     const isDone = done(t);
-    const comingSoon = t.kind === 'cards';
+    const comingSoon = t.kind === 'cards' && !cardDays;
     const state = isDone ? 'done' : comingSoon ? 'soon' : today > week.end ? 'overdue' : today >= week.start ? 'due' : 'upcoming';
     const note = t.kind === 'roleplay' ? `${Math.min(counted.length, t.count)} of ${t.count} logged${t.timedNeeded ? ` · ${Math.min(timedCount, t.timedNeeded)} of ${t.timedNeeded} timed` : ''}`
       : t.kind === 'areas' ? `${areas.size} of 3 so far`
+        : t.kind === 'cards' && cardDays && !isDone && today >= week.start ? `${studyDaysBetween(cardDays, week.start, week.end)} of 3 days so far`
         : t.kind === 'retake' && weakest && !isDone ? `Weakest so far: ${weakest.examLabel} (${weakest.correct}/${weakest.total})`
           : '';
     return { ...t, weekStart: week.start, weekEnd: week.end, state, note };

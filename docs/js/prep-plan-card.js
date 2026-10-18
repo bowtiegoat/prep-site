@@ -6,10 +6,11 @@
 // Exams and studying stay each student's own.
 
 import {
-  arrayUnion, collection, deleteField, doc, getDocs, query, updateDoc, where,
+  arrayUnion, collection, deleteField, doc, getDoc, getDocs, query, updateDoc, where,
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, esc, isViewingAs } from './app.js';
 import { takesExam } from './events.js';
+import { deckIdFor } from './flashcards.js';
 import {
   PLANS, advisorItems, planStatus, planType, sharedTaskIds, shortDate,
 } from './prep-plan.js';
@@ -62,11 +63,18 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     ? getDocs(query(collection(db, 'roleplayLogs'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid)))
       .then((snap) => snap.docs.map((d) => d.data()).filter((l) => l.eventCode === profile.eventCode))
     : Promise.resolve([]));
-  const [examSnap, attemptSnap, firstLogs, teamSnap] = await Promise.all([
+  // PI card study days, once the student's event has a deck (null = "coming soon").
+  const deckId = type === 'roleplay' ? deckIdFor(profile.eventCode) : null;
+  const cardDaysQuery = deckId
+    ? Promise.all([getDoc(doc(db, 'flashDecks', deckId)), getDoc(doc(db, 'cardProgress', user.uid))])
+      .then(([deck, prog]) => (deck.exists() ? { days: (prog.exists() && prog.data().studyDays) || {}, since: (deck.data().publishedAt || '').slice(0, 10) || null } : null)).catch(() => null)
+    : Promise.resolve(null);
+  const [examSnap, attemptSnap, firstLogs, teamSnap, cardInfo] = await Promise.all([
     takesExam(profile.eventCode) ? getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))) : null,
     getDocs(query(collection(db, 'attempts'), ...attemptFilters())),
     logQuery(),
     getDocs(query(collection(db, 'teams'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid))).catch(() => null),
+    cardDaysQuery,
   ]);
   const exams = (examSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false);
   const attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.track === profile.track);
@@ -105,6 +113,7 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     const plan = planStatus({
       eventCode: profile.eventCode, cluster: profile.cluster, exams, competitionDate: first.date, attempts, logs,
       checks: effectiveChecks(), links: effectiveLinks(), removed: settings.removed || [], excused: profile.planExcused || {},
+      cardDays: cardInfo?.days || null, cardsSince: cardInfo?.since || null,
     });
     const notes = advisorItems(settings.items, plan.weeks, { group: type === 'roleplay' ? 'roleplay' : 'prepared' });
     const pct = plan.totalCount ? Math.round((plan.doneCount / plan.totalCount) * 100) : 0;

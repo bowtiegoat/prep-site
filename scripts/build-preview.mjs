@@ -76,4 +76,16 @@ if (existsSync(zipGradeFile)) {
 }
 writeFileSync(join(out, 'mock/data/stats.json'), JSON.stringify(stats));
 
-console.log(`Preview built in .preview/ (${exams.length} exams). Serve it with:\n  cd .preview && python3 -m http.server 8126`);
+// PI flashcards from the review spreadsheet, when it's on this computer.
+const cardFile = join(homedir(), 'Desktop/All PIs Explained/Flashcards/Principles Flashcards - Review.xlsx');
+let cardCount = 0;
+if (existsSync(cardFile)) {
+  const { parseCardRows, parseDistrictRows } = await import(pathToFileURL(join(root, 'docs/js/flashcards.js')));
+  const book = XLSX.readFile(cardFile);
+  const { cards } = parseCardRows(XLSX.utils.sheet_to_json(book.Sheets.Cards || book.Sheets[book.SheetNames[0]], { defval: '' }), 'principles');
+  const districtAreas = parseDistrictRows(XLSX.utils.sheet_to_json(book.Sheets['District decks'], { defval: '' }), 'principles');
+  cardCount = cards.length;
+  writeFileSync(join(out, 'mock/data/flashcards.json'), JSON.stringify({ cards, districtAreas }));
+}
+
+console.log(`Preview built in .preview/ (${exams.length} exams, ${cardCount} PI cards). Serve it with:\n  cd .preview && python3 -m http.server 8126`);

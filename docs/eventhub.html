@@ -98,6 +98,19 @@
           </div>
         </div>
       </details>
+
+      <details data-cards-drawer class="hidden drawer group rounded-2xl bg-white border border-ink-200">
+        <summary class="flex items-center gap-4 cursor-pointer select-none p-5 sm:p-6 rounded-2xl hover:bg-ink-50/60">
+          <span class="flex-1 min-w-0">
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">PI Cards</h2>
+            <span data-cards-summary class="mt-0.5 block text-sm text-ink-500">Loading…</span>
+          </span>
+          <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full border border-ink-200 text-ink-600 transition-transform group-open:rotate-180" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </summary>
+        <div data-cards-body class="px-5 sm:px-6 pb-6 pt-4 border-t border-ink-100"></div>
+      </details>
     </div>
   </main>
 
@@ -175,6 +188,7 @@
     import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
     import { planApplies } from './js/prep-plan.js';
     import { initPrepPlan, showAdvisorNotes } from './js/prep-plan-card.js';
+    import { initCardsDrawer } from './js/cards-drawer.js';
 
     const { user, profile } = await requireUser();
     // An advisor viewing as a student must also filter by school, or the
@@ -211,6 +225,11 @@
     // ---------- Role play practice (role play events only) ----------
     if (event?.type === 'Role Play') initRolePlayDrawer({ user, profile, event }).catch(() => {
       document.querySelector('[data-rp-summary]').textContent = "Your role play logs couldn't load. Refresh to try again.";
+    });
+
+    // ---------- PI cards (role play events) ----------
+    if (event?.type === 'Role Play') initCardsDrawer({ user, profile }).catch(() => {
+      document.querySelector('[data-cards-summary]').textContent = "Your PI cards couldn't load. Refresh to try again.";
     });
 
     // ---------- Prep plan (counts back from the first competition) ----------
