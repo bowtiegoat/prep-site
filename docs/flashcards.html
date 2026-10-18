@@ -74,14 +74,37 @@
     progress.sessions[kind] = session || { ...newSession(cards), eventCode: profile.eventCode };
     let flipped = false;
 
+    // Progress is saved every SAVE_EVERY answers (each save is one database
+    // write), when a session ends or resets, and when the student leaves the
+    // page or switches away from it.
+    const SAVE_EVERY = 10;
+    let unsaved = 0;
     async function save() {
       if (viewOnly) return;
+      unsaved = 0;
       try {
         await setDoc(ref, { ...progress, schoolId: profile.schoolId, updatedAt: new Date().toISOString() });
       } catch {
         alert("Couldn't save your progress. Check your connection.");
       }
     }
+    async function record(knew) {
+      progress = answer(progress, kind, knew);
+      flipped = false;
+      unsaved += 1;
+      render();
+      if (unsaved >= SAVE_EVERY || !progress.sessions[kind].pile.length) await save();
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && unsaved) save(); });
+    window.addEventListener('pagehide', () => { if (unsaved) save(); });
+    // Links (Event Hub, the deck switch, the header) save first, then go.
+    document.addEventListener('click', async (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link || !unsaved || link.target === '_blank' || e.metaKey || e.ctrlKey) return;
+      e.preventDefault();
+      await save();
+      location.href = link.href;
+    }, true);
 
     function render() {
       const s = progress.sessions[kind];
@@ -135,10 +158,7 @@
       if (e.target.closest('[data-flip]')) { flipped = !flipped; render(); return; }
       const choice = e.target.closest('[data-answer]');
       if (choice && !viewOnly) {
-        progress = answer(progress, kind, choice.dataset.answer === 'known');
-        flipped = false;
-        render();
-        await save();
+        await record(choice.dataset.answer === 'known');
         return;
       }
       if (e.target.closest('[data-reset]') && !viewOnly) {
@@ -153,12 +173,7 @@
     document.addEventListener('keydown', async (e) => {
       if (e.target.matches('input, textarea, select') || viewOnly) return;
       if (e.key === ' ') { e.preventDefault(); flipped = !flipped; render(); }
-      else if (flipped && (e.key === '1' || e.key === '2')) {
-        progress = answer(progress, kind, e.key === '2');
-        flipped = false;
-        render();
-        await save();
-      }
+      else if (flipped && (e.key === '1' || e.key === '2')) await record(e.key === '2');
     });
 
     render();
