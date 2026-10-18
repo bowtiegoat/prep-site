@@ -123,6 +123,7 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     const linkFor = (t) => (t.link === 'guidelines' && eventLinks.guidelines
       ? `<a href="${esc(eventLinks.guidelines)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Open guidelines</a>`
       : t.link === 'results' ? '<a href="results.html" class="text-blue-600 underline">My Results</a> · <a href="insights.html" class="text-blue-600 underline">Exam Deep Dive</a>'
+        : t.kind === 'cards' && t.state !== 'soon' && t.state !== 'done' ? '<a href="flashcards.html" class="text-blue-600 underline">Study PI cards</a>'
         : t.kind === 'exam' && t.state !== 'done' ? `<a href="exam.html?id=${encodeURIComponent(t.examId)}" class="text-blue-600 underline">Go to exam</a>` : '');
     const BADGE = {
       overdue: '<span class="rounded-full bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5">Overdue</span>',
@@ -149,7 +150,8 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     };
     const row = (t, { showWeek = false } = {}) => {
       const manual = t.kind === 'check';
-      const auto = !manual && !['cards', 'link'].includes(t.kind) && t.state !== 'done' ? 'Checks off automatically' : '';
+      // Cards check off by themselves once the event has a deck (until then they're "coming soon").
+      const auto = !manual && t.kind !== 'link' && !['done', 'soon'].includes(t.state) ? 'Checks off automatically' : '';
       const extra = [t.note, linkFor(t), auto, mixed && onTeam(t.id) && !/^(roleplay|judge|areas)$/.test(t.kind) ? 'Team task' : ''].filter(Boolean).join(' · ');
       return `
         <li class="flex items-start gap-3 py-2.5 ${t.state === 'done' ? 'text-ink-400' : ''}">
