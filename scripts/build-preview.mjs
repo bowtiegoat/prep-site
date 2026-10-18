@@ -76,16 +76,19 @@ if (existsSync(zipGradeFile)) {
 }
 writeFileSync(join(out, 'mock/data/stats.json'), JSON.stringify(stats));
 
-// PI flashcards from the review spreadsheet, when it's on this computer.
-const cardFile = join(homedir(), 'Desktop/All PIs Explained/Flashcards/Principles Flashcards - Review.xlsx');
+// PI flashcard decks from the review spreadsheets on this computer.
+const { DECKS, parseCardRows, parseDistrictRows } = await import(pathToFileURL(join(root, 'docs/js/flashcards.js')));
+const decks = {};
 let cardCount = 0;
-if (existsSync(cardFile)) {
-  const { parseCardRows, parseDistrictRows } = await import(pathToFileURL(join(root, 'docs/js/flashcards.js')));
+for (const [deckId, deck] of Object.entries(DECKS)) {
+  const cardFile = join(homedir(), `Desktop/All PIs Explained/Flashcards/${deck.name} Flashcards - Review.xlsx`);
+  if (!existsSync(cardFile)) continue;
   const book = XLSX.readFile(cardFile);
-  const { cards } = parseCardRows(XLSX.utils.sheet_to_json(book.Sheets.Cards || book.Sheets[book.SheetNames[0]], { defval: '' }), 'principles');
-  const districtAreas = parseDistrictRows(XLSX.utils.sheet_to_json(book.Sheets['District decks'], { defval: '' }), 'principles');
-  cardCount = cards.length;
-  writeFileSync(join(out, 'mock/data/flashcards.json'), JSON.stringify({ cards, districtAreas }));
+  const { cards } = parseCardRows(XLSX.utils.sheet_to_json(book.Sheets.Cards || book.Sheets[book.SheetNames[0]], { defval: '' }), deckId);
+  const districtAreas = parseDistrictRows(XLSX.utils.sheet_to_json(book.Sheets['District decks'], { defval: '' }), deckId);
+  decks[deckId] = { name: deck.name, events: deck.events, cards, districtAreas };
+  cardCount += cards.length;
 }
+writeFileSync(join(out, 'mock/data/flashcards.json'), JSON.stringify(decks));
 
 console.log(`Preview built in .preview/ (${exams.length} exams, ${cardCount} PI cards). Serve it with:\n  cd .preview && python3 -m http.server 8126`);

@@ -29,7 +29,7 @@
   <script type="module">
     import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, esc, isViewingAs } from './js/app.js';
-    import { DECKS, SESSION_KINDS, answer, deckIdFor, districtAreaFor, newSession, sessionCards, syncSession } from './js/flashcards.js';
+    import { DECKS, SESSION_KINDS, answer, deckIdFor, districtAreaFor, districtLabel, newSession, sessionCards, syncSession } from './js/flashcards.js';
 
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'exams' });
@@ -138,7 +138,7 @@
               <span class="mt-6 text-xs text-ink-400">Tap to flip</span>
             </span>
             <span class="flashcard-face flashcard-back rounded-2xl bg-white text-ink-900 border border-ink-200 shadow-sm p-6 sm:p-8 lg:p-14 flex flex-col justify-center">
-              <span class="text-xs lg:text-sm font-semibold uppercase tracking-[0.15em] text-ink-500">${esc(card.code)} · ${esc(kind === 'district' && districtArea ? districtArea : card.area)}</span>
+              <span class="text-xs lg:text-sm font-semibold uppercase tracking-[0.15em] text-ink-500">${esc(card.code)} · ${esc(kind === 'district' && districtArea ? districtLabel(card, deck, profile.eventCode) : card.area)}</span>
               <span class="mt-2 lg:mt-3 font-semibold lg:text-2xl">${esc(card.pi)}</span>
               <span class="mt-3 lg:mt-5 text-sm lg:text-xl leading-relaxed text-ink-700">${esc(card.back)}</span>
             </span>

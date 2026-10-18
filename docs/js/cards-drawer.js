@@ -3,7 +3,7 @@
 
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, esc } from './app.js';
-import { STUDY_DAY_CARDS, deckIdFor, districtAreaFor, missedPis, sessionCards } from './flashcards.js';
+import { DECKS, STUDY_DAY_CARDS, deckIdFor, districtAreaFor, missedPis, sessionCards } from './flashcards.js';
 
 export async function initCardsDrawer({ user, profile }) {
   const drawer = document.querySelector('[data-cards-drawer]');
@@ -19,7 +19,7 @@ export async function initCardsDrawer({ user, profile }) {
   const deck = deckSnap?.exists() ? deckSnap.data() : null;
   if (!deck) {
     summary.textContent = 'Coming soon for your event';
-    body.innerHTML = `<p class="text-sm text-ink-600">Flashcards for the performance indicators in ${esc(profile.eventName)} are on the way. Principles events have them now.</p>`;
+    body.innerHTML = `<p class="text-sm text-ink-600">Flashcards for the performance indicators in ${esc(profile.eventName)} are on the way. Cards are being added one career cluster at a time.</p>`;
     return;
   }
   const progress = progressSnap?.exists() ? progressSnap.data() : { sessions: {}, stats: {} };
@@ -49,8 +49,8 @@ export async function initCardsDrawer({ user, profile }) {
   body.innerHTML = `
     <p class="text-sm text-ink-600">Flip a card, say what the PI means, then check yourself. Cards you know leave the session; the rest come back around. Studying ${STUDY_DAY_CARDS}+ cards in a day counts toward your prep plan.</p>
     <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      ${district.length ? tile('district', 'Districts deck', `Your district area: ${area}`, district) : ''}
-      ${tile('all', 'All PIs deck', 'Every Principles performance indicator', deck.cards)}
+      ${district.length ? tile('district', 'Districts deck', `Your district area${area.includes(' · ') ? 's' : ''}: ${area}`, district) : ''}
+      ${tile('all', 'All PIs deck', `Every ${DECKS[deckId].name} performance indicator`, deck.cards)}
     </div>
     ${missed.length ? `
       <p class="mt-5 text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">You miss these most</p>

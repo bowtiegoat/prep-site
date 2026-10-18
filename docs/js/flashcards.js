@@ -16,6 +16,7 @@
 
 export const DECKS = {
   principles: { name: 'Principles', events: ['PBM', 'PEN', 'PFN', 'PHT', 'PMK'] },
+  marketing: { name: 'Marketing', events: ['AAM', 'ASM', 'BSM', 'BTDM', 'FMS', 'MCS', 'MTDM', 'RMS', 'SEM', 'STDM'] },
 };
 export const STUDY_DAY_CARDS = 10;
 export const SESSION_KINDS = { district: 'Districts', all: 'All PIs' };
@@ -101,9 +102,18 @@ export function studyDaysBetween(studyDays = {}, start, end) {
   return Object.entries(studyDays).filter(([day, n]) => day >= start && day <= end && n >= STUDY_DAY_CARDS).length;
 }
 
-// The district instructional area for an event, from the deck.
+// The district instructional area(s) for an event, from the deck. Series
+// events have two (Scenario 1 and 2), stored as "Area A · Area B".
 export function districtAreaFor(deck, eventCode) {
   return deck?.districtAreas?.[eventCode] || '';
+}
+
+// The area to show on a card in an event's Districts deck: whichever of the
+// card's areas is one of the event's district areas.
+export function districtLabel(card, deck, eventCode) {
+  const mine = districtAreaFor(deck, eventCode).split(' · ').filter(Boolean);
+  const hits = String(card.area || '').split(' · ').filter((a) => mine.includes(a));
+  return (hits.length ? hits : mine).join(' · ');
 }
 
 // Reads the review spreadsheet's "District decks" sheet: Event | District instructional area.

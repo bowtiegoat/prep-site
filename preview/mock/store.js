@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v11'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v12'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -267,8 +267,12 @@ function seedPrepPlan(daysAgo, answerKeys, grade, summarize) {
 async function seedFlashcards(daysAgo) {
   const res = await fetch('/mock/data/flashcards.json').catch(() => null);
   if (!res?.ok) return;
-  const { cards, districtAreas } = await res.json();
-  db.flashDecks.principles = { name: 'Principles', events: ['PBM', 'PEN', 'PFN', 'PHT', 'PMK'], cards, districtAreas, updatedAt: daysAgo(1).toISOString(), publishedAt: daysAgo(10).toISOString() };
+  const decks = await res.json();
+  Object.entries(decks).forEach(([id, deck]) => {
+    db.flashDecks[id] = { ...deck, updatedAt: daysAgo(1).toISOString(), publishedAt: daysAgo(10).toISOString() };
+  });
+  if (!db.flashDecks.principles) return;
+  const { cards } = db.flashDecks.principles;
   const district = cards.filter((c) => c.districts.includes('PBM')).map((c) => c.code);
   const stats = {};
   district.forEach((code, i) => { stats[code] = { seen: 3, missed: i % 4 === 0 ? 3 : i % 3 === 0 ? 1 : 0 }; });
