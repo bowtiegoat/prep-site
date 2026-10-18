@@ -63,6 +63,8 @@ details.drawer > summary:focus-visible { outline: 2px solid #2f8cc2; outline-off
 .flashcard { perspective: 1200px; }
 .flashcard-inner { display: grid; transition: transform 0.45s ease; transform-style: preserve-3d; }
 .flashcard-face { grid-area: 1 / 1; min-height: 17rem; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* Laptops and larger: a bigger card that fills more of the screen. */
+@media (min-width: 1024px) { .flashcard-face { min-height: 28rem; } }
 .flashcard-back { transform: rotateY(180deg); }
 .flashcard.is-flipped .flashcard-inner { transform: rotateY(180deg); }
 .flashcard:focus-visible { outline: 2px solid #2f8cc2; outline-offset: 4px; border-radius: 1rem; }

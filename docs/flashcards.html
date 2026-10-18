@@ -13,7 +13,7 @@
 <body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
   <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
 
-  <main class="max-w-xl mx-auto px-4 py-8">
+  <main class="max-w-xl lg:max-w-4xl mx-auto px-4 py-8">
     <a href="eventhub.html" class="text-sm text-blue-600 underline">← Event Hub</a>
     <div class="mt-3 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -109,21 +109,21 @@
       body.innerHTML = `${bar}
         <button type="button" data-flip class="flashcard ${flipped ? 'is-flipped' : ''} mt-6 block w-full text-left" aria-label="${flipped ? 'Card back' : 'Flip the card'}">
           <span class="flashcard-inner">
-            <span class="flashcard-face rounded-2xl bg-white border border-ink-200 shadow-sm p-6 sm:p-8 flex flex-col items-center justify-center text-center">
-              <span class="font-serif text-xl sm:text-2xl font-bold leading-snug">${esc(card.pi)}</span>
-              <span class="mt-3 font-mono text-xs text-ink-500">${esc(card.code)}</span>
+            <span class="flashcard-face rounded-2xl bg-white border border-ink-200 shadow-sm p-6 sm:p-8 lg:p-14 flex flex-col items-center justify-center text-center">
+              <span class="font-serif text-xl sm:text-2xl lg:text-4xl font-bold leading-snug lg:max-w-2xl">${esc(card.pi)}</span>
+              <span class="mt-3 lg:mt-5 font-mono text-xs lg:text-sm text-ink-500">${esc(card.code)}</span>
               <span class="mt-6 text-xs text-ink-400">Tap to flip</span>
             </span>
-            <span class="flashcard-face flashcard-back rounded-2xl bg-ink-900 text-cream-50 p-6 sm:p-8 flex flex-col justify-center">
-              <span class="text-xs font-semibold uppercase tracking-[0.15em] text-cream-50/60">${esc(card.code)} · ${esc(kind === 'district' && districtArea ? districtArea : card.area)}</span>
-              <span class="mt-2 font-semibold">${esc(card.pi)}</span>
-              <span class="mt-3 text-sm leading-relaxed text-cream-50/90">${esc(card.back)}</span>
+            <span class="flashcard-face flashcard-back rounded-2xl bg-white text-ink-900 border border-ink-200 shadow-sm p-6 sm:p-8 lg:p-14 flex flex-col justify-center">
+              <span class="text-xs lg:text-sm font-semibold uppercase tracking-[0.15em] text-ink-500">${esc(card.code)} · ${esc(kind === 'district' && districtArea ? districtArea : card.area)}</span>
+              <span class="mt-2 lg:mt-3 font-semibold lg:text-2xl">${esc(card.pi)}</span>
+              <span class="mt-3 lg:mt-5 text-sm lg:text-xl leading-relaxed text-ink-700">${esc(card.back)}</span>
             </span>
           </span>
         </button>
         <div class="mt-4 grid grid-cols-2 gap-3 ${flipped && !viewOnly ? '' : 'invisible'}">
-          <button data-answer="learning" class="rounded-xl border-2 border-ink-300 bg-white px-4 py-3 font-semibold hover:border-ink-500">Still learning</button>
-          <button data-answer="known" class="rounded-xl bg-green-700 text-white px-4 py-3 font-semibold hover:bg-green-800">I know it</button>
+          <button data-answer="learning" class="rounded-xl border-2 border-ink-300 bg-white px-4 py-3 lg:py-4 lg:text-lg font-semibold hover:border-ink-500">Still learning</button>
+          <button data-answer="known" class="rounded-xl bg-green-700 text-white px-4 py-3 lg:py-4 lg:text-lg font-semibold hover:bg-green-800">I know it</button>
         </div>
         <div class="mt-6 flex items-center justify-between text-sm">
           <span class="text-ink-500">${flipped ? '' : 'Say what it means out loud, then flip.'}</span>
