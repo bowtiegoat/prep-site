@@ -97,10 +97,8 @@
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 class="font-serif text-2xl font-bold">Students <span data-count class="text-ink-400 text-lg"></span></h2>
-          <p data-rp-total class="mt-1 text-sm text-ink-600"></p>
-          <p class="mt-1 text-xs text-ink-500">
-            This week: work since Monday (exams, role plays, PI cards, links, and tasks checked off). Progress follows each student's prep plan: 🟢 caught up · 🟡 1–2 tasks overdue · 🔴 3+ overdue · "Working ahead" = tasks done from future weeks. Before competition dates are set: 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked yet
-          </p>
+          <p data-week-total class="mt-1 text-sm text-ink-600"></p>
+          <p data-legend class="mt-1 text-xs text-ink-500"></p>
         </div>
         <input data-search type="search" placeholder="Search students or events…"
           class="w-full sm:w-72 rounded-lg border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
@@ -616,18 +614,28 @@
 
     function render() {
       renderPlanAdmin();
+      // With competition dates set, every non-virtual student follows a prep plan.
+      const datesSet = !!firstCompetition('AAM', school.competitionDates)?.date;
       const search = $('[data-search]').value.trim().toLowerCase();
       const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
       const bucket = (s) => (['virtual', 'noExam'].includes(statusOf(s)) ? 'gray' : statusOf(s));
       students.forEach((s) => { counts[bucket(s)] += 1; });
       $('[data-count]').textContent = `(${students.length})`;
-      const practiced = new Set(rolePlayLogs.flatMap((l) => l.memberUids)).size;
-      $('[data-rp-total]').textContent = rolePlayLogs.length
-        ? `${rolePlayLogs.length} role play${rolePlayLogs.length === 1 ? '' : 's'} logged by ${practiced} student${practiced === 1 ? '' : 's'}`
-        : 'No role plays logged yet';
+      // The chapter's work this week, then a key that fits whether dates are set.
+      const week = students.map(workThisWeek);
+      const sum = (k) => week.reduce((n, w) => n + w[k], 0);
+      const count = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+      const working = week.filter((w) => w.score > 0).length;
+      $('[data-week-total]').innerHTML = students.length
+        ? `<strong>This week:</strong> ${working} of ${students.length} students have done work · ${count(sum('exams'), 'exam')} · ${count(sum('rolePlays'), 'role play')} · ${count(sum('cards'), 'PI card')}`
+        : '';
+      $('[data-legend]').innerHTML = `<strong>This week</strong> = work since Monday: exams, role plays, PI cards, links, and tasks checked off. `
+        + (datesSet
+          ? '<strong>Progress</strong> follows each student\'s prep plan: 🟢 caught up · 🟡 1–2 tasks overdue · 🔴 3+ overdue. <strong>Working ahead</strong> = caught up and already finishing tasks from future weeks. ⚪ = virtual events, which don\'t have a prep plan.'
+          : '<strong>Progress</strong> follows each student\'s prep plan once you set your competition dates. Until then: 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked.');
       $('[data-filters]').innerHTML = ['all', 'green', 'yellow', 'red', 'gray'].map((k) => `
         <button data-filter="${k}" class="rounded-full border px-3 py-1.5 text-sm ${statusFilter === k ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">
-          ${k === 'all' ? 'All' : k === 'gray' ? '⚪ Not tracked yet' : `${STATUS[k].dot} ${STATUS[k].label}`} <span class="opacity-70">${counts[k]}</span>
+          ${k === 'all' ? 'All' : k === 'gray' ? `⚪ ${datesSet ? 'Virtual events' : 'Not tracked yet'}` : `${STATUS[k].dot} ${STATUS[k].label}`} <span class="opacity-70">${counts[k]}</span>
         </button>`).join('');
 
       const visible = students.filter((s) =>
