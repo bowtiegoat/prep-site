@@ -114,6 +114,27 @@
       <div data-students class="mt-4"><p class="text-sm text-ink-500">Loading students…</p></div>
       <p class="mt-3 text-xs text-ink-500">To make a team, check the boxes next to 2–3 students in the same team event.</p>
     </section>
+    <!-- Reports to BowtieGOAT: they land in Admin → Site flags. -->
+    <section data-report class="mt-12 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+      <h2 class="font-serif text-xl font-bold">Something not working? Tell me.</h2>
+      <p class="mt-1 text-sm text-ink-600">Report a problem or share an idea. It comes straight to me at BowtieGOAT, and you'll see here when I've reviewed it.</p>
+      <p data-report-demo class="hidden mt-2 text-sm text-tan-700">In the demo, reports stay in your browser and aren't sent.</p>
+      <form data-report-form class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <label class="block"><span class="font-semibold text-ink-800">What kind?</span>
+          <select name="kind" class="mt-1 w-full rounded-lg border border-ink-300 bg-white px-3 py-2"></select></label>
+        <label class="block"><span class="font-semibold text-ink-800">Where on the site?</span>
+          <select name="area" class="mt-1 w-full rounded-lg border border-ink-300 bg-white px-3 py-2"></select></label>
+        <label class="block"><span class="font-semibold text-ink-800">Which student? <span class="font-normal text-ink-500">(optional)</span></span>
+          <select name="student" class="mt-1 w-full rounded-lg border border-ink-300 bg-white px-3 py-2"></select></label>
+        <label class="md:col-span-3 block"><span class="font-semibold text-ink-800">What happened?</span>
+          <textarea name="message" required maxlength="2000" rows="4" placeholder="What did you do, what did you expect, and what happened instead? Or describe your idea." class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2"></textarea></label>
+        <div class="md:col-span-3 flex flex-wrap items-center gap-3">
+          <button class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 font-medium hover:bg-ink-800 disabled:opacity-50">Send to BowtieGOAT</button>
+          <span data-report-note class="text-sm"></span>
+        </div>
+      </form>
+      <div data-report-list class="mt-6"></div>
+    </section>
   </main>
 
   <!-- QR code, large enough to project in class -->
@@ -672,6 +693,7 @@
         </div>`;
       $('[data-students]').insertAdjacentHTML('beforeend', archivedHtml());
       updateTeamBar();
+      fillReportStudents();
       open.forEach((id) => {
         const s = students.find((x) => x.id === id);
         if (s) fillPanel(s);
@@ -1374,7 +1396,77 @@
       }
     });
 
+    // ---------- Reports to BowtieGOAT ----------
+    // Advisors report problems or ideas; each becomes a flag in Admin → Site flags.
+    const REPORT_KINDS = { broken: "Something's broken", confusing: "Something's confusing", idea: 'An idea or request' };
+    const REPORT_AREAS = ['Advisor Dashboard', 'Prep plan', 'Cluster exams', 'Role plays', 'PI cards', 'Student pages', 'Something else'];
+    const reportForm = $('[data-report-form]');
+    reportForm.kind.innerHTML = Object.entries(REPORT_KINDS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+    reportForm.area.innerHTML = REPORT_AREAS.map((a) => `<option>${esc(a)}</option>`).join('');
+    show($('[data-report-demo]'), document.documentElement.dataset.demo === '1');
+    if (viewOnly) reportForm.querySelectorAll('select, textarea, button').forEach((el) => { el.disabled = true; });
+    let myReports = [];
+
+    function fillReportStudents() {
+      const keep = reportForm.student.value;
+      reportForm.student.innerHTML = '<option value="">No specific student</option>' + [...students]
+        .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`))
+        .map((s) => `<option value="${esc(s.id)}">${esc(s.lastName)}, ${esc(s.firstName)}</option>`).join('');
+      reportForm.student.value = keep;
+    }
+
+    async function loadReports() {
+      try {
+        const snap = await getDocs(query(collection(db, 'flags'), where('byEmail', '==', user.email.toLowerCase())));
+        myReports = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((f) => f.type === 'advisor-report')
+          .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      } catch { myReports = []; }
+      renderReports();
+    }
+
+    function renderReports() {
+      $('[data-report-list]').innerHTML = myReports.length ? `
+        <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Your reports</p>
+        <ul class="mt-1 divide-y divide-ink-100 text-sm">${myReports.map((r) => `
+          <li class="py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span class="text-ink-500 whitespace-nowrap">${esc(formatDate(r.createdAt))}</span>
+            <span class="font-medium">${esc(REPORT_KINDS[r.kind] || 'Report')}</span>
+            <span class="text-ink-500">· ${esc(r.area)}${r.studentName ? ` · ${esc(r.studentName)}` : ''}</span>
+            <span class="ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${r.status === 'reviewed' ? 'bg-green-100 text-green-800' : 'bg-ink-100 text-ink-600'}">${r.status === 'reviewed' ? 'Reviewed by BowtieGOAT' : 'Sent'}</span>
+            <p class="w-full text-ink-600 line-clamp-2">${esc(r.message)}</p>
+          </li>`).join('')}</ul>` : '';
+    }
+
+    reportForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = reportForm.message.value.trim();
+      const note = $('[data-report-note]');
+      if (!message) return;
+      const student = students.find((x) => x.id === reportForm.student.value);
+      const button = reportForm.querySelector('button');
+      button.disabled = true;
+      try {
+        await addDoc(collection(db, 'flags'), {
+          type: 'advisor-report', kind: reportForm.kind.value, area: reportForm.area.value, message,
+          studentUid: student?.id || null, studentName: student ? `${student.firstName} ${student.lastName}` : null,
+          byEmail: user.email.toLowerCase(), byName: advisor.name || user.email, schoolId, schoolName: school.name,
+          page: 'advisor', userAgent: navigator.userAgent.slice(0, 300), status: 'open',
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        });
+        reportForm.reset();
+        note.className = 'text-sm text-green-700';
+        note.textContent = 'Thanks! Your report was sent.';
+        await loadReports();
+      } catch (err) {
+        note.className = 'text-sm text-rose-600';
+        note.textContent = `Couldn't send that: ${err.message}`;
+      } finally {
+        button.disabled = viewOnly;
+      }
+    });
+
     await load();
+    loadReports();
   </script>
 </body>
 </html>

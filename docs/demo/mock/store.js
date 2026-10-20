@@ -10,7 +10,7 @@ import { buildDemo } from './seed.js';
 const KEY = 'prep-demo:changes:v1';
 const SIGNED_IN = 'prep-demo:signedIn';
 // Tables the visitor can change. The rest (exams, stats, decks) is rebuilt on every page.
-const CHANGEABLE = ['users', 'teams', 'schools', 'attempts', 'roleplayLogs', 'cardProgress', 'advisors'];
+const CHANGEABLE = ['users', 'teams', 'schools', 'attempts', 'roleplayLogs', 'cardProgress', 'advisors', 'flags'];
 
 export const ADVISOR_USER = { uid: 'demo-advisor', email: 'taylor.morgan@example.com', emailVerified: true };
 export const DEMO_USER = ADVISOR_USER;
@@ -70,6 +70,7 @@ export const setSignedIn = (yes) => session.set(SIGNED_IN, yes ? 'yes' : 'no');
 
 // A bar on every page so the demo is never mistaken for a real school.
 export function previewBar() {
+  document.documentElement.dataset.demo = '1';
   if (document.querySelector('[data-demo-bar]')) return;
   const bar = document.createElement('div');
   bar.setAttribute('data-demo-bar', '');

@@ -228,6 +228,18 @@ service cloud.firestore {
     // than 5 times. Written by the server; the admin marks them reviewed.
     match /flags/{flagId} {
       allow read, update, delete: if isAdmin();
+      // Advisors send reports (problems, ideas) from their dashboard and can
+      // see the ones they sent, including whether the admin reviewed them.
+      allow create: if signedIn()
+        && request.resource.data.type == 'advisor-report'
+        && isAdvisorOf(request.resource.data.schoolId)
+        && request.resource.data.byEmail == request.auth.token.email.lower()
+        && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasOnly(['type', 'kind', 'area', 'message', 'studentUid', 'studentName', 'byEmail', 'byName', 'schoolId', 'schoolName', 'page', 'userAgent', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 2000
+        && request.resource.data.createdAt == request.time;
+      allow read: if signedIn() && resource.data.type == 'advisor-report'
+        && resource.data.byEmail == request.auth.token.email.lower();
     }
 
     // Copies of attempts deleted by the admin or an advisor.

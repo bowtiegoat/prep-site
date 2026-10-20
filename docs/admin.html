@@ -124,7 +124,7 @@
     <!-- Site flags -->
     <section data-panel="flags" class="hidden mt-6 space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-ink-600">Things worth a look, saved automatically. Right now: a student who takes the same exam more than 5 times. <strong>View as</strong> shows how that student is using the whole site.</p>
+        <p class="text-sm text-ink-600">Things worth a look: reports advisors send from the bottom of their dashboard, and (saved automatically) any student who takes the same exam more than 5 times. <strong>Mark reviewed</strong> shows the advisor their report was seen; <strong>View as</strong> shows how a student is using the site.</p>
         <div data-flag-filter class="inline-flex rounded-lg border border-ink-300 bg-white overflow-hidden text-sm" role="group" aria-label="Show flags">
           <button type="button" data-flag-show="open" class="px-3 py-1.5 font-medium aria-pressed:bg-ink-900 aria-pressed:text-cream-50">Open</button>
           <button type="button" data-flag-show="reviewed" class="px-3 py-1.5 font-medium border-l border-ink-300 aria-pressed:bg-ink-900 aria-pressed:text-cream-50">Reviewed</button>
@@ -575,8 +575,13 @@
 
     // ---------- Site flags ----------
     let flagShow = 'open';
+    const REPORT_KINDS = { broken: "Something's broken", confusing: "Something's confusing", idea: 'An idea or request' };
     const FLAG_TEXT = {
       'many-attempts': (f) => `Took <strong>${esc(f.examLabel)}</strong> ${f.attempts} times`,
+      // Sent by an advisor from the bottom of their dashboard.
+      'advisor-report': (f) => `<span class="rounded-full bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5">Advisor report</span>
+        <strong>${esc(REPORT_KINDS[f.kind] || 'Report')}</strong> <span class="text-ink-500">· ${esc(f.area)}${f.studentName ? ` · about ${esc(f.studentName)}` : ''}</span>
+        <p class="mt-1 whitespace-pre-line">${esc(f.message)}</p>`,
     };
     function renderFlags() {
       const open = data.flags.filter((f) => f.status !== 'reviewed').length;
@@ -585,16 +590,18 @@
       show(badge, open > 0);
       document.querySelectorAll('[data-flag-show]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.flagShow === flagShow)));
       const shown = data.flags.filter((f) => flagShow === 'all' || (flagShow === 'reviewed' ? f.status === 'reviewed' : f.status !== 'reviewed'));
-      $('[data-flags]').innerHTML = table(['Flag', 'Student', 'School', 'Last updated', ''], shown.map((f) => {
-        const student = data.users.find((u) => u.id === f.uid);
+      $('[data-flags]').innerHTML = table(['Flag', 'From', 'School', 'Last updated', ''], shown.map((f) => {
+        const report = f.type === 'advisor-report';
+        const student = data.users.find((u) => u.id === (report ? f.studentUid : f.uid));
         return `
           <tr class="border-t border-ink-100 align-top ${f.status === 'reviewed' ? 'text-ink-500' : ''}">
             <td class="py-3 px-4">${(FLAG_TEXT[f.type] || (() => esc(f.type)))(f)}${f.status === 'reviewed' ? ' <span class="ml-1 rounded-full bg-ink-100 text-ink-600 text-xs px-2 py-0.5">Reviewed</span>' : ''}</td>
-            <td class="py-3 px-4"><span class="font-medium">${esc(f.studentName)}</span><br /><span class="text-xs text-ink-500">${esc(f.email)}</span></td>
+            <td class="py-3 px-4"><span class="font-medium">${esc(report ? f.byName : f.studentName)}</span><br /><span class="text-xs text-ink-500">${esc(report ? `Advisor · ${f.byEmail}` : f.email)}</span></td>
             <td class="py-3 px-4">${esc(f.schoolName || schoolName(f.schoolId))}</td>
             <td class="py-3 px-4 whitespace-nowrap">${esc(formatDate(f.updatedAt))}</td>
             <td class="py-3 px-4 text-right space-x-3 whitespace-nowrap">
-              ${student ? button(`data-flag-view-as="${esc(f.uid)}"`, 'View as') : '<span class="text-xs text-ink-400">Student removed</span>'}
+              ${report ? `<a href="mailto:${esc(f.byEmail)}?subject=${encodeURIComponent('Re: your BowtieGOAT report')}" class="text-blue-600 font-medium hover:underline whitespace-nowrap">Email advisor</a>` : ''}
+              ${student ? button(`data-flag-view-as="${esc(student.id)}"`, report ? 'View student' : 'View as') : report ? '' : '<span class="text-xs text-ink-400">Student removed</span>'}
               ${f.status === 'reviewed' ? button(`data-flag-status="${esc(f.id)}" data-to="open"`, 'Reopen') : button(`data-flag-status="${esc(f.id)}" data-to="reviewed"`, 'Mark reviewed')}
             </td>
           </tr>`;
