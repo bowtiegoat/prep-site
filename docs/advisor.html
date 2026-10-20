@@ -432,7 +432,8 @@
     });
 
     // ---------- Data ----------
-    let students = [];
+    let students = []; // active students (everything on the dashboard counts these)
+    let archivedStudents = []; // archived accounts, listed at the bottom only
     let attempts = [];
     let teams = [];
     let rolePlayLogs = [];
@@ -455,7 +456,11 @@
       ]);
       cardProgress = new Map((cardSnap?.docs || []).map((d) => [d.id, d.data()]));
       decks = new Map((deckSnap?.docs || []).map((d) => [d.id, d.data()]));
-      students = userSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role === 'student');
+      const everyone = userSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role === 'student');
+      // Archived accounts (e.g. a student's duplicate) leave the counts, filters,
+      // and prep plan numbers, but nothing is deleted and they can be restored.
+      students = everyone.filter((u) => !u.archived);
+      archivedStudents = everyone.filter((u) => u.archived).sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
       attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       teams = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       rolePlayLogs = logSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -665,6 +670,7 @@
             </tbody>
           </table>
         </div>`;
+      $('[data-students]').insertAdjacentHTML('beforeend', archivedHtml());
       updateTeamBar();
       open.forEach((id) => {
         const s = students.find((x) => x.id === id);
@@ -763,6 +769,40 @@
         </div>`;
     }
 
+    // ---------- Archived students ----------
+    let archivedOpen = false;
+    function archivedHtml() {
+      if (!archivedStudents.length) return '';
+      return `
+        <details data-archived class="drawer group mt-4 rounded-xl bg-white border border-ink-200" ${archivedOpen ? 'open' : ''}>
+          <summary class="flex items-center gap-3 cursor-pointer select-none px-4 py-3 rounded-xl hover:bg-ink-50/60">
+            <span class="flex-1 text-sm"><strong>Archived students (${archivedStudents.length})</strong> <span class="text-ink-500">· not counted anywhere on the dashboard</span></span>
+            <span class="text-ink-400 text-xs transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
+          </summary>
+          <ul class="divide-y divide-ink-100 border-t border-ink-100 text-sm">
+            ${archivedStudents.map((s) => `
+              <li class="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-2.5 text-ink-600">
+                <span class="font-medium text-ink-800">${esc(s.lastName)}, ${esc(s.firstName)}</span>
+                <span>${esc(eventOf(s.eventCode)?.event || s.eventCode)}</span>
+                <span class="text-xs text-ink-500">${esc(s.email || '')}</span>
+                <span class="text-xs text-ink-500">Last visit: ${lastActiveText(s)}</span>
+                ${viewOnly ? '' : `<button data-restore-student="${esc(s.id)}" class="ml-auto text-sm text-blue-600 underline">Restore</button>`}
+              </li>`).join('')}
+          </ul>
+        </details>`;
+    }
+
+    async function setArchived(s, archived) {
+      const changes = archived
+        ? { archived: true, archivedAt: new Date().toISOString(), archivedBy: advisor.name || user.email }
+        : { archived: false };
+      await updateDoc(doc(db, 'users', s.id), changes);
+      Object.assign(s, changes);
+      open.delete(s.id);
+      selected.delete(s.id);
+      await load();
+    }
+
     // ---------- Student detail panel ----------
     async function fillPanel(s) {
       const box = document.querySelector(`[data-panel="${CSS.escape(s.id)}"]`);
@@ -805,7 +845,9 @@
         const earlier = openTries.has(latest.examId) ? list.slice(0, -1).reverse() : [];
         return attemptRow(latest, { latest: true, count: list.length }) + earlier.map((a) => attemptRow(a, { latest: false })).join('');
       }).join('');
+      const joined = s.createdAt?.toDate ? formatDate(s.createdAt) : '';
       box.innerHTML = `
+        <p class="pt-2 text-xs text-ink-500">Account: ${esc(s.email || 'no email')}${joined ? ` · joined ${esc(joined)}` : ''}</p>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
           <div class="lg:col-span-2 rounded-xl bg-white border border-ink-200 p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Exam history</p>
@@ -832,6 +874,7 @@
         <div class="mt-3 flex flex-wrap gap-3 text-sm">
           <button data-view-as="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">👁️ View as ${esc(s.firstName)}</button>
           ${mine.length || allLogsOf(s).length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">⬇ Export results</button>` : ''}
+          ${viewOnly ? '' : `<button data-archive-student="${esc(s.id)}" class="ml-auto rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium text-ink-600 hover:border-rose-400 hover:text-rose-700">Archive student</button>`}
         </div>`;
     }
 
@@ -1052,6 +1095,10 @@
         </details>`;
     }
 
+    $('[data-students]').addEventListener('toggle', (e) => {
+      if (e.target.matches('[data-archived]')) archivedOpen = e.target.open;
+    }, true);
+
     $('[data-plan-admin]').addEventListener('toggle', (e) => {
       if (e.target.matches('[data-plan-weeks]')) planAdminOpen = e.target.open;
     }, true);
@@ -1271,6 +1318,21 @@
           studentName: name, attempts: attempts.filter((a) => a.uid === s.id), fileName: exportFileName(name),
           rolePlays: rolePlayRows(allLogsOf(s), name),
         });
+        return;
+      }
+      const archive = e.target.closest('[data-archive-student]');
+      if (archive) {
+        const s = students.find((x) => x.id === archive.dataset.archiveStudent);
+        if (teams.some((t) => t.memberUids.includes(s.id))) {
+          alert(`${s.firstName} is on a team. Break up the team first, then archive this account.`);
+          return;
+        }
+        if (confirm(`Archive ${s.firstName} ${s.lastName} (${s.email || 'no email'})?\n\nThe account moves to "Archived students" at the bottom and stops counting on the dashboard. Nothing is deleted, and you can restore it anytime.`)) await setArchived(s, true);
+        return;
+      }
+      const restore = e.target.closest('[data-restore-student]');
+      if (restore) {
+        await setArchived(archivedStudents.find((x) => x.id === restore.dataset.restoreStudent), false);
         return;
       }
       const breakTeam = e.target.closest('[data-break-team]');

@@ -181,10 +181,12 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      // Advisors may excuse prep plan items for their own students, and give
-      // each member a copy of their team's plan progress when they break up a team.
+      // Advisors may excuse prep plan items for their own students, give
+      // each member a copy of their team's plan progress when they break up a
+      // team, and archive or restore a student's account (e.g. a duplicate).
       allow update: if isAdvisorOf(resource.data.schoolId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['planExcused', 'planLateHandled', 'planChecks', 'planLinks'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['planExcused', 'planLateHandled', 'planChecks', 'planLinks', 'archived', 'archivedAt', 'archivedBy'])
+        && (!('archived' in request.resource.data) || request.resource.data.archived is bool)
         && (!('planChecks' in request.resource.data)
           || (request.resource.data.planChecks is map && request.resource.data.planChecks.size() <= 80))
         && (!('planLinks' in request.resource.data)

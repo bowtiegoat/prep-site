@@ -195,6 +195,14 @@
     // database rules refuse the search. Students' own view is unchanged.
     const attemptFilters = () => [where('uid', '==', user.uid), ...(isViewingAs() ? [where('schoolId', '==', profile.schoolId)] : [])];
     renderHeader({ user, profile, active: 'exams' });
+    // An advisor archived this account (usually a duplicate). The student can
+    // still use it, but should know it isn't the one their advisor sees.
+    if (profile.archived && !isViewingAs()) {
+      document.querySelector('main').insertAdjacentHTML('afterbegin', `
+        <p class="mb-6 rounded-xl border border-tan-200 bg-tan-50 px-4 py-3 text-sm text-tan-700">
+          <strong>Your advisor archived this account.</strong> If this is the account you use, ask your advisor to restore it. If you have another account, sign out and sign in with that one instead.
+        </p>`);
+    }
 
     // ---------- Event banner ----------
     const event = EVENTS.find((e) => e.code === profile.eventCode);
