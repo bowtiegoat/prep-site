@@ -8,7 +8,7 @@
 import {
   arrayUnion, collection, deleteField, doc, getDoc, getDocs, query, updateDoc, where,
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { db, esc, isViewingAs } from './app.js';
+import { db, esc, isViewingAs, today } from './app.js';
 import { takesExam } from './events.js';
 import { deckIdFor } from './flashcards.js';
 import {
@@ -212,11 +212,12 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     const id = box.dataset.planCheck;
     const checked = box.checked;
     const saved = { myChecks, teamChecks };
-    const apply = (map) => { const next = { ...map }; if (checked) next[id] = true; else delete next[id]; return next; };
+    // A check-off saves the day it happened (older ones are just true), so advisors can see recent work.
+    const apply = (map) => { const next = { ...map }; if (checked) next[id] = today(); else delete next[id]; return next; };
     if (onTeam(id)) teamChecks = apply(teamChecks); else myChecks = apply(myChecks);
     render();
     try {
-      await updateDoc(target(id), { [`planChecks.${id}`]: checked ? true : deleteField() });
+      await updateDoc(target(id), { [`planChecks.${id}`]: checked ? today() : deleteField() });
     } catch {
       ({ myChecks, teamChecks } = saved);
       render();

@@ -195,7 +195,8 @@ export function mergeProgress(sources, sharedIds) {
   const planChecks = {};
   const planLinks = {};
   sources.forEach((src) => {
-    Object.keys(src?.planChecks || {}).forEach((id) => { if (sharedIds.has(id) && src.planChecks[id]) planChecks[id] = true; });
+    // Keep the check-off's value (its date, or true for older ones).
+    Object.keys(src?.planChecks || {}).forEach((id) => { if (sharedIds.has(id) && src.planChecks[id] && !planChecks[id]) planChecks[id] = src.planChecks[id]; });
     Object.entries(src?.planLinks || {}).forEach(([id, list]) => {
       if (!sharedIds.has(id)) return;
       const all = [...(planLinks[id] || []), ...(list || [])];

@@ -1,7 +1,7 @@
 // PREVIEW ONLY. A pretend database kept in this browser's localStorage, seeded
 // with sample data the first time. Dates are stored as {"__ts": iso}.
 
-const KEY = 'prep-preview:db:v12'; // bump when the pretend data changes
+const KEY = 'prep-preview:db:v13'; // bump when the pretend data changes
 const SIGNED_IN = 'prep-preview:signedIn';
 
 export const DEMO_USER = { uid: 'demo-student', email: 'alex.student@example.com', emailVerified: true };
@@ -151,6 +151,7 @@ export async function seed({ joined }) {
   seedRetakes(daysAgo, answerKeys, grade, summarize);
   seedPrepPlan(daysAgo, answerKeys, grade, summarize);
   await seedFlashcards(daysAgo);
+  seedThisWeek(daysAgo);
   save();
   return db;
 }
@@ -283,6 +284,23 @@ async function seedFlashcards(daysAgo) {
     stats,
     studyDays: { [day(1)]: 14, [day(2)]: 22, [day(4)]: 11, [day(9)]: 16 },
   };
+}
+
+// Work done this week (since Monday), for the dashboard's "This week" column:
+// Alex studies cards and logs a role play; Maya studies cards; Riley checks
+// off tasks, two of them from future weeks (working ahead); Emma shares a link.
+function seedThisWeek(daysAgo) {
+  const today = daysAgo(0).toLocaleDateString('en-CA');
+  const progress = (uid) => (db.cardProgress[uid] ||= { schoolId: 'demo-school', sessions: {}, stats: {}, studyDays: {} });
+  progress('demo-student').studyDays[today] = 42;
+  progress('s-maya').studyDays[today] = 15;
+  if (db.roleplayLogs['rp-alex-5']) db.roleplayLogs['rp-alex-5'].date = today;
+  db.users['demo-student'].lastActiveDate = today;
+  db.users['s-ethan'].lastActiveDate = today; // visited, no work
+  db.users['s-riley'].planChecks = { 's-guidelines': today, 's-pres-outline': today, 's-pres-outline-final': today };
+  db.users['s-riley'].lastActiveDate = today;
+  const team = db.teams['demo-team-imc'];
+  if (team) team.planLinks['w-draft'] = [{ url: 'https://docs.google.com/document/d/example-rough-draft', by: 's-emma', byName: 'Emma Wilson', at: daysAgo(0).toISOString() }];
 }
 
 // A small bar on every page so the preview is never mistaken for the live site.
