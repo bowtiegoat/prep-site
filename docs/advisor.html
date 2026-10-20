@@ -196,14 +196,14 @@
       percentile, percentileText, startViewingAs, stopViewingHub,
     } from './js/app.js';
     import { EVENTS, maxTeamSize, minTeamSize, takesExam } from './js/events.js';
-    import { areaOf, downloadResults, exportFileName } from './js/missed.js';
+    import { downloadResults, exportFileName } from './js/missed.js';
     import { firstCompetition } from './js/competitions.js';
     import { buildDraft } from './js/email-drafts.js';
     import { byExam, latestAttempts } from './js/attempts.js';
     import {
       PLANS, advisorItems, mergeProgress, planApplies, planStatus, planTemplate, planType, planWeeks, sharedTaskIds, shortDate as planShortDate,
     } from './js/prep-plan.js';
-    import { exportRows as rolePlayRows, gridHtml, logListHtml, rubricTypeFor, trend, latestSummary } from './js/roleplays.js';
+    import { exportRows as rolePlayRows, mostlyLevel, sortLogs, trend } from './js/roleplays.js';
     import { deckIdFor, missedPis, sessionCards } from './js/flashcards.js';
 
     const $ = (sel) => document.querySelector(sel);
@@ -725,48 +725,71 @@
     const logsOf = (s) => rolePlayLogs.filter((l) => l.memberUids.includes(s.id) && l.eventCode === s.eventCode);
     const allLogsOf = (s) => rolePlayLogs.filter((l) => l.memberUids.includes(s.id));
 
-    function rolePlayHtml(s) {
-      if (eventOf(s.eventCode)?.type !== 'Role Play') return '';
-      const logs = logsOf(s);
-      const notes = [trend(logs), latestSummary(logs)].filter(Boolean).join(' · ');
+    const sectionHead = (title, right = '') => `
+      <div class="flex items-baseline justify-between gap-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">${title}</p>${right}
+      </div>`;
+    const TREND_TONE = { 'Trending up': 'text-green-700', 'Trending down': 'text-rose-700', 'Holding steady': 'text-ink-500' };
+    const trendTag = (label) => (label ? `<p class="text-xs font-semibold ${TREND_TONE[label]}">${label}</p>` : '');
+    const pct = (a) => Math.round((a.correct / a.total) * 100);
+
+    // Exams at a glance: the trend, the 3 most recent, and every try (for deleting) tucked away.
+    function examSummaryHtml(s, mine, allTriesHtml) {
+      if (!mine.length) return takesExam(s.eventCode) ? `${sectionHead('Exams')}<p class="mt-1 text-sm text-ink-500">No exams submitted yet.</p>` : '';
+      const latest = latestAttempts(mine);
+      const newest = mine[0];
+      const oldest = mine[mine.length - 1];
+      const average = Math.round(latest.reduce((n, a) => n + pct(a), 0) / latest.length);
+      const change = pct(newest) - pct(oldest);
+      const label = mine.length < 2 ? '' : change >= 3 ? 'Trending up' : change <= -3 ? 'Trending down' : 'Holding steady';
+      const since = mine.length < 2 ? ''
+        : ` · <strong>${change > 0 ? 'up' : change < 0 ? 'down' : 'no change,'} ${Math.abs(change) || ''}${change ? ` point${Math.abs(change) === 1 ? '' : 's'}` : ''}</strong> since the first exam (${esc(shortDate(dayOf(oldest.submittedAt)))})`;
+      const tries = byExam(mine);
       return `
-        <div class="mt-4 rounded-xl bg-white border border-ink-200 p-4">
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Role play practice · ${logs.length} logged</p>
-            ${notes ? `<p class="text-sm text-ink-600">${esc(notes)}</p>` : ''}
-          </div>
-          ${logs.length
-            ? `<div class="mt-2">${gridHtml(logs, rubricTypeFor(s.eventCode))}</div>
-               <details class="mt-4"><summary class="cursor-pointer text-sm font-semibold text-blue-600">Logs and feedback</summary>${logListHtml(logs, { viewerUid: s.id })}</details>`
-            : `<p class="mt-2 text-sm text-ink-500">${esc(s.firstName)} hasn't logged a role play yet.</p>`}
-        </div>`;
+        ${sectionHead(`Exams · ${latest.length} taken`, trendTag(label))}
+        <p class="mt-1 text-sm text-ink-700">Latest <strong>${pct(newest)}%</strong> · average ${average}%${since}</p>
+        <table class="mt-2 w-full text-sm"><tbody>
+          ${latest.slice(0, 3).map((a) => `
+            <tr class="border-t border-ink-100">
+              <td class="py-1.5 pr-3 text-ink-500 whitespace-nowrap">${esc(shortDate(dayOf(a.submittedAt)))}</td>
+              <td class="py-1.5 pr-3">${esc(a.examLabel)}${tries.get(a.examId).length > 1 ? ` <span class="text-xs text-ink-500">· ${tries.get(a.examId).length} tries</span>` : ''}</td>
+              <td class="py-1.5 text-right font-semibold tabular-nums">${pct(a)}%</td>
+            </tr>`).join('')}
+        </tbody></table>
+        <details data-all-exams="${esc(s.id)}" class="mt-1" ${openAllExams.has(s.id) ? 'open' : ''}>
+          <summary class="cursor-pointer text-xs text-blue-600 hover:underline">${latest.length === 1 ? 'Every try' : `All ${latest.length} exams and tries`}${viewOnly ? '' : ' (to delete a try)'}</summary>
+          <table class="mt-2 w-full text-sm"><tbody>${allTriesHtml}</tbody></table>
+        </details>`;
     }
 
-    // A student's PI card practice: cards known this session, study days, most-missed PIs.
-    function cardsHtml(s) {
+    // Role plays at a glance: the latest run's score, level, feedback, and fix.
+    function rolePlaySummaryHtml(s) {
+      if (eventOf(s.eventCode)?.type !== 'Role Play') return '';
+      const logs = sortLogs(logsOf(s));
+      if (!logs.length) return `${sectionHead('Role plays')}<p class="mt-1 text-sm text-ink-500">${esc(s.firstName)} hasn't logged a role play yet.</p>`;
+      const last = logs[0];
+      const level = mostlyLevel(last);
+      return `
+        ${sectionHead(`Role plays · ${logs.length} logged`, trendTag(trend(logs)))}
+        <p class="mt-1 text-sm text-ink-700">Latest ${last.score != null ? `<strong>${last.score}/100</strong> ` : ''}${level ? `<span class="lv-${level.key} rounded px-1.5 py-0.5 text-xs font-semibold">${esc(level.name)}</span>` : ''} · ${esc(shortDate(last.date))} · ${esc(last.title)}</p>
+        ${last.feedback ? `<p class="mt-1 text-sm text-ink-600"><span class="font-semibold text-ink-800">Judge:</span> ${esc(last.feedback)}</p>` : ''}
+        ${last.fixNext ? `<p class="mt-0.5 text-sm text-ink-600"><span class="font-semibold text-ink-800">Fix next time:</span> ${esc(last.fixNext)}</p>` : ''}`;
+    }
+
+    // PI cards at a glance: this week, how many studied, and the PI missed most.
+    function cardsSummaryHtml(s, mine) {
       if (eventOf(s.eventCode)?.type !== 'Role Play') return '';
       const deck = decks.get(deckIdFor(s.eventCode));
       if (!deck) return '';
-      const p = cardProgress.get(s.id) || { sessions: {}, stats: {}, studyDays: {} };
-      const district = sessionCards(deck, s.eventCode, 'district');
-      const known = (kind, cards) => {
-        const ses = p.sessions?.[kind];
-        return ses && (kind === 'all' || ses.eventCode === s.eventCode) ? ses.known.filter((c) => cards.some((x) => x.code === c)).length : 0;
-      };
-      const weekAgo = new Date(Date.now() - 6 * 86400000).toLocaleDateString('en-CA');
-      const recentDays = Object.entries(p.studyDays || {}).filter(([d, n]) => d >= weekAgo && n > 0).length;
-      const examMissed = new Set(attemptsOf(s).flatMap((a) => a.missed.map((m) => m.code)));
-      const missed = missedPis(p, deck).slice(0, 5);
+      const p = cardProgress.get(s.id) || { stats: {}, studyDays: {} };
       const studied = Object.keys(p.stats || {}).length;
+      if (!studied) return `${sectionHead('PI cards')}<p class="mt-1 text-sm text-ink-500">${esc(s.firstName)} hasn't studied PI cards yet.</p>`;
+      const thisWeek = workThisWeek(s).cards;
+      const top = missedPis(p, deck)[0];
+      const examMissed = new Set(mine.flatMap((a) => a.missed.map((m) => m.code)));
       return `
-        <div class="mt-4 rounded-xl bg-white border border-ink-200 p-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">PI cards · ${studied} of ${deck.cards.length} studied</p>
-          ${studied ? `
-            <p class="mt-2 text-sm">Districts deck: <strong>${known('district', district)} of ${district.length}</strong> known this session · All PIs: <strong>${known('all', deck.cards)} of ${deck.cards.length}</strong> · Studied on ${recentDays} of the last 7 days</p>
-            ${missed.length ? `<p class="mt-3 text-xs font-semibold text-ink-500">Missed most</p>
-              <ul class="mt-1 space-y-1 text-sm">${missed.map((m) => `<li>${esc(m.pi)} <span class="font-mono text-xs text-ink-500">${esc(m.code)}</span> <span class="text-xs text-ink-500">· missed ${m.missed} of ${m.seen}</span>${examMissed.has(m.code) ? ' <span class="rounded-full bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5">Also missed on exams</span>' : ''}</li>`).join('')}</ul>` : ''}`
-            : `<p class="mt-2 text-sm text-ink-500">${esc(s.firstName)} hasn't studied any PI cards yet.</p>`}
-        </div>`;
+        ${sectionHead('PI cards')}
+        <p class="mt-1 text-sm text-ink-700">${thisWeek} card${thisWeek === 1 ? '' : 's'} this week · ${studied} of ${deck.cards.length} studied${top ? ` · Missed most: <span class="text-ink-900">${esc(top.pi)}</span> <span class="text-xs text-ink-500">(${top.missed} of ${top.seen})</span>${examMissed.has(top.code) ? ' <span class="rounded-full bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5">Also missed on exams</span>' : ''}` : ''}</p>`;
     }
 
     // ---------- Archived students ----------
@@ -804,6 +827,9 @@
     }
 
     // ---------- Student detail panel ----------
+    // A quick read for advisors: what's missing on the prep plan, plus results
+    // at a glance. The full picture is the student's own My Results page.
+    const openAllExams = new Set(); // students whose "All exams and tries" list is open
     async function fillPanel(s) {
       const box = document.querySelector(`[data-panel="${CSS.escape(s.id)}"]`);
       if (!box) return;
@@ -814,13 +840,7 @@
           statsCache.set(id, snap.exists() ? snap.data() : null);
         } catch { statsCache.set(id, null); }
       }));
-      const missesByArea = new Map();
-      mine.forEach((a) => a.missed.forEach((m) => {
-        const area = areaOf(m.code);
-        missesByArea.set(area, (missesByArea.get(area) || 0) + 1);
-      }));
-      const weakest = [...missesByArea.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-      // One row per exam (latest try); the arrow shows every try.
+      // Every exam (latest try), with the arrow showing earlier tries, for deleting.
       const tries = byExam(mine);
       const attemptRow = (a, { latest, count }) => {
         const st = statsCache.get(a.examId);
@@ -836,68 +856,57 @@
             <td class="py-2 pr-3 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
             <td class="py-2 pr-3">${latest ? `${esc(a.examLabel)} <span class="text-xs text-ink-500">${esc(a.examSubtitle)}${count > 1 ? ` · ${count} tries` : ''}</span>` : `Try ${a.attemptNumber || 1}`}</td>
             <td class="py-2 pr-3 ${latest ? 'font-semibold' : ''} tabular-nums">${a.correct}/${a.total}</td>
-            <td class="py-2 pr-3 text-ink-600">${esc(rank)}</td>
+            <td class="py-2 pr-3 text-ink-600 text-xs">${esc(rank)}</td>
             <td class="py-2 text-right">${viewOnly ? '' : `<button data-delete-attempt="${esc(a.id)}" data-label="${esc(a.examLabel)}" class="text-xs text-rose-600 hover:underline">Delete</button>`}</td>
           </tr>`;
       };
-      const history = latestAttempts(mine).map((latest) => {
+      const allTries = latestAttempts(mine).map((latest) => {
         const list = tries.get(latest.examId);
         const earlier = openTries.has(latest.examId) ? list.slice(0, -1).reverse() : [];
         return attemptRow(latest, { latest: true, count: list.length }) + earlier.map((a) => attemptRow(a, { latest: false })).join('');
       }).join('');
+      const results = [examSummaryHtml(s, mine, allTries), rolePlaySummaryHtml(s), cardsSummaryHtml(s, mine)].filter(Boolean);
       const joined = s.createdAt?.toDate ? formatDate(s.createdAt) : '';
       box.innerHTML = `
-        <p class="pt-2 text-xs text-ink-500">Account: ${esc(s.email || 'no email')}${joined ? ` · joined ${esc(joined)}` : ''}</p>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
-          <div class="lg:col-span-2 rounded-xl bg-white border border-ink-200 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Exam history</p>
-            ${mine.length ? `<table class="mt-2 w-full text-sm"><tbody>${history}</tbody></table>` : '<p class="mt-2 text-sm text-ink-500">No exams submitted yet.</p>'}
-          </div>
-          <div class="space-y-4">
-            <div class="rounded-xl bg-white border border-ink-200 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Weakest areas</p>
-              ${weakest.length ? `<ol class="mt-2 space-y-1 text-sm">${weakest.map(([area, n]) => `<li>${esc(area)} <span class="text-ink-500">· ${n} missed</span></li>`).join('')}</ol>` : '<p class="mt-2 text-sm text-ink-500">Not enough data yet.</p>'}
-            </div>
-            <div class="rounded-xl bg-white border border-ink-200 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">First competes at</p>
-              ${firstCompetitionHtml(s)}
-            </div>
-            <div class="rounded-xl border-2 border-dashed border-ink-200 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Prep plan</p>
-              ${planHtml(s)}
-            </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
+          <p class="text-xs text-ink-500">Account: ${esc(s.email || 'no email')}${joined ? ` · joined ${esc(joined)}` : ''}</p>
+          <div class="ml-auto flex flex-wrap gap-2 text-sm">
+            <button data-open-results="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-semibold hover:border-blue-500">Open My Results →</button>
+            ${mine.length || allLogsOf(s).length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">Export</button>` : ''}
           </div>
         </div>
+        <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <section class="rounded-xl bg-white border border-ink-200 p-4">${planHtml(s)}</section>
+          ${results.length ? `<section class="rounded-xl bg-white border border-ink-200 p-4 divide-y divide-ink-100 [&>div]:py-3 [&>div:first-child]:pt-0 [&>div:last-child]:pb-0">${results.map((r) => `<div>${r}</div>`).join('')}</section>` : ''}
+        </div>
         ${writtenEntryHtml(s)}
-        ${rolePlayHtml(s)}
-        ${cardsHtml(s)}
-        <div class="mt-3 flex flex-wrap gap-3 text-sm">
-          <button data-view-as="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">👁️ View as ${esc(s.firstName)}</button>
-          ${mine.length || allLogsOf(s).length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">⬇ Export results</button>` : ''}
-          ${viewOnly ? '' : `<button data-archive-student="${esc(s.id)}" class="ml-auto rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium text-ink-600 hover:border-rose-400 hover:text-rose-700">Archive student</button>`}
-        </div>`;
+        ${viewOnly ? '' : `<div class="mt-3 flex justify-end"><button data-archive-student="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-600 hover:border-rose-400 hover:text-rose-700">Archive student</button></div>`}`;
     }
 
     function planHtml(s) {
       const plan = planOf(s);
       if (!plan) {
-        return planApplies(s.eventCode)
+        return `${sectionHead('Prep plan')}${planApplies(s.eventCode)
           ? '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to start this student\'s plan.</p>'
-          : `<p class="mt-1 text-sm text-ink-500">Coming soon for ${esc(eventOf(s.eventCode)?.type || '')} events.</p>`;
+          : `<p class="mt-1 text-sm text-ink-500">Coming soon for ${esc(eventOf(s.eventCode)?.type || '')} events.</p>`}`;
       }
       const total = plan.weeks.length;
       const when = !plan.started ? `Starts ${planShortDate(plan.weeks[0].start)}`
         : plan.currentWeek <= total ? `Week ${plan.currentWeek} of ${total}` : `${total} weeks done`;
       const late = lateJoin(s);
-      const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} hover:underline">${label}</button>`);
+      const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="shrink-0 text-xs ${tone} hover:underline">${label}</button>`);
+      const due = plan.tasks.filter((t) => t.week === plan.currentWeek && t.state === 'due');
       return `
-        <p class="mt-1 text-sm"><strong>${esc(when)}</strong> · ${plan.doneCount} of ${plan.totalCount} tasks done</p>
+        ${sectionHead('Prep plan', `<p class="text-sm"><strong>${esc(when)}</strong> · ${plan.doneCount} of ${plan.totalCount} tasks done</p>`)}
         ${late && !viewOnly ? `<div class="mt-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
           Joined in week ${late.week}. Excuse the ${late.tasks.length} item${late.tasks.length === 1 ? '' : 's'} from before they joined?
           <span class="block mt-1 space-x-3">${btn(`data-excuse-late="${esc(s.id)}"`, 'Excuse them', 'font-semibold text-blue-700')}${btn(`data-keep-late="${esc(s.id)}"`, 'Keep them', 'text-ink-600')}</span></div>` : ''}
-        ${plan.overdue.length ? `<p class="mt-2 text-xs font-semibold text-rose-700">Overdue (${plan.overdue.length}) ${btn(`data-excuse-all="${esc(s.id)}"`, 'Excuse all', 'ml-2 font-normal text-blue-600')}</p>
-          <ul class="mt-1 space-y-1 text-xs text-ink-700">${plan.overdue.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-excuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Excuse')}</li>`).join('')}</ul>`
-          : '<p class="mt-1 text-xs text-green-700">Nothing overdue.</p>'}
+        ${plan.overdue.length ? `
+          <div class="mt-2 flex items-baseline justify-between"><p class="text-sm font-semibold text-rose-700">Missing (${plan.overdue.length})</p>${btn(`data-excuse-all="${esc(s.id)}"`, 'Excuse all')}</div>
+          <ul class="mt-1 divide-y divide-ink-100 text-sm">${plan.overdue.map((t) => `
+            <li class="flex items-baseline gap-3 py-1.5"><span class="w-14 shrink-0 text-xs text-ink-500">Week ${t.week}</span><span class="flex-1">${esc(t.label)}</span>${btn(`data-excuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Excuse')}</li>`).join('')}</ul>`
+          : '<p class="mt-2 text-sm text-green-700">Nothing missing.</p>'}
+        ${due.length ? `<p class="mt-2 text-xs text-ink-500">This week (week ${plan.currentWeek}): ${due.map((t) => esc(t.label)).join(' · ')}</p>` : ''}
         ${plan.excusedTasks.length ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-ink-500">Excused (${plan.excusedTasks.length})</summary>
           <ul class="mt-1 space-y-1 text-ink-500">${plan.excusedTasks.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-unexcuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Undo')}</li>`).join('')}</ul></details>` : ''}`;
     }
@@ -1096,6 +1105,9 @@
     }
 
     $('[data-students]').addEventListener('toggle', (e) => {
+      if (e.target.matches('[data-all-exams]')) {
+        if (e.target.open) openAllExams.add(e.target.dataset.allExams); else openAllExams.delete(e.target.dataset.allExams);
+      }
       if (e.target.matches('[data-archived]')) archivedOpen = e.target.open;
     }, true);
 
@@ -1167,15 +1179,6 @@
       }
     });
 
-    function firstCompetitionHtml(s) {
-      const first = firstCompetition(s.eventCode, school.competitionDates);
-      if (!first) return '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to see this.</p>';
-      const type = eventOf(s.eventCode)?.type || '';
-      if (first.level === 'virtual') return '<p class="mt-1 text-sm">Online (virtual event)</p><p class="text-xs text-ink-500">Prep for virtual events isn\'t offered this year.</p>';
-      if (!first.date) return `<p class="mt-1 text-sm">${esc(first.label)}</p>`;
-      return `<p class="mt-1 text-sm"><strong>${esc(first.label)}</strong> · ${esc(shortDate(first.date))} <span class="text-blue-600">(${esc(weeks(first.date))})</span></p>
-        <p class="text-xs text-ink-500">${esc(type)} event</p>`;
-    }
 
     // ---------- Teams ----------
     function updateTeamBar() {
@@ -1302,6 +1305,13 @@
         const id = toggle.dataset.toggle;
         if (open.has(id)) open.delete(id); else open.add(id);
         render();
+        return;
+      }
+      const openResults = e.target.closest('[data-open-results]');
+      if (openResults) {
+        // The student's My Results, view only, with a way back here.
+        startViewingAs(openResults.dataset.openResults, 'advisor.html');
+        location.href = 'results.html';
         return;
       }
       const viewAs = e.target.closest('[data-view-as]');
