@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Hub | BowtieGOAT · GOATS get GLASS</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" href="images/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-4xl mx-auto px-4 py-10">
+    <!-- Event banner in the student's cluster color -->
+    <section data-banner class="rounded-2xl p-6 sm:p-8 bg-ink-900 text-cream-50">
+      <p data-greeting class="text-sm font-semibold uppercase tracking-[0.15em] opacity-80"></p>
+      <h1 data-event-title class="mt-2 font-serif text-3xl sm:text-4xl font-bold"></h1>
+      <p data-event class="mt-1 opacity-80"></p>
+      <div data-resources class="mt-5 flex flex-wrap gap-2 text-sm"></div>
+    </section>
+
+    <!-- Prep plan: role play, written, and selling event plans (js/prep-plan-card.js);
+         virtual events still see the placeholder. -->
+    <section data-plan-card class="mt-8 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+      <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div class="flex items-center gap-3">
+          <div>
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">Your Prep Plan <span data-plan-soon class="align-middle ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-xs font-sans font-semibold px-2 py-0.5">Coming soon</span></h2>
+            <p data-countdown class="mt-0.5 text-sm text-ink-500"></p>
+          </div>
+        </div>
+        <div class="w-full sm:w-48">
+          <div class="flex justify-between text-xs text-ink-500"><span>Progress</span><span data-plan-count>0 of 4 done</span></div>
+          <div class="mt-1 h-2 rounded-full bg-ink-100"><div data-plan-bar class="h-2 w-0 rounded-full bg-green-600"></div></div>
+        </div>
+      </div>
+      <div data-plan-body class="hidden"></div>
+      <div data-plan-notes class="hidden"></div>
+      <div data-plan-placeholder>
+      <p class="mt-4 text-sm text-ink-600">Your week-by-week to-do list will appear here, built around your competition date. Check off each task as you finish it. Your advisor will see how you're doing.</p>
+      <p class="mt-4 text-xs font-semibold uppercase tracking-[0.15em] text-ink-400">Example tasks</p>
+      <ul class="mt-2 divide-y divide-ink-100 opacity-60" aria-label="Example tasks (not active yet)">
+        <li class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Read your event guidelines</span><span class="text-xs text-ink-500">Week 1</span></li>
+        <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Take your first practice exam</span><span class="text-xs text-ink-500">Week 1</span></li>
+        <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Review your missed questions on My Results</span><span class="text-xs text-ink-500">Week 2</span></li>
+        <li data-exam-task class="flex items-center gap-3 py-2.5"><input type="checkbox" disabled class="w-4 h-4" /><span class="flex-1 text-sm">Study your weakest instructional area</span><span class="text-xs text-ink-500">Week 2</span></li>
+      </ul>
+      </div>
+    </section>
+
+    <!-- Prep sections: each one is a drawer that opens when clicked. -->
+    <div class="mt-4 space-y-4">
+      <details data-exam-drawer class="drawer group rounded-2xl bg-white border border-ink-200">
+        <summary class="flex items-center gap-4 cursor-pointer select-none p-5 sm:p-6 rounded-2xl hover:bg-ink-50/60">
+          <span class="flex-1 min-w-0">
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">Cluster Exam Prep</h2>
+            <span data-exam-summary class="mt-0.5 block text-sm text-ink-500">Loading…</span>
+          </span>
+          <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full border border-ink-200 text-ink-600 transition-transform group-open:rotate-180" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </summary>
+        <div class="px-5 sm:px-6 pb-6 pt-2 border-t border-ink-100">
+          <ol data-steps class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm text-ink-700"></ol>
+          <div data-list class="mt-8 space-y-8">
+            <p class="text-ink-500 text-sm">Loading exams…</p>
+          </div>
+        </div>
+      </details>
+
+      <!-- Role play practice log (role play events only). -->
+      <details data-roleplay-drawer class="hidden drawer group rounded-2xl bg-white border border-ink-200">
+        <summary class="flex items-center gap-4 cursor-pointer select-none p-5 sm:p-6 rounded-2xl hover:bg-ink-50/60">
+          <span class="flex-1 min-w-0">
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">Role Play Prep</h2>
+            <span data-rp-summary class="mt-0.5 block text-sm text-ink-500">Loading…</span>
+          </span>
+          <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full border border-ink-200 text-ink-600 transition-transform group-open:rotate-180" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </summary>
+        <div class="px-5 sm:px-6 pb-6 pt-2 border-t border-ink-100">
+          <ol data-rp-steps class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm text-ink-700"></ol>
+          <div class="mt-8 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-serif text-lg font-bold">How you're tracking</h3>
+              <p class="text-sm text-ink-500">Each column is one practice run, oldest to newest. Point at a square for details.</p>
+            </div>
+            <button data-rp-new class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-semibold hover:bg-ink-800">+ Log a role play</button>
+          </div>
+          <div data-rp-grid class="mt-3"></div>
+          <div data-rp-logs-wrap class="hidden">
+            <h3 class="mt-8 font-serif text-lg font-bold">Your logs</h3>
+            <div data-rp-logs class="mt-1"></div>
+          </div>
+        </div>
+      </details>
+
+      <details data-cards-drawer class="hidden drawer group rounded-2xl bg-white border border-ink-200">
+        <summary class="flex items-center gap-4 cursor-pointer select-none p-5 sm:p-6 rounded-2xl hover:bg-ink-50/60">
+          <span class="flex-1 min-w-0">
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">PI Cards</h2>
+            <span data-cards-summary class="mt-0.5 block text-sm text-ink-500">Loading…</span>
+          </span>
+          <span class="shrink-0 grid place-items-center w-9 h-9 rounded-full border border-ink-200 text-ink-600 transition-transform group-open:rotate-180" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </summary>
+        <div data-cards-body class="px-5 sm:px-6 pb-6 pt-4 border-t border-ink-100"></div>
+      </details>
+    </div>
+  </main>
+
+  <!-- Log a role play -->
+  <div data-log-modal class="hidden fixed inset-0 z-30 bg-ink-950/50 flex items-start sm:items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-2xl max-h-[94vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-5 sm:p-6">
+      <div class="flex items-start justify-between gap-4">
+        <h2 data-form-title class="font-serif text-2xl font-bold">Log a role play</h2>
+        <button data-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button>
+      </div>
+      <p data-team-note class="mt-1 text-sm text-blue-700"></p>
+
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <label class="block"><span class="font-semibold">Date practiced</span>
+          <input data-date type="date" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <div><span class="font-semibold">Role play</span>
+          <div class="mt-1 flex rounded-lg border border-ink-300 overflow-hidden" role="group">
+            <button type="button" data-src="goat" class="flex-1 px-3 py-2 font-semibold aria-pressed:bg-ink-900 aria-pressed:text-cream-50">GOAT role play</button>
+            <button type="button" data-src="deca" class="flex-1 px-3 py-2 font-semibold border-l border-ink-300 aria-pressed:bg-ink-900 aria-pressed:text-cream-50">DECA role play</button>
+          </div></div>
+      </div>
+
+      <div data-goat-fields class="mt-4 text-sm">
+        <label class="block"><span class="font-semibold">Which GOAT role play?</span>
+          <select data-goat-pick class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2"></select></label>
+        <p data-goat-none class="hidden mt-1 text-ink-500">There are no GOAT role plays for your event yet, so all events are showing.</p>
+        <label class="mt-2 inline-flex items-center gap-2 text-ink-600"><input data-show-all type="checkbox" class="w-4 h-4" /> Show role plays from all events</label>
+        <p data-goat-ia class="mt-2"></p>
+      </div>
+      <div data-deca-fields class="hidden mt-4 text-sm">
+        <label class="block"><span class="font-semibold">Link to the DECA role play PDF</span>
+          <input data-deca-url type="url" placeholder="https://www.deca.org/…" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <p class="mt-1 text-ink-500">Copy it from <a href="https://www.deca.org/resources" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">DECA's resources page</a>.</p>
+        <label class="mt-3 block"><span class="font-semibold">Instructional area</span>
+          <select data-ia class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2"></select></label>
+      </div>
+
+      <label class="mt-4 block text-sm"><span class="font-semibold">Who judged?</span>
+        <select data-judge class="mt-1 w-full sm:w-1/2 rounded-lg border border-ink-300 px-3 py-2"></select></label>
+
+      <p class="mt-6 text-sm"><strong>Rubric levels.</strong> <span class="text-ink-600">Choose the level your judge gave each row. The points are a guide. Click a level again to clear it.</span></p>
+      <div data-rubric class="mt-1 space-y-3"></div>
+
+      <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <label class="block"><span class="font-semibold">Overall score</span> <span class="text-ink-400">(optional)</span>
+          <span class="mt-1 flex items-center gap-2"><input data-score type="number" min="0" max="100" step="1" class="w-24 rounded-lg border border-ink-300 px-3 py-2" /><span class="text-ink-500">/ 100</span></span></label>
+        <label class="block"><span class="font-semibold">Video link</span> <span class="text-ink-400">(optional)</span>
+          <input data-video type="url" placeholder="Link to your own video, e.g. Google Drive" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+      </div>
+      <label class="mt-4 block text-sm"><span class="font-semibold">Competitor feedback</span>
+        <textarea data-feedback rows="4" maxlength="5000" placeholder="What did your judge say went well? What should you work on next?" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2"></textarea></label>
+      <label class="mt-4 block text-sm"><span class="font-semibold">One thing to fix next time</span>
+        <input data-fix-next maxlength="500" placeholder="e.g. Cover every PI before the questions start" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+      <label class="mt-3 flex items-start gap-2 text-sm"><input data-timed type="checkbox" class="mt-0.5 w-4 h-4" />
+        <span><span class="font-semibold">Done at full competition timing</span> <span data-timed-hint class="text-ink-500"></span></span></label>
+
+      <p data-error class="mt-3 text-sm text-rose-600" role="alert"></p>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <button data-save class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 text-sm font-semibold hover:bg-ink-800 disabled:opacity-50">Save log</button>
+        <button data-close class="rounded-lg border border-ink-300 px-5 py-2 text-sm font-semibold">Cancel</button>
+        <button data-delete class="hidden ml-auto text-sm text-rose-600 hover:underline">Delete log</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { collection, doc, getDoc, getDocs, query, where } from './mock/firebase-firestore.js';
+    import { db, requireUser, renderHeader, esc, formatDate, compareExams, isViewingAs } from './js/app.js';
+    import { draftKey } from './js/drafts.js';
+    import { EVENTS, takesExam } from './js/events.js';
+    import { EVENT_LINKS } from './js/event-links.js';
+    import { clusterColor } from './js/clusters.js';
+    import { firstCompetition } from './js/competitions.js';
+    import { initRolePlayDrawer } from './js/roleplay-drawer.js';
+    import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
+    import { planApplies } from './js/prep-plan.js';
+    import { initPrepPlan, showAdvisorNotes } from './js/prep-plan-card.js';
+    import { initCardsDrawer } from './js/cards-drawer.js';
+
+    const { user, profile } = await requireUser();
+    // An advisor viewing as a student must also filter by school, or the
+    // database rules refuse the search. Students' own view is unchanged.
+    const attemptFilters = () => [where('uid', '==', user.uid), ...(isViewingAs() ? [where('schoolId', '==', profile.schoolId)] : [])];
+    renderHeader({ user, profile, active: 'exams' });
+    // An advisor archived this account (usually a duplicate). The student can
+    // still use it, but should know it isn't the one their advisor sees.
+    if (profile.archived && !isViewingAs()) {
+      document.querySelector('main').insertAdjacentHTML('afterbegin', `
+        <p class="mb-6 rounded-xl border border-tan-200 bg-tan-50 px-4 py-3 text-sm text-tan-700">
+          <strong>Your advisor archived this account.</strong> If this is the account you use, ask your advisor to restore it. If you have another account, sign out and sign in with that one instead.
+        </p>`);
+    }
+
+    // ---------- Event banner ----------
+    const event = EVENTS.find((e) => e.code === profile.eventCode);
+    const links = EVENT_LINKS[profile.eventCode] || {};
+    const color = clusterColor(profile.cluster);
+    const banner = document.querySelector('[data-banner]');
+    banner.style.background = color.bg;
+    banner.classList.toggle('text-cream-50', !color.darkText);
+    banner.classList.toggle('text-ink-900', !!color.darkText);
+    document.querySelector('[data-greeting]').textContent = `Hi, ${profile.firstName} · ${profile.cluster} cluster`;
+    document.querySelector('[data-event-title]').textContent = profile.eventName;
+    document.querySelector('[data-event]').innerHTML =
+      `${esc(profile.eventCode)} · <a href="profile.html" class="underline hover:opacity-100">Change event</a>`;
+
+    // Quick links for the student's event: DECA page, guidelines, DECA+.
+    const outline = color.darkText ? 'border-ink-900/40 bg-white/30 hover:bg-white/50' : 'border-white/40 bg-white/15 hover:bg-white/25';
+    const resources = [
+      { href: event?.url, title: 'DECA event page', solid: true },
+      { href: links.guidelines, title: 'Event guidelines' },
+      { href: links.decaPlus, title: 'DECA+ resources' },
+    ].filter((r) => r.href);
+    document.querySelector('[data-resources]').innerHTML = resources.map((r) => `
+      <a href="${esc(r.href)}" target="_blank" rel="noopener noreferrer"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 font-semibold ${r.solid ? 'bg-white text-ink-900 hover:bg-cream-100' : `border ${outline}`}">
+        ${esc(r.title)} <span aria-hidden="true">↗</span>
+      </a>`).join('');
+
+    // ---------- Role play practice (role play events only) ----------
+    if (event?.type === 'Role Play') initRolePlayDrawer({ user, profile, event }).catch(() => {
+      document.querySelector('[data-rp-summary]').textContent = "Your role play logs couldn't load. Refresh to try again.";
+    });
+
+    // ---------- PI cards (role play events) ----------
+    if (event?.type === 'Role Play') initCardsDrawer({ user, profile }).catch(() => {
+      document.querySelector('[data-cards-summary]').textContent = "Your PI cards couldn't load. Refresh to try again.";
+    });
+
+    // ---------- Prep plan (counts back from the first competition) ----------
+    getDoc(doc(db, 'schools', profile.schoolId)).then((snap) => {
+      const first = firstCompetition(profile.eventCode, snap.exists() ? snap.data().competitionDates : null);
+      const settings = (snap.exists() && snap.data().planSettings) || {};
+      if (planApplies(profile.eventCode)) {
+        initPrepPlan({ user, profile, first, links, attemptFilters, settings }).catch((err) => console.error(err));
+      } else {
+        showAdvisorNotes({ settings });
+      }
+      const box = document.querySelector('[data-countdown]');
+      if (!first) { box.textContent = "Your advisor hasn't set your competition dates yet."; return; }
+      if (!first.date) { box.textContent = first.label; return; }
+      const days = Math.round((new Date(`${first.date}T12:00`) - new Date(`${new Date().toLocaleDateString('en-CA')}T12:00`)) / 86400000);
+      const when = new Date(`${first.date}T12:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+      box.textContent = days >= 0
+        ? `${first.label} · ${when} · ${days >= 14 ? `${Math.floor(days / 7)} weeks away` : days === 0 ? 'today!' : `${days} day${days === 1 ? '' : 's'} away`}`
+        : `${first.label} was ${when}`;
+    }).catch(() => {});
+
+    // ---------- Cluster exams (events that take one) ----------
+    if (takesExam(profile.eventCode)) {
+      await loadExams();
+    } else {
+      document.querySelector('[data-exam-drawer]').remove();
+      document.querySelectorAll('[data-exam-task]').forEach((li) => li.remove());
+      document.querySelector('[data-plan-count]').textContent = '0 of 1 done';
+    }
+
+    async function loadExams() {
+      // ---------- Directions ----------
+      const linkClass = 'font-semibold text-blue-600 underline decoration-blue-300 underline-offset-2 hover:decoration-blue-600';
+      const decaPlusLink = links.decaPlus
+        ? `<a href="${esc(links.decaPlus)}" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA+</a>`
+        : 'DECA+';
+      const steps = [
+        ['Find your DECA exam', `District exams are free on <a href="https://www.deca.org/resources" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA's resources page</a>. Last year's state (SCDC) and ICDC exams are on ${decaPlusLink}.`],
+        ['Select the card below', 'Once you have your exam, pick it from the list and begin.'],
+        ['Finish in 90 minutes', 'You will have 90 minutes to complete and submit your work.'],
+      ];
+      document.querySelector('[data-steps]').innerHTML = steps.map(([title, text], i) => `
+        <li class="flex gap-3">
+          <span class="shrink-0 w-7 h-7 rounded-full bg-ink-900 text-cream-50 grid place-items-center font-bold text-xs" aria-hidden="true">${i + 1}</span>
+          <span><strong class="block text-ink-900">${title}</strong>${text}</span>
+        </li>`).join('');
+
+      const [examSnap, attemptSnap] = await Promise.all([
+        getDocs(query(collection(db, 'exams'), where('cluster', '==', profile.cluster))),
+        getDocs(query(collection(db, 'attempts'), ...attemptFilters())),
+      ]);
+      const exams = examSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false).sort(compareExams);
+      const myAttempts = attemptSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.track === profile.track);
+      // examId -> every try at that exam, oldest first.
+      const attempts = byExam(myAttempts.filter((a) => a.cluster === profile.cluster));
+
+      const list = document.querySelector('[data-list]');
+      // The directions point at exam cards, so skip them until the cluster has exams.
+      document.querySelector('[data-steps]').classList.toggle('hidden', !exams.length);
+      if (!exams.length) {
+        list.innerHTML = `
+          <div class="rounded-2xl border-2 border-dashed border-ink-200 bg-white p-8 text-center">
+            <h2 class="font-serif text-2xl font-bold">Your cluster's exams are coming soon</h2>
+            <p class="mt-2 text-ink-600">We're adding ${esc(profile.cluster)} exams next. Check back soon!</p>
+          </div>`;
+      } else {
+        const years = [...new Set(exams.map((e) => e.year))];
+        list.innerHTML = years.map((year) => `
+          <section>
+            <h2 class="font-serif text-xl font-bold text-ink-800">${esc(exams.find((e) => e.year === year).label.split(' ')[0])}</h2>
+            <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              ${exams.filter((e) => e.year === year).map(card).join('')}
+            </div>
+          </section>`).join('');
+      }
+
+      // One-line summary on the closed drawer.
+      let inProgressCount = 0;
+      exams.forEach((exam) => {
+        try { if (localStorage.getItem(draftKey(user.uid, profile.track, exam.id))) inProgressCount += 1; } catch {}
+      });
+      const lastTaken = [...attempts.values()].flat().sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0))[0];
+      document.querySelector('[data-exam-summary]').textContent = !exams.length
+        ? `${profile.cluster} exams are coming soon`
+        : [
+            `${exams.length} ${profile.cluster} exams`,
+            `${attempts.size} taken`,
+            inProgressCount ? `${inProgressCount} in progress` : '',
+            lastTaken ? `last on ${formatDate(lastTaken.submittedAt)}` : '',
+          ].filter(Boolean).join(' · ');
+
+      // Completed exams from earlier events in a different cluster.
+      const previousClusters = [...new Set(myAttempts.filter((a) => a.cluster !== profile.cluster).map((a) => a.cluster))];
+      if (previousClusters.length) {
+        list.insertAdjacentHTML('beforeend', `
+          <div class="pt-6 border-t-2 border-dashed border-ink-200 space-y-8">
+            ${previousClusters.map((cluster) => {
+              const taken = myAttempts
+                .filter((a) => a.cluster === cluster)
+                .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+              const events = [...new Set(taken.map((a) => a.eventCode))]
+                .map((code) => EVENTS.find((e) => e.code === code))
+                .filter(Boolean)
+                .map((e) => `${e.event} (${e.code})`);
+              return `
+                <section>
+                  <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Previous event</p>
+                  <h2 class="font-serif text-xl font-bold text-ink-800">${esc(events.join(', ') || cluster)}</h2>
+                  <p class="text-sm text-ink-500">${esc(cluster)} exams you completed. They're still in My Results.</p>
+                  <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    ${taken.map((a) => `
+                      <a href="result.html?id=${encodeURIComponent(a.id)}" class="block rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-500 hover:border-ink-300">
+                        <p class="font-semibold">${esc(a.examLabel)}</p>
+                        <p class="text-xs">${esc(a.examSubtitle)}</p>
+                        <p class="mt-3 text-sm">✓ Taken ${esc(formatDate(a.submittedAt))}</p>
+                        <p class="text-sm font-semibold text-ink-700">${a.correct}/${a.total} · See results →</p>
+                      </a>`).join('')}
+                  </div>
+                </section>`;
+            }).join('')}
+          </div>`);
+      }
+
+      function card(exam) {
+        const tries = attempts.get(exam.id);
+        let inProgress = false;
+        try { inProgress = !!localStorage.getItem(draftKey(user.uid, profile.track, exam.id)); } catch {}
+        if (tries) {
+          const latest = tries[tries.length - 1];
+          const waitUntil = retakeAvailableAt(tries);
+          return `
+            <div class="rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-500">
+              <p class="font-semibold">${esc(exam.level)}</p>
+              <p class="text-xs">${esc(exam.subtitle)}</p>
+              <p class="mt-3 text-sm">✓ Taken ${tries.length > 1 ? `${tries.length}× · last ` : ''}${esc(formatDate(latest.submittedAt))}</p>
+              <a href="result.html?id=${encodeURIComponent(latest.id)}" class="block text-sm font-semibold text-ink-700 hover:underline">${tries.length > 1 ? 'Latest ' : ''}${latest.correct}/${latest.total} · See results →</a>
+              ${waitUntil
+                ? `<p class="mt-2 text-xs">Retake on ${esc(shortDay(waitUntil))}</p>`
+                : `<a href="exam.html?id=${encodeURIComponent(exam.id)}" class="mt-2 inline-block text-sm font-medium text-blue-600 hover:underline">${inProgress ? 'Resume retake →' : 'Retake exam →'}</a>`}
+            </div>`;
+        }
+        return `
+          <a href="exam.html?id=${encodeURIComponent(exam.id)}" class="block rounded-xl border border-ink-300 bg-white p-4 hover:border-blue-500 hover:shadow-sm">
+            <p class="font-semibold text-ink-900">${esc(exam.level)}</p>
+            <p class="text-xs text-ink-500">${esc(exam.subtitle)}</p>
+            <p class="mt-3 text-sm font-medium text-blue-600">${inProgress ? 'Resume exam →' : 'Start exam →'}</p>
+          </a>`;
+      }
+    }
+  </script>
+  <script data-goatcounter="https://bowtiegoat.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

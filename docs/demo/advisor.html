@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advisor Dashboard | BowtieGOAT · GOATS get GLASS</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" href="images/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+  <div data-hub-banner></div>
+
+  <main class="max-w-6xl mx-auto px-4 py-10 pb-28">
+    <p data-school class="text-sm font-semibold uppercase tracking-[0.15em] text-blue-600"></p>
+    <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">Advisor Dashboard</h1>
+    <p data-advisors class="mt-1 text-sm text-ink-500"></p>
+    <p class="mt-2 text-ink-600">Your chapter's road to ICDC, at a glance. Click a student's name for details.</p>
+
+    <!-- Student enrollment and competition dates, side by side on wide screens -->
+    <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <section class="rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+        <h2 class="font-serif text-xl font-bold">Student Enrollment</h2>
+        <div class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Your school code</p>
+          <p data-code class="font-mono text-2xl font-bold tracking-[0.2em]">——</p>
+        </div>
+        <p class="mt-2 text-sm text-ink-600">Students join at <strong>prep.thebowtiegoat.com</strong> with this code, or scan the QR code to sign up with it filled in.</p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button data-copy-invite class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500 disabled:opacity-50">Copy invite message</button>
+          <button data-qr-open class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500 disabled:opacity-50">Show QR code</button>
+        </div>
+        <p data-copy-note class="mt-2 text-xs text-green-700 min-h-4"></p>
+      </section>
+
+      <!-- Competition dates -->
+      <section class="rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="font-serif text-xl font-bold">Competition dates</h2>
+          <p class="text-xs text-ink-500">Shared by every advisor at your school.</p>
+        </div>
+        <div data-dates-summary class="hidden mt-3 text-sm"></div>
+        <p data-dates-needed class="hidden mt-3 rounded-lg bg-tan-50 border border-tan-200 px-4 py-3 text-sm text-tan-700">
+          📅 <strong>Set your competition dates.</strong> Students' prep schedules will be built backward from these dates.
+        </p>
+        <form data-dates-form class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="rounded-xl border border-ink-200 p-3">
+            <label class="block text-sm font-semibold text-ink-800" for="district">District / Regional</label>
+            <input id="district" name="district" type="date" class="mt-2 w-full rounded-lg border border-ink-300 px-3 py-2 disabled:bg-ink-50 disabled:text-ink-400" />
+            <label class="mt-2 flex items-center gap-2 text-xs text-ink-600">
+              <input type="checkbox" name="noDistrict" /> We don't have a district/regional competition
+            </label>
+            <p data-countdown="district" class="mt-1 text-xs font-medium text-blue-600"></p>
+          </div>
+          <div class="rounded-xl border border-ink-200 p-3">
+            <label class="block text-sm font-semibold text-ink-800" for="state">State / Provincial</label>
+            <input id="state" name="state" type="date" class="mt-2 w-full rounded-lg border border-ink-300 px-3 py-2" />
+            <p data-countdown="state" class="mt-1 text-xs font-medium text-blue-600"></p>
+          </div>
+          <div class="sm:col-span-2 rounded-xl border border-ink-200 bg-ink-50 px-3 py-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p class="text-sm font-semibold text-ink-800">ICDC <span class="font-normal text-ink-500">(International)</span></p>
+            <p data-icdc class="text-sm font-medium"></p>
+            <p data-countdown="icdc" class="text-xs font-medium text-blue-600"></p>
+            <p class="w-full text-xs text-ink-500">Filled in by BowtieGOAT from deca.org.</p>
+          </div>
+          <label data-prepared-row class="sm:col-span-2 flex items-start gap-3 rounded-xl border border-ink-200 p-3 text-sm">
+            <input type="checkbox" name="preparedAtState" class="mt-0.5" />
+            <span>
+              <strong>Our prepared events don't compete until State/Provincial.</strong>
+              <span class="block text-xs text-ink-600">Check this if prepared events skip district/regional in your area (like Pennsylvania). Role plays always compete at your first competition.</span>
+            </span>
+          </label>
+          <div class="sm:col-span-2 flex flex-wrap items-center gap-3">
+            <button type="submit" class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 text-sm font-medium hover:bg-ink-800 disabled:opacity-50">Save dates</button>
+            <button type="button" data-dates-cancel class="hidden text-sm text-ink-500 underline">Cancel</button>
+            <p data-dates-message class="text-sm"></p>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- Prep plan for the chapter: remove tasks, add items, excuse past items -->
+    <section data-plan-admin class="mt-4 rounded-2xl bg-white border border-ink-200 p-5 sm:p-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="font-serif text-xl font-bold">Prep plan</h2>
+        <p class="text-xs text-ink-500">Each event's week-by-week plan, counted back from its first competition. Shared by every advisor at your school.</p>
+      </div>
+      <div data-plan-admin-body class="mt-3 text-sm"></div>
+    </section>
+
+    <!-- Students -->
+    <section class="mt-10">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="font-serif text-2xl font-bold">Students <span data-count class="text-ink-400 text-lg"></span></h2>
+          <p data-week-total class="mt-1 text-sm text-ink-600"></p>
+          <p data-legend class="mt-1 text-xs text-ink-500"></p>
+        </div>
+        <input data-search type="search" placeholder="Search students or events…"
+          class="w-full sm:w-72 rounded-lg border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      </div>
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <div data-filters class="flex flex-wrap gap-2"></div>
+        <span class="ml-auto flex flex-wrap gap-2">
+          <button data-copy-emails class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-sm font-medium hover:border-blue-500">📋 Copy emails</button>
+          <button data-draft class="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-40">✉️ Suggested draft</button>
+        </span>
+      </div>
+      <p data-emails-note class="mt-1 text-right text-xs text-green-700 h-4"></p>
+      <div data-students class="mt-4"><p class="text-sm text-ink-500">Loading students…</p></div>
+      <p class="mt-3 text-xs text-ink-500">To make a team, check the boxes next to 2–3 students in the same team event.</p>
+    </section>
+  </main>
+
+  <!-- QR code, large enough to project in class -->
+  <div data-qr-modal class="hidden fixed inset-0 z-30 bg-ink-950/60 flex items-center justify-center p-4">
+    <div class="w-full max-w-md max-h-[92vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6 text-center">
+      <div class="flex justify-end"><button data-qr-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button></div>
+      <p data-qr-school class="text-xs font-semibold uppercase tracking-[0.15em] text-blue-600"></p>
+      <h2 class="mt-1 font-serif text-2xl font-bold">Scan to join GOATS get GLASS</h2>
+      <canvas data-qr-big width="320" height="320" class="mt-4 mx-auto block w-full max-w-[320px] h-auto"></canvas>
+      <p class="mt-3 text-sm text-ink-600">School code: <strong data-qr-code class="font-mono tracking-[0.15em]"></strong></p>
+      <p data-qr-url class="mt-1 text-xs text-ink-400 break-all"></p>
+      <div class="mt-5 flex flex-wrap justify-center gap-2">
+        <button data-qr-download class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">Download QR code</button>
+        <button data-qr-copy-link class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Copy join link</button>
+      </div>
+      <p data-qr-note class="mt-2 text-xs text-green-700 h-4"></p>
+      <p class="mt-1 text-xs text-ink-500">If the school code is reset, this QR code changes too. Old copies stop working.</p>
+    </div>
+  </div>
+
+  <!-- Excuse past plan items for every role play student -->
+  <div data-excuse-modal class="hidden fixed inset-0 z-30 bg-ink-950/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6">
+      <div class="flex items-start justify-between gap-4">
+        <h2 class="font-serif text-2xl font-bold">Excuse past items</h2>
+        <button data-excuse-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button>
+      </div>
+      <p data-excuse-intro class="mt-2 text-sm text-ink-600"></p>
+      <ul data-excuse-list class="mt-4 divide-y divide-ink-100 text-sm"></ul>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button data-excuse-apply class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800 disabled:opacity-50">Excuse checked items</button>
+        <button data-excuse-close class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Suggested email -->
+  <div data-draft-modal class="hidden fixed inset-0 z-30 bg-ink-950/50 flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl p-6">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="font-serif text-2xl font-bold">Suggested email</h2>
+          <p data-draft-to class="mt-1 text-sm text-ink-600"></p>
+        </div>
+        <button data-draft-close class="text-2xl leading-none text-ink-400 hover:text-ink-700" aria-label="Close">×</button>
+      </div>
+      <label class="mt-4 block text-sm font-medium text-ink-700">Subject
+        <input data-draft-subject class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 font-normal" /></label>
+      <label class="mt-3 block text-sm font-medium text-ink-700">Message
+        <textarea data-draft-body rows="12" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2 font-normal leading-relaxed"></textarea></label>
+      <p class="mt-1 text-xs text-ink-500">Edit anything you like. Students are added as BCC, so they won't see each other's addresses.</p>
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button data-draft-gmail class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">Open in Gmail</button>
+        <button data-draft-mailto class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Open in my email app</button>
+        <button data-draft-copy class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500">Copy message</button>
+        <button data-draft-another class="ml-auto text-sm text-blue-600 underline">↻ Try another version</button>
+      </div>
+      <p data-draft-note class="mt-2 text-xs text-green-700 h-4"></p>
+    </div>
+  </div>
+
+  <!-- Make-a-team bar -->
+  <div data-team-bar class="hidden fixed bottom-0 inset-x-0 z-20 bg-ink-900 text-cream-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+      <span data-team-summary class="text-sm"></span>
+      <span data-team-problem class="text-sm text-tan-200"></span>
+      <span class="ml-auto flex gap-2">
+        <button data-team-clear class="rounded-lg px-4 py-2 text-sm text-ink-200 hover:bg-ink-800">Clear</button>
+        <button data-team-make class="rounded-lg bg-blue-500 text-white px-4 py-2 text-sm font-medium disabled:opacity-40">Make a team</button>
+      </span>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      collection, doc, getDoc, getDocs, query, where, updateDoc, addDoc, deleteDoc, serverTimestamp,
+    } from './mock/firebase-firestore.js';
+    import {
+      db, requireUser, renderHeader, call, esc, show, formatDate, today, loadIcdc,
+      percentile, percentileText, startViewingAs, stopViewingHub,
+    } from './js/app.js';
+    import { EVENTS, maxTeamSize, minTeamSize, takesExam } from './js/events.js';
+    import { downloadResults, exportFileName } from './js/missed.js';
+    import { firstCompetition } from './js/competitions.js';
+    import { buildDraft } from './js/email-drafts.js';
+    import { byExam, latestAttempts } from './js/attempts.js';
+    import {
+      PLANS, advisorItems, mergeProgress, planApplies, planStatus, planTemplate, planType, planWeeks, sharedTaskIds, shortDate as planShortDate,
+    } from './js/prep-plan.js';
+    import { exportRows as rolePlayRows, mostlyLevel, sortLogs, trend } from './js/roleplays.js';
+    import { deckIdFor, missedPis, sessionCards } from './js/flashcards.js';
+
+    const $ = (sel) => document.querySelector(sel);
+    const { user, advisor } = await requireUser({ advisorOnly: true });
+    renderHeader({ user, profile: null, active: 'advisor' });
+    const viewOnly = advisor.viewOnly;
+    const schoolId = advisor.schoolId;
+    window.addEventListener('unhandledrejection', (e) => alert(`Something went wrong: ${e.reason?.message || e.reason}`));
+
+    const eventOf = (code) => EVENTS.find((e) => e.code === code);
+    const DAY = 86400000;
+    const dayNumber = (ymd) => Math.round(new Date(`${ymd}T12:00`).getTime() / DAY);
+    const daysUntil = (ymd) => dayNumber(ymd) - dayNumber(today());
+
+    // ---------- School + view-only banner ----------
+    const schoolSnap = await getDoc(doc(db, 'schools', schoolId));
+    const school = schoolSnap.exists() ? schoolSnap.data() : { name: 'Your school' };
+    $('[data-school]').textContent = school.name;
+    if (viewOnly) {
+      $('[data-hub-banner]').innerHTML = `
+        <div class="bg-tan-600 text-white text-sm">
+          <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            <span>👁️ Viewing <strong>${esc(school.name)}</strong>'s Advisor Dashboard. View only: nothing can be changed.</span>
+            <button data-exit-hub class="underline font-medium">Exit</button>
+          </div>
+        </div>`;
+      $('[data-exit-hub]').addEventListener('click', () => { stopViewingHub(); location.href = 'admin.html'; });
+    }
+
+    // ---------- Advisors at this school ----------
+    try {
+      const advisorSnap = await getDocs(query(collection(db, 'advisors'), where('schoolId', '==', schoolId)));
+      const names = advisorSnap.docs.map((d) => d.data().name).filter(Boolean).sort((a, b) => a.localeCompare(b));
+      if (names.length) $('[data-advisors]').textContent = `${names.length === 1 ? 'Advisor' : 'Advisors'}: ${names.join(', ')}`;
+    } catch {}
+
+    // ---------- School code ----------
+    let schoolCode = '';
+    try {
+      const codeSnap = await getDoc(doc(db, 'schoolCodes', schoolId));
+      schoolCode = codeSnap.exists() ? codeSnap.data().code : '';
+    } catch {}
+    $('[data-code]').textContent = schoolCode || 'Ask BowtieGOAT';
+    // Copies text, falling back to an older method, then to a box the advisor can copy from.
+    async function copy(text, noteSel, message) {
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch {
+        const area = Object.assign(document.createElement('textarea'), { value: text });
+        area.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(area);
+        area.select();
+        try { copied = document.execCommand('copy'); } catch {}
+        area.remove();
+      }
+      if (!copied) {
+        window.prompt('Copy this text (⌘+C), then press Enter:', text);
+        return;
+      }
+      $(noteSel).textContent = message;
+      setTimeout(() => { $(noteSel).textContent = ''; }, 4000);
+    }
+    // Join link with the school and code filled in. It's built from the current
+    // code, so resetting the code changes the link and QR code automatically.
+    const joinUrl = schoolCode
+      ? `${new URL('join.html', location.href).href}?school=${encodeURIComponent(schoolId)}&code=${encodeURIComponent(schoolCode)}`
+      : '';
+    $('[data-copy-invite]').addEventListener('click', () => copy(
+      `Join GOATS get GLASS, our DECA prep site! Use this link to sign up with our school code already filled in: ${joinUrl}\n\n(Or go to https://prep.thebowtiegoat.com, sign in, pick ${school.name}, and enter our school code: ${schoolCode}.) Then choose your DECA event.`,
+      '[data-copy-note]', '✓ Invite message copied. Paste it into an email, Remind, or Google Classroom.'));
+
+    // Draws the join link as a QR code on a canvas (black on white, with a quiet border).
+    function drawQr(canvas, text) {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      const count = qr.getModuleCount();
+      const size = canvas.width;
+      const border = 4;
+      const cell = size / (count + border * 2);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#141a2e';
+      for (let r = 0; r < count; r += 1) {
+        for (let c = 0; c < count; c += 1) {
+          if (qr.isDark(r, c)) ctx.fillRect(Math.floor((c + border) * cell), Math.floor((r + border) * cell), Math.ceil(cell), Math.ceil(cell));
+        }
+      }
+    }
+    const qrReady = !!(joinUrl && window.qrcode);
+    if (qrReady) {
+      drawQr($('[data-qr-big]'), joinUrl);
+      $('[data-qr-school]').textContent = school.name;
+      $('[data-qr-code]').textContent = schoolCode;
+      $('[data-qr-url]').textContent = joinUrl;
+    }
+    document.querySelectorAll('[data-qr-open]').forEach((b) => {
+      b.disabled = !qrReady;
+      b.addEventListener('click', () => show($('[data-qr-modal]'), true));
+    });
+    $('[data-qr-close]').addEventListener('click', () => show($('[data-qr-modal]'), false));
+    $('[data-qr-modal]').addEventListener('click', (e) => { if (e.target === e.currentTarget) show($('[data-qr-modal]'), false); });
+    $('[data-qr-copy-link]').addEventListener('click', () => copy(joinUrl, '[data-qr-note]', '✓ Join link copied'));
+    $('[data-qr-download]').addEventListener('click', () => {
+      // A bigger copy for posters and slides.
+      const big = Object.assign(document.createElement('canvas'), { width: 1024, height: 1024 });
+      drawQr(big, joinUrl);
+      const a = Object.assign(document.createElement('a'), {
+        href: big.toDataURL('image/png'),
+        download: `${school.name.replace(/[^A-Za-z0-9]+/g, '-')}-DECA-join-QR.png`,
+      });
+      a.click();
+    });
+    if (!schoolCode) $('[data-copy-invite]').disabled = true;
+    if (viewOnly) $('[data-draft]').disabled = true;
+
+    // ---------- Competition dates ----------
+    const icdc = await loadIcdc();
+    const datesForm = $('[data-dates-form]');
+    const dates = school.competitionDates || {};
+    const prettyDate = (ymd) => new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    $('[data-icdc]').textContent = `${prettyDate(icdc.start)}–${new Date(`${icdc.end}T12:00`).getDate()} · ${icdc.location}`;
+    datesForm.district.value = dates.district || '';
+    datesForm.state.value = dates.state || '';
+    datesForm.noDistrict.checked = !!dates.noDistrict;
+    datesForm.preparedAtState.checked = dates.preparedFirstAt === 'state';
+
+    function countdown(ymd) {
+      if (!ymd) return '';
+      const n = daysUntil(ymd);
+      if (n > 1) return `${n} days away (${Math.floor(n / 7)} weeks)`;
+      if (n === 1) return 'Tomorrow';
+      if (n === 0) return 'Today!';
+      return `${-n} days ago`;
+    }
+    const shortDate = (ymd) => new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const weeks = (ymd) => {
+      const n = daysUntil(ymd);
+      return n >= 14 ? `${Math.floor(n / 7)} weeks` : n > 0 ? `${n} days` : n === 0 ? 'today' : 'done';
+    };
+    let editingDates = false;
+    function showDates() {
+      const saved = school.competitionDates || {};
+      const complete = saved.state && (saved.district || saved.noDistrict);
+      const collapsed = complete && !editingDates;
+      show($('[data-dates-summary]'), collapsed);
+      show(datesForm, !collapsed);
+      show($('[data-dates-cancel]'), complete && editingDates);
+      if (!collapsed) return;
+      const item = (label, ymd) => `
+        <div class="flex items-baseline justify-between gap-3 py-1.5 border-t border-ink-100 first:border-t-0">
+          <span class="text-ink-500">${label}</span>
+          <span class="text-right"><strong>${shortDate(ymd)}</strong> <span class="text-blue-600">(${weeks(ymd)})</span></span>
+        </div>`;
+      $('[data-dates-summary]').innerHTML = `
+        <div class="rounded-xl border border-ink-200 px-3 py-1">
+          ${saved.noDistrict ? '<div class="flex justify-between gap-3 py-1.5"><span class="text-ink-500">District/Regional</span><span class="text-ink-500">None</span></div>' : item('District/Regional', saved.district)}
+          ${item('State/Provincial', saved.state)}
+          ${item('ICDC', icdc.start)}
+        </div>
+        <p class="mt-2 text-xs text-ink-500">Role plays start at ${saved.noDistrict ? 'State/Provincial' : 'District/Regional'} · Prepared events start at ${saved.noDistrict || saved.preparedFirstAt === 'state' ? 'State/Provincial' : 'District/Regional'}</p>
+        ${viewOnly ? '' : '<button data-dates-edit class="mt-2 text-sm text-blue-600 underline">Edit dates</button>'}`;
+    }
+    $('[data-dates-summary]').addEventListener('click', (e) => {
+      if (e.target.matches('[data-dates-edit]')) { editingDates = true; showDates(); }
+    });
+    $('[data-dates-cancel]').addEventListener('click', () => {
+      const saved = school.competitionDates || {};
+      datesForm.district.value = saved.district || '';
+      datesForm.state.value = saved.state || '';
+      datesForm.noDistrict.checked = !!saved.noDistrict;
+      datesForm.preparedAtState.checked = saved.preparedFirstAt === 'state';
+      editingDates = false;
+      refreshDates();
+      showDates();
+    });
+
+    function refreshDates() {
+      datesForm.district.disabled = datesForm.noDistrict.checked || viewOnly;
+      // Without a district/regional competition, everything starts at state anyway.
+      datesForm.preparedAtState.disabled = datesForm.noDistrict.checked || viewOnly;
+      $('[data-prepared-row]').classList.toggle('opacity-50', datesForm.noDistrict.checked);
+      $('[data-countdown="district"]').textContent = datesForm.noDistrict.checked ? '' : countdown(datesForm.district.value);
+      $('[data-countdown="state"]').textContent = countdown(datesForm.state.value);
+      $('[data-countdown="icdc"]').textContent = countdown(icdc.start);
+      const saved = school.competitionDates || {};
+      show($('[data-dates-needed]'), !saved.state || (!saved.district && !saved.noDistrict));
+    }
+    datesForm.addEventListener('input', refreshDates);
+    refreshDates();
+    showDates();
+    if (viewOnly) datesForm.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
+
+    datesForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = $('[data-dates-message]');
+      const district = datesForm.noDistrict.checked ? '' : datesForm.district.value;
+      const state = datesForm.state.value;
+      const problem =
+        !state ? 'Pick your state/provincial date.'
+        : !district && !datesForm.noDistrict.checked ? 'Pick your district/regional date, or check the box if you don\'t have one.'
+        : district && district >= state ? 'District/regional should come before state/provincial.'
+        : state >= icdc.start ? 'State/provincial should come before ICDC.'
+        : '';
+      if (problem) {
+        message.className = 'text-sm text-rose-600';
+        message.textContent = problem;
+        return;
+      }
+      const noDistrict = datesForm.noDistrict.checked;
+      const competitionDates = {
+        district, state, noDistrict,
+        preparedFirstAt: noDistrict || datesForm.preparedAtState.checked ? 'state' : 'district',
+        updatedBy: user.email, updatedAt: serverTimestamp(),
+      };
+      await updateDoc(doc(db, 'schools', schoolId), { competitionDates });
+      school.competitionDates = competitionDates;
+      editingDates = false;
+      refreshDates();
+      showDates();
+      message.textContent = '';
+      render(); // open panels show the new first-competition dates
+    });
+
+    // ---------- Data ----------
+    let students = []; // active students (everything on the dashboard counts these)
+    let archivedStudents = []; // archived accounts, listed at the bottom only
+    let attempts = [];
+    let teams = [];
+    let rolePlayLogs = [];
+    let cardProgress = new Map(); // uid -> PI card progress
+    let decks = new Map(); // deckId -> flashcard deck
+    let clustersWithExams = new Set();
+    let allExams = [];
+    const statsCache = new Map();
+    const openTries = new Set(); // exams whose earlier tries are showing
+
+    async function load() {
+      const [userSnap, attemptSnap, teamSnap, examSnap, logSnap, cardSnap, deckSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('schoolId', '==', schoolId))),
+        getDocs(query(collection(db, 'attempts'), where('schoolId', '==', schoolId))),
+        getDocs(query(collection(db, 'teams'), where('schoolId', '==', schoolId))),
+        getDocs(collection(db, 'exams')),
+        getDocs(query(collection(db, 'roleplayLogs'), where('schoolId', '==', schoolId))),
+        getDocs(query(collection(db, 'cardProgress'), where('schoolId', '==', schoolId))).catch(() => null),
+        getDocs(collection(db, 'flashDecks')).catch(() => null),
+      ]);
+      cardProgress = new Map((cardSnap?.docs || []).map((d) => [d.id, d.data()]));
+      decks = new Map((deckSnap?.docs || []).map((d) => [d.id, d.data()]));
+      const everyone = userSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role === 'student');
+      // Archived accounts (e.g. a student's duplicate) leave the counts, filters,
+      // and prep plan numbers, but nothing is deleted and they can be restored.
+      students = everyone.filter((u) => !u.archived);
+      archivedStudents = everyone.filter((u) => u.archived).sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`));
+      attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      teams = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rolePlayLogs = logSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      allExams = examSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false);
+      clustersWithExams = new Set(allExams.map((e) => e.cluster));
+      render();
+    }
+
+    // Current results only (not attempts from before a student started over).
+    const attemptsOf = (s) => attempts
+      .filter((a) => a.uid === s.id && a.track === s.track)
+      .sort((a, b) => (b.submittedAt?.toMillis() || 0) - (a.submittedAt?.toMillis() || 0));
+
+    // Temporary stoplight until the prep path exists.
+    const STATUS = {
+      green: { dot: '🟢', label: 'On track', rank: 3 },
+      yellow: { dot: '🟡', label: 'Slipping', rank: 1 },
+      red: { dot: '🔴', label: 'Needs a nudge', rank: 0 },
+      gray: { dot: '⚪', label: 'No exams for cluster yet', rank: 2 },
+      virtual: { dot: '⚪', label: 'Virtual event (not supported yet)', rank: 2 },
+      noExam: { dot: '⚪', label: 'No cluster exam for this event', rank: 2 },
+    };
+    // The student's team for their current event, if they're on one.
+    const teamOfStudent = (s) => teams.find((t) => t.memberUids.includes(s.id) && t.eventCode === s.eventCode) || null;
+
+    // A student's plan progress: tasks the team shares come from the team,
+    // everything else (exams, studying) from the student.
+    function progressOf(s) {
+      const team = teamOfStudent(s);
+      if (!team) return { checks: s.planChecks || {}, links: s.planLinks || {} };
+      const shared = sharedTaskIds(s.eventCode);
+      const mine = Object.fromEntries(Object.entries(s.planChecks || {}).filter(([id]) => !shared.has(id)));
+      return { checks: { ...mine, ...(team.planChecks || {}) }, links: team.planLinks || {} };
+    }
+
+    // The student's prep plan, or null (virtual event, or no date set).
+    function planOf(s) {
+      if (!planApplies(s.eventCode)) return null;
+      const first = firstCompetition(s.eventCode, school.competitionDates);
+      if (!first?.date) return null;
+      const { checks, links } = progressOf(s);
+      return planStatus({
+        eventCode: s.eventCode, cluster: s.cluster, exams: allExams, competitionDate: first.date,
+        attempts: attemptsOf(s), logs: logsOf(s), checks, links,
+        removed: planSettings().removed || [], excused: s.planExcused || {},
+        cardDays: decks.has(deckIdFor(s.eventCode)) ? cardProgress.get(s.id)?.studyDays || {} : null,
+        cardsSince: (decks.get(deckIdFor(s.eventCode))?.publishedAt || '').slice(0, 10) || null,
+      });
+    }
+
+    function statusOf(s) {
+      // Prep for virtual events (VBC, Stock Market Game) isn't offered this year.
+      if (eventOf(s.eventCode)?.type === 'Virtual') return 'virtual';
+      // Once the school's dates are set, every event follows its prep plan.
+      const plan = planOf(s);
+      if (plan) return plan.stoplight;
+      if (!takesExam(s.eventCode)) return 'noExam';
+      if (!clustersWithExams.has(s.cluster)) return 'gray';
+      const last = attemptsOf(s)[0];
+      if (!last) return 'red';
+      const days = Math.floor((Date.now() - last.submittedAt.toMillis()) / DAY);
+      return days <= 14 ? 'green' : days <= 30 ? 'yellow' : 'red';
+    }
+
+    function lastActiveText(s) {
+      if (!s.lastActiveDate) return '<span class="text-ink-400">Never</span>';
+      const n = -daysUntil(s.lastActiveDate);
+      return n <= 0 ? 'Today' : n === 1 ? 'Yesterday' : `${n} days ago`;
+    }
+    const lastActiveDays = (s) => (s.lastActiveDate ? -daysUntil(s.lastActiveDate) : 99999);
+
+    // ---------- Work this week (Monday to today) ----------
+    // Real work, not just visits: exams submitted, role plays logged, PI cards
+    // studied, links shared, and plan tasks checked off (check-offs carry their
+    // date; older ones are just "true" and don't count here).
+    function weekStart() {
+      const d = new Date();
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return d.toLocaleDateString('en-CA');
+    }
+    const dayOf = (ts) => (ts?.toDate ? ts.toDate().toLocaleDateString('en-CA') : '');
+    function workThisWeek(s) {
+      const since = weekStart();
+      const exams = attemptsOf(s).filter((a) => dayOf(a.submittedAt) >= since).length;
+      const rolePlays = logsOf(s).filter((l) => (l.date || '') >= since).length;
+      const cards = Object.entries(cardProgress.get(s.id)?.studyDays || {}).filter(([d]) => d >= since).reduce((n, [, c]) => n + c, 0);
+      const { checks, links } = progressOf(s);
+      const shared = Object.values(links || {}).flat().filter((l) => l.by === s.id && new Date(l.at).toLocaleDateString('en-CA') >= since).length;
+      const tasks = Object.values(checks || {}).filter((v) => typeof v === 'string' && v >= since).length;
+      return { exams, rolePlays, cards, links: shared, tasks, score: exams * 10 + rolePlays * 10 + shared * 5 + tasks * 2 + Math.floor(cards / 5) };
+    }
+    function weekHtml(s) {
+      const w = workThisWeek(s);
+      const count = (n, one) => (n ? `${n} ${one}${n === 1 ? '' : 's'}` : '');
+      const parts = [count(w.exams, 'exam'), count(w.rolePlays, 'role play'), count(w.cards, 'card'), count(w.links, 'link'), count(w.tasks, 'task')].filter(Boolean);
+      const visited = s.lastActiveDate && s.lastActiveDate >= weekStart();
+      return `${parts.length ? `<span class="font-medium text-ink-900">${parts.join(' · ')}</span>` : `<span class="text-ink-400">${visited ? 'Visited, no work yet' : 'No activity yet'}</span>`}
+        <span class="block text-xs text-ink-500">Last visit: ${lastActiveText(s)}</span>`;
+    }
+    // Plan tasks finished from FUTURE weeks, for students who are caught up
+    // (nothing overdue). A student who is behind isn't "ahead", even if they
+    // did a later task early.
+    function aheadOf(s) {
+      const plan = planOf(s);
+      if (!plan || plan.overdue.length) return 0;
+      return plan.tasks.filter((t) => t.week > plan.currentWeek && t.state === 'done').length;
+    }
+    function aheadHtml(s) {
+      const n = aheadOf(s);
+      return n ? `<span class="mt-1 block w-fit rounded-full bg-blue-100 text-blue-800 text-[11px] font-semibold px-2 py-0.5">Working ahead · ${n} task${n === 1 ? '' : 's'}</span>` : '';
+    }
+
+    // ---------- Rendering ----------
+    // The advisor's last sort and filter, remembered in this browser.
+    const VIEW_KEY = 'prep:advisorView';
+    let { sortKey = 'name', sortDir = 1, statusFilter = 'all' } = (() => {
+      try { return JSON.parse(localStorage.getItem(VIEW_KEY)) || {}; } catch { return {}; }
+    })();
+    if (sortKey === 'active') sortKey = 'week';
+    function rememberView() {
+      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ sortKey, sortDir, statusFilter })); } catch {}
+    }
+    const selected = new Set();
+    const open = new Set();
+    let visibleIds = new Set(); // teammates outside the filter are shown faded
+
+    const SORTS = {
+      name: (s) => `${s.lastName} ${s.firstName}`.toLowerCase(),
+      event: (s) => eventOf(s.eventCode)?.event || s.eventCode,
+      active: (s) => lastActiveDays(s),
+      week: (s) => -workThisWeek(s).score, // most work first
+      status: (s) => STATUS[statusOf(s)].rank,
+    };
+
+    // A team sorts by its member who comes first (or needs the most help).
+    function unitsToShow(visible) {
+      const teamOf = new Map();
+      teams.forEach((t) => t.memberUids.forEach((uid) => teamOf.set(uid, t)));
+      const units = [];
+      const seenTeams = new Set();
+      for (const s of visible) {
+        const team = teamOf.get(s.id);
+        if (!team) { units.push({ students: [s] }); continue; }
+        if (seenTeams.has(team.id)) continue;
+        seenTeams.add(team.id);
+        const members = team.memberUids.map((uid) => students.find((x) => x.id === uid)).filter(Boolean);
+        units.push({ team, students: members });
+      }
+      const key = (unit) => unit.students.map(SORTS[sortKey]).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))[0];
+      return units.sort((a, b) => {
+        const x = key(a);
+        const y = key(b);
+        return (x < y ? -1 : x > y ? 1 : 0) * sortDir || SORTS.name(a.students[0]).localeCompare(SORTS.name(b.students[0]));
+      });
+    }
+
+    function render() {
+      renderPlanAdmin();
+      // With competition dates set, every non-virtual student follows a prep plan.
+      const datesSet = !!firstCompetition('AAM', school.competitionDates)?.date;
+      const search = $('[data-search]').value.trim().toLowerCase();
+      const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
+      const bucket = (s) => (['virtual', 'noExam'].includes(statusOf(s)) ? 'gray' : statusOf(s));
+      students.forEach((s) => { counts[bucket(s)] += 1; });
+      $('[data-count]').textContent = `(${students.length})`;
+      // The chapter's work this week, then a key that fits whether dates are set.
+      const week = students.map(workThisWeek);
+      const sum = (k) => week.reduce((n, w) => n + w[k], 0);
+      const count = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+      const working = week.filter((w) => w.score > 0).length;
+      $('[data-week-total]').innerHTML = students.length
+        ? `<strong>This week:</strong> ${working} of ${students.length} students have done work · ${count(sum('exams'), 'exam')} · ${count(sum('rolePlays'), 'role play')} · ${count(sum('cards'), 'PI card')}`
+        : '';
+      $('[data-legend]').innerHTML = `<strong>This week</strong> = work since Monday: exams, role plays, PI cards, links, and tasks checked off. `
+        + (datesSet
+          ? '<strong>Progress</strong> follows each student\'s prep plan: 🟢 caught up · 🟡 1–2 tasks overdue · 🔴 3+ overdue. <strong>Working ahead</strong> = caught up and already finishing tasks from future weeks. ⚪ = virtual events, which don\'t have a prep plan.'
+          : '<strong>Progress</strong> follows each student\'s prep plan once you set your competition dates. Until then: 🟢 exam in the last 14 days · 🟡 15–30 days · 🔴 30+ days or none yet · ⚪ not tracked.');
+      $('[data-filters]').innerHTML = ['all', 'green', 'yellow', 'red', 'gray'].map((k) => `
+        <button data-filter="${k}" class="rounded-full border px-3 py-1.5 text-sm ${statusFilter === k ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">
+          ${k === 'all' ? 'All' : k === 'gray' ? `⚪ ${datesSet ? 'Virtual events' : 'Not tracked yet'}` : `${STATUS[k].dot} ${STATUS[k].label}`} <span class="opacity-70">${counts[k]}</span>
+        </button>`).join('');
+
+      const visible = students.filter((s) =>
+        (statusFilter === 'all' || bucket(s) === statusFilter)
+        && (!search || `${s.firstName} ${s.lastName} ${s.eventCode} ${eventOf(s.eventCode)?.event || ''}`.toLowerCase().includes(search)));
+      const units = unitsToShow(visible);
+      visibleIds = new Set(visible.map((x) => x.id));
+      $('[data-copy-emails]').textContent = `📋 Copy emails (${visible.length})`;
+      const head = (key, label) => `
+        <th class="py-3 px-3">
+          <button data-sort="${key}" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-ink-900 ${key === sortKey ? 'text-ink-900' : ''}">
+            ${label}<span aria-hidden="true">${key === sortKey ? (sortDir === 1 ? '▲' : '▼') : '↕'}</span>
+          </button>
+        </th>`;
+
+      $('[data-students]').innerHTML = !students.length
+        ? '<p class="rounded-xl bg-white border border-ink-200 px-4 py-8 text-center text-ink-500">No students have joined yet. Share your school code with them!</p>'
+        : `
+        <div class="overflow-x-auto rounded-xl bg-white border border-ink-200">
+          <table class="w-full min-w-[720px] text-sm">
+            <thead><tr class="text-left text-xs uppercase tracking-wider text-ink-500 bg-ink-50">
+              <th class="py-3 pl-4 w-8"><span class="sr-only">Select</span></th>
+              ${head('name', 'Student')}${head('event', 'Event')}${head('week', 'This week')}${head('status', 'Progress')}
+            </tr></thead>
+            <tbody>
+              ${units.length ? units.map(unitRows).join('') : '<tr><td colspan="5" class="py-8 text-center text-ink-500">No students match.</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+      $('[data-students]').insertAdjacentHTML('beforeend', archivedHtml());
+      updateTeamBar();
+      open.forEach((id) => {
+        const s = students.find((x) => x.id === id);
+        if (s) fillPanel(s);
+      });
+    }
+
+    function unitRows(unit) {
+      if (!unit.team) return studentRows(unit.students[0], false);
+      const team = unit.team;
+      const event = eventOf(team.eventCode);
+      const mismatch = unit.students.some((s) => s.eventCode !== team.eventCode);
+      return `
+        <tr class="border-t border-ink-200 bg-blue-50/60">
+          <td></td>
+          <td colspan="4" class="py-2 px-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span class="font-semibold text-blue-700">👥 Team · ${esc(event?.event || team.eventCode)}</span>
+              <span class="text-xs text-ink-500">${unit.students.length} of ${maxTeamSize(team.eventCode)} students</span>
+              ${writtenSummary(unit.students[0])}
+              ${mismatch ? '<span class="text-xs text-rose-600">⚠️ A member changed events</span>' : ''}
+              ${viewOnly ? '' : `<button data-break-team="${esc(team.id)}" class="ml-auto text-xs text-ink-500 underline hover:text-rose-600">Break up team</button>`}
+            </div>
+          </td>
+        </tr>
+        ${unit.students.map((s) => studentRows(s, true, !visibleIds.has(s.id))).join('')}`;
+    }
+
+    function studentRows(s, inTeam, faded = false) {
+      const status = STATUS[statusOf(s)];
+      const event = eventOf(s.eventCode);
+      const canTeam = !inTeam && maxTeamSize(s.eventCode) > 1 && !viewOnly;
+      const isOpen = open.has(s.id);
+      return `
+        <tr class="border-t border-ink-100 ${inTeam ? 'bg-blue-50/30' : ''} ${isOpen ? 'bg-cream-100/50' : ''} ${faded && !isOpen ? 'opacity-50' : ''}">
+          <td class="py-3 pl-4 align-top">${canTeam ? `<input type="checkbox" data-select="${esc(s.id)}" ${selected.has(s.id) ? 'checked' : ''} aria-label="Select ${esc(s.firstName)} for a team" />` : ''}</td>
+          <td class="py-3 px-3 align-top ${inTeam ? 'pl-6 border-l-4 border-blue-300' : ''}">
+            <button data-toggle="${esc(s.id)}" class="text-left font-medium text-ink-900 hover:text-blue-600" aria-expanded="${isOpen}">
+              ${esc(s.lastName)}, ${esc(s.firstName)} <span class="text-ink-400 text-xs">${isOpen ? '▾' : '▸'}</span>
+            </button>
+          </td>
+          <td class="py-3 px-3 align-top">${esc(event?.event || s.eventCode)} <span class="text-xs text-ink-500">${esc(s.eventCode)}</span>
+            ${!inTeam && minTeamSize(s.eventCode) > 1 ? '<span class="ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-[11px] font-medium px-2 py-0.5">Needs a teammate</span>' : ''}
+            ${lateJoin(s) ? '<span class="ml-1 inline-block rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium px-2 py-0.5">Joined late</span>' : ''}</td>
+          <td class="py-3 px-3 align-top">${weekHtml(s)}</td>
+          <td class="py-3 px-3 align-top"><span class="whitespace-nowrap">${status.dot} ${status.label}</span>${aheadHtml(s)}</td>
+        </tr>
+        ${isOpen ? `<tr><td colspan="5" class="px-4 pb-5 pt-1 ${inTeam ? 'bg-blue-50/30' : 'bg-cream-100/50'}"><div data-panel="${esc(s.id)}"></div></td></tr>` : ''}`;
+    }
+
+    // A student's role play logs for their current event (team logs included).
+    const logsOf = (s) => rolePlayLogs.filter((l) => l.memberUids.includes(s.id) && l.eventCode === s.eventCode);
+    const allLogsOf = (s) => rolePlayLogs.filter((l) => l.memberUids.includes(s.id));
+
+    const sectionHead = (title, right = '') => `
+      <div class="flex items-baseline justify-between gap-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">${title}</p>${right}
+      </div>`;
+    const TREND_TONE = { 'Trending up': 'text-green-700', 'Trending down': 'text-rose-700', 'Holding steady': 'text-ink-500' };
+    const trendTag = (label) => (label ? `<p class="text-xs font-semibold ${TREND_TONE[label]}">${label}</p>` : '');
+    const pct = (a) => Math.round((a.correct / a.total) * 100);
+
+    // Exams at a glance: the trend, the 3 most recent, and every try (for deleting) tucked away.
+    function examSummaryHtml(s, mine, allTriesHtml) {
+      if (!mine.length) return takesExam(s.eventCode) ? `${sectionHead('Exams')}<p class="mt-1 text-sm text-ink-500">No exams submitted yet.</p>` : '';
+      const latest = latestAttempts(mine);
+      const newest = mine[0];
+      const oldest = mine[mine.length - 1];
+      const average = Math.round(latest.reduce((n, a) => n + pct(a), 0) / latest.length);
+      const change = pct(newest) - pct(oldest);
+      const label = mine.length < 2 ? '' : change >= 3 ? 'Trending up' : change <= -3 ? 'Trending down' : 'Holding steady';
+      const since = mine.length < 2 ? ''
+        : ` · <strong>${change > 0 ? 'up' : change < 0 ? 'down' : 'no change,'} ${Math.abs(change) || ''}${change ? ` point${Math.abs(change) === 1 ? '' : 's'}` : ''}</strong> since the first exam (${esc(shortDate(dayOf(oldest.submittedAt)))})`;
+      const tries = byExam(mine);
+      return `
+        ${sectionHead(`Exams · ${latest.length} taken`, trendTag(label))}
+        <p class="mt-1 text-sm text-ink-700">Latest <strong>${pct(newest)}%</strong> · average ${average}%${since}</p>
+        <table class="mt-2 w-full text-sm"><tbody>
+          ${latest.slice(0, 3).map((a) => `
+            <tr class="border-t border-ink-100">
+              <td class="py-1.5 pr-3 text-ink-500 whitespace-nowrap">${esc(shortDate(dayOf(a.submittedAt)))}</td>
+              <td class="py-1.5 pr-3">${esc(a.examLabel)}${tries.get(a.examId).length > 1 ? ` <span class="text-xs text-ink-500">· ${tries.get(a.examId).length} tries</span>` : ''}</td>
+              <td class="py-1.5 text-right font-semibold tabular-nums">${pct(a)}%</td>
+            </tr>`).join('')}
+        </tbody></table>
+        <details data-all-exams="${esc(s.id)}" class="mt-1" ${openAllExams.has(s.id) ? 'open' : ''}>
+          <summary class="cursor-pointer text-xs text-blue-600 hover:underline">${latest.length === 1 ? 'Every try' : `All ${latest.length} exams and tries`}${viewOnly ? '' : ' (to delete a try)'}</summary>
+          <table class="mt-2 w-full text-sm"><tbody>${allTriesHtml}</tbody></table>
+        </details>`;
+    }
+
+    // Role plays at a glance: the latest run's score, level, feedback, and fix.
+    function rolePlaySummaryHtml(s) {
+      if (eventOf(s.eventCode)?.type !== 'Role Play') return '';
+      const logs = sortLogs(logsOf(s));
+      if (!logs.length) return `${sectionHead('Role plays')}<p class="mt-1 text-sm text-ink-500">${esc(s.firstName)} hasn't logged a role play yet.</p>`;
+      const last = logs[0];
+      const level = mostlyLevel(last);
+      return `
+        ${sectionHead(`Role plays · ${logs.length} logged`, trendTag(trend(logs)))}
+        <p class="mt-1 text-sm text-ink-700">Latest ${last.score != null ? `<strong>${last.score}/100</strong> ` : ''}${level ? `<span class="lv-${level.key} rounded px-1.5 py-0.5 text-xs font-semibold">${esc(level.name)}</span>` : ''} · ${esc(shortDate(last.date))} · ${esc(last.title)}</p>
+        ${last.feedback ? `<p class="mt-1 text-sm text-ink-600"><span class="font-semibold text-ink-800">Judge:</span> ${esc(last.feedback)}</p>` : ''}
+        ${last.fixNext ? `<p class="mt-0.5 text-sm text-ink-600"><span class="font-semibold text-ink-800">Fix next time:</span> ${esc(last.fixNext)}</p>` : ''}`;
+    }
+
+    // PI cards at a glance: this week, how many studied, and the PI missed most.
+    function cardsSummaryHtml(s, mine) {
+      if (eventOf(s.eventCode)?.type !== 'Role Play') return '';
+      const deck = decks.get(deckIdFor(s.eventCode));
+      if (!deck) return '';
+      const p = cardProgress.get(s.id) || { stats: {}, studyDays: {} };
+      const studied = Object.keys(p.stats || {}).length;
+      if (!studied) return `${sectionHead('PI cards')}<p class="mt-1 text-sm text-ink-500">${esc(s.firstName)} hasn't studied PI cards yet.</p>`;
+      const thisWeek = workThisWeek(s).cards;
+      const top = missedPis(p, deck)[0];
+      const examMissed = new Set(mine.flatMap((a) => a.missed.map((m) => m.code)));
+      return `
+        ${sectionHead('PI cards')}
+        <p class="mt-1 text-sm text-ink-700">${thisWeek} card${thisWeek === 1 ? '' : 's'} this week · ${studied} of ${deck.cards.length} studied${top ? ` · Missed most: <span class="text-ink-900">${esc(top.pi)}</span> <span class="text-xs text-ink-500">(${top.missed} of ${top.seen})</span>${examMissed.has(top.code) ? ' <span class="rounded-full bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5">Also missed on exams</span>' : ''}` : ''}</p>`;
+    }
+
+    // ---------- Archived students ----------
+    let archivedOpen = false;
+    function archivedHtml() {
+      if (!archivedStudents.length) return '';
+      return `
+        <details data-archived class="drawer group mt-4 rounded-xl bg-white border border-ink-200" ${archivedOpen ? 'open' : ''}>
+          <summary class="flex items-center gap-3 cursor-pointer select-none px-4 py-3 rounded-xl hover:bg-ink-50/60">
+            <span class="flex-1 text-sm"><strong>Archived students (${archivedStudents.length})</strong> <span class="text-ink-500">· not counted anywhere on the dashboard</span></span>
+            <span class="text-ink-400 text-xs transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
+          </summary>
+          <ul class="divide-y divide-ink-100 border-t border-ink-100 text-sm">
+            ${archivedStudents.map((s) => `
+              <li class="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-2.5 text-ink-600">
+                <span class="font-medium text-ink-800">${esc(s.lastName)}, ${esc(s.firstName)}</span>
+                <span>${esc(eventOf(s.eventCode)?.event || s.eventCode)}</span>
+                <span class="text-xs text-ink-500">${esc(s.email || '')}</span>
+                <span class="text-xs text-ink-500">Last visit: ${lastActiveText(s)}</span>
+                ${viewOnly ? '' : `<button data-restore-student="${esc(s.id)}" class="ml-auto text-sm text-blue-600 underline">Restore</button>`}
+              </li>`).join('')}
+          </ul>
+        </details>`;
+    }
+
+    async function setArchived(s, archived) {
+      const changes = archived
+        ? { archived: true, archivedAt: new Date().toISOString(), archivedBy: advisor.name || user.email }
+        : { archived: false };
+      await updateDoc(doc(db, 'users', s.id), changes);
+      Object.assign(s, changes);
+      open.delete(s.id);
+      selected.delete(s.id);
+      await load();
+    }
+
+    // ---------- Student detail panel ----------
+    // A quick read for advisors: what's missing on the prep plan, plus results
+    // at a glance. The full picture is the student's own My Results page.
+    const openAllExams = new Set(); // students whose "All exams and tries" list is open
+    async function fillPanel(s) {
+      const box = document.querySelector(`[data-panel="${CSS.escape(s.id)}"]`);
+      if (!box) return;
+      const mine = attemptsOf(s);
+      await Promise.all([...new Set(mine.map((a) => a.examId))].filter((id) => !statsCache.has(id)).map(async (id) => {
+        try {
+          const snap = await getDoc(doc(db, 'examStats', id));
+          statsCache.set(id, snap.exists() ? snap.data() : null);
+        } catch { statsCache.set(id, null); }
+      }));
+      // Every exam (latest try), with the arrow showing earlier tries, for deleting.
+      const tries = byExam(mine);
+      const attemptRow = (a, { latest, count }) => {
+        const st = statsCache.get(a.examId);
+        const rank = st ? percentileText(percentile(st.histogram || [], a.correct, st.takers), st.takers) : '—';
+        const isOpen = openTries.has(a.examId);
+        return `
+          <tr class="border-t border-ink-100 ${latest ? '' : 'bg-ink-50/60 text-ink-600'}">
+            <td class="py-2 pr-2 w-7">${latest && count > 1 ? `
+              <button type="button" data-tries="${esc(a.examId)}" data-student="${esc(s.id)}" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Hide' : 'Show'} all ${count} tries"
+                class="grid place-items-center w-6 h-6 rounded-full border border-ink-200 text-ink-600 hover:border-ink-400 transition-transform ${isOpen ? 'rotate-90' : ''}">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>` : ''}</td>
+            <td class="py-2 pr-3 whitespace-nowrap">${esc(formatDate(a.submittedAt))}</td>
+            <td class="py-2 pr-3">${latest ? `${esc(a.examLabel)} <span class="text-xs text-ink-500">${esc(a.examSubtitle)}${count > 1 ? ` · ${count} tries` : ''}</span>` : `Try ${a.attemptNumber || 1}`}</td>
+            <td class="py-2 pr-3 ${latest ? 'font-semibold' : ''} tabular-nums">${a.correct}/${a.total}</td>
+            <td class="py-2 pr-3 text-ink-600 text-xs">${esc(rank)}</td>
+            <td class="py-2 text-right">${viewOnly ? '' : `<button data-delete-attempt="${esc(a.id)}" data-label="${esc(a.examLabel)}" class="text-xs text-rose-600 hover:underline">Delete</button>`}</td>
+          </tr>`;
+      };
+      const allTries = latestAttempts(mine).map((latest) => {
+        const list = tries.get(latest.examId);
+        const earlier = openTries.has(latest.examId) ? list.slice(0, -1).reverse() : [];
+        return attemptRow(latest, { latest: true, count: list.length }) + earlier.map((a) => attemptRow(a, { latest: false })).join('');
+      }).join('');
+      const results = [examSummaryHtml(s, mine, allTries), rolePlaySummaryHtml(s), cardsSummaryHtml(s, mine)].filter(Boolean);
+      const joined = s.createdAt?.toDate ? formatDate(s.createdAt) : '';
+      box.innerHTML = `
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
+          <p class="text-xs text-ink-500">Account: ${esc(s.email || 'no email')}${joined ? ` · joined ${esc(joined)}` : ''}</p>
+          <div class="ml-auto flex flex-wrap gap-2 text-sm">
+            <button data-open-results="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-semibold hover:border-blue-500">Open My Results →</button>
+            ${mine.length || allLogsOf(s).length ? `<button data-export="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 font-medium hover:border-blue-500">Export</button>` : ''}
+          </div>
+        </div>
+        <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <section class="rounded-xl bg-white border border-ink-200 p-4">${planHtml(s)}</section>
+          ${results.length ? `<section class="rounded-xl bg-white border border-ink-200 p-4 divide-y divide-ink-100 [&>div]:py-3 [&>div:first-child]:pt-0 [&>div:last-child]:pb-0">${results.map((r) => `<div>${r}</div>`).join('')}</section>` : ''}
+        </div>
+        ${writtenEntryHtml(s)}
+        ${viewOnly ? '' : `<div class="mt-3 flex justify-end"><button data-archive-student="${esc(s.id)}" class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-sm font-medium text-ink-600 hover:border-rose-400 hover:text-rose-700">Archive student</button></div>`}`;
+    }
+
+    function planHtml(s) {
+      const plan = planOf(s);
+      if (!plan) {
+        return `${sectionHead('Prep plan')}${planApplies(s.eventCode)
+          ? '<p class="mt-1 text-sm text-ink-500">Set your competition dates above to start this student\'s plan.</p>'
+          : `<p class="mt-1 text-sm text-ink-500">Coming soon for ${esc(eventOf(s.eventCode)?.type || '')} events.</p>`}`;
+      }
+      const total = plan.weeks.length;
+      const when = !plan.started ? `Starts ${planShortDate(plan.weeks[0].start)}`
+        : plan.currentWeek <= total ? `Week ${plan.currentWeek} of ${total}` : `${total} weeks done`;
+      const late = lateJoin(s);
+      const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="shrink-0 text-xs ${tone} hover:underline">${label}</button>`);
+      const due = plan.tasks.filter((t) => t.week === plan.currentWeek && t.state === 'due');
+      return `
+        ${sectionHead('Prep plan', `<p class="text-sm"><strong>${esc(when)}</strong> · ${plan.doneCount} of ${plan.totalCount} tasks done</p>`)}
+        ${late && !viewOnly ? `<div class="mt-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+          Joined in week ${late.week}. Excuse the ${late.tasks.length} item${late.tasks.length === 1 ? '' : 's'} from before they joined?
+          <span class="block mt-1 space-x-3">${btn(`data-excuse-late="${esc(s.id)}"`, 'Excuse them', 'font-semibold text-blue-700')}${btn(`data-keep-late="${esc(s.id)}"`, 'Keep them', 'text-ink-600')}</span></div>` : ''}
+        ${plan.overdue.length ? `
+          <div class="mt-2 flex items-baseline justify-between"><p class="text-sm font-semibold text-rose-700">Missing (${plan.overdue.length})</p>${btn(`data-excuse-all="${esc(s.id)}"`, 'Excuse all')}</div>
+          <ul class="mt-1 divide-y divide-ink-100 text-sm">${plan.overdue.map((t) => `
+            <li class="flex items-baseline gap-3 py-1.5"><span class="w-14 shrink-0 text-xs text-ink-500">Week ${t.week}</span><span class="flex-1">${esc(t.label)}</span>${btn(`data-excuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Excuse')}</li>`).join('')}</ul>`
+          : '<p class="mt-2 text-sm text-green-700">Nothing missing.</p>'}
+        ${due.length ? `<p class="mt-2 text-xs text-ink-500">This week (week ${plan.currentWeek}): ${due.map((t) => esc(t.label)).join(' · ')}</p>` : ''}
+        ${plan.excusedTasks.length ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-ink-500">Excused (${plan.excusedTasks.length})</summary>
+          <ul class="mt-1 space-y-1 text-ink-500">${plan.excusedTasks.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-unexcuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Undo')}</li>`).join('')}</ul></details>` : ''}`;
+    }
+
+    // The links a written-event team (or student) shared, for the advisor to open.
+    function writtenEntryHtml(s) {
+      const plan = planOf(s);
+      if (plan?.type !== 'written') return '';
+      const { links } = progressOf(s);
+      const team = teamOfStudent(s);
+      const rows = plan.tasks.filter((t) => t.kind === 'link').map((t) => {
+        const history = links[t.id] || [];
+        const latest = history[history.length - 1];
+        const when = (l) => new Date(l.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return `
+          <tr class="border-t border-ink-100 align-top">
+            <td class="py-2 pr-3 font-medium">${esc(t.linkLabel)} <span class="block text-xs font-normal text-ink-500">Week ${t.week}</span></td>
+            <td class="py-2 pr-3">${latest ? `<a href="${esc(latest.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 font-medium underline">Open →</a>` : '<span class="text-ink-400">Not yet</span>'}</td>
+            <td class="py-2 text-ink-600">${latest ? `${esc(when(latest))} · ${esc(latest.byName)}` : `due ${esc(planShortDate(t.weekEnd))}${t.state === 'overdue' ? ' · <span class="text-rose-700 font-semibold">overdue</span>' : ''}`}
+              ${history.length > 1 ? `<details class="mt-1 text-xs"><summary class="cursor-pointer text-ink-500">Earlier versions (${history.length - 1})</summary>
+                <ul class="mt-1 space-y-0.5">${history.slice(0, -1).reverse().map((l) => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${esc(when(l))}</a> · ${esc(l.byName)}</li>`).join('')}</ul></details>` : ''}</td>
+          </tr>`;
+      }).join('');
+      return `
+        <div class="mt-4 rounded-xl bg-white border border-ink-200 p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">Written entry${team ? ' · shared by the team' : ''}</p>
+          <table class="mt-2 w-full text-sm"><tbody>${rows}</tbody></table>
+        </div>`;
+    }
+
+    // "Written entry: 2 of 4 links" for a team's header row.
+    function writtenSummary(s) {
+      const plan = planOf(s);
+      if (plan?.type !== 'written') return '';
+      const linkTasks = plan.tasks.filter((t) => t.kind === 'link');
+      const shared = linkTasks.filter((t) => t.state === 'done').length;
+      return `<span class="text-xs text-ink-600">Written entry: ${shared} of ${linkTasks.length} links shared</span>`;
+    }
+
+    // ---------- Prep plan: chapter settings ----------
+    const planSettings = () => school.planSettings || {};
+    // The plan the chapter card is showing: roleplay, written, or selling.
+    let adminPlan = 'roleplay';
+    const SAMPLE_EVENT = { roleplay: 'AAM', written: 'BOR', selling: 'PSE' };
+    const chapterFirst = (type = adminPlan) => firstCompetition(SAMPLE_EVENT[type], school.competitionDates);
+    const planStudents = (type = adminPlan) => students.filter((s) => planOf(s)?.type === type);
+    const PLAN_STUDENTS = { roleplay: 'role play students', written: 'written event students', selling: 'selling event students' };
+    // Whether advisors already answered the catch-up prompt for a plan.
+    const CATCHUP_KEY = { roleplay: 'catchupHandled', written: 'catchupHandledWritten', selling: 'catchupHandledSelling' };
+    let planAdminOpen = false;
+
+    async function saveSettings(changes) {
+      const next = { removed: [], items: [], catchupHandled: false, ...planSettings(), ...changes };
+      await updateDoc(doc(db, 'schools', schoolId), { planSettings: next });
+      school.planSettings = next;
+      render();
+    }
+
+    // Excuse task ids for one student (only ones they haven't done). On a
+    // team, tasks the team shares are excused for every teammate.
+    async function excuseFor(s, ids, { lateHandled = false } = {}) {
+      const plan = planOf(s);
+      const notDone = new Set(plan ? plan.tasks.filter((t) => t.state !== 'done').map((t) => t.id) : []);
+      const picked = ids.filter((id) => notDone.has(id));
+      const team = teamOfStudent(s);
+      const shared = sharedTaskIds(s.eventCode);
+      const mates = team ? students.filter((x) => x.id !== s.id && team.memberUids.includes(x.id)) : [];
+      const write = async (who, list, extra = {}) => {
+        const next = { ...(who.planExcused || {}) };
+        list.forEach((id) => { next[id] = true; });
+        const changes = { planExcused: next, ...extra };
+        await updateDoc(doc(db, 'users', who.id), changes);
+        Object.assign(who, changes);
+      };
+      await write(s, picked, lateHandled ? { planLateHandled: true } : {});
+      const teamIds = picked.filter((id) => shared.has(id));
+      if (teamIds.length) await Promise.all(mates.map((m) => write(m, teamIds)));
+    }
+
+    // Undo an excuse (for the whole team when the team shares the task).
+    async function unexcuseFor(s, id) {
+      const team = teamOfStudent(s);
+      const who = team && sharedTaskIds(s.eventCode).has(id) ? students.filter((x) => team.memberUids.includes(x.id)) : [s];
+      await Promise.all(who.map(async (x) => {
+        const next = { ...(x.planExcused || {}) };
+        delete next[id];
+        await updateDoc(doc(db, 'users', x.id), { planExcused: next });
+        x.planExcused = next;
+      }));
+    }
+
+    // A student who joined after week 1 started and still has items from before then.
+    function lateJoin(s) {
+      if (s.planLateHandled || !s.createdAt?.toDate) return null;
+      const plan = planOf(s);
+      if (!plan || !plan.started) return null;
+      const joined = s.createdAt.toDate().toLocaleDateString('en-CA');
+      if (joined <= plan.weeks[0].start) return null;
+      const tasks = plan.overdue.filter((t) => t.weekEnd < joined);
+      if (!tasks.length) return null;
+      return { week: plan.weeks.find((w) => joined >= w.start && joined <= w.end)?.number || plan.weeks.length, tasks };
+    }
+
+    function renderPlanAdmin() {
+      const box = $('[data-plan-admin-body]');
+      const tabs = `
+        <div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Plans">
+          ${Object.entries(PLANS).map(([key, p]) => `
+            <button type="button" role="tab" aria-selected="${key === adminPlan}" data-plan-tab="${key}"
+              class="rounded-full border px-3 py-1.5 text-sm ${key === adminPlan ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">
+              ${esc(p.name)} <span class="opacity-70">${planStudents(key).length}</span>
+            </button>`).join('')}
+        </div>
+        <p class="mb-3 text-xs text-ink-500">${{
+          roleplay: 'All role play events. Counts back 8 weeks from your first competition.',
+          written: 'Prepared events with a written entry, including Integrated Marketing Campaign (which also gets the cluster exams). Counts back 16 weeks from the first prepared event competition. Teams share one plan.',
+          selling: 'Professional Selling, Financial Consulting, and Hospitality and Tourism Professional Selling. Counts back 8 weeks from the first prepared event competition.',
+        }[adminPlan]}</p>`;
+      const first = chapterFirst();
+      if (!first?.date) {
+        box.innerHTML = `${tabs}<p class="text-ink-500">Set your competition dates above. Each plan counts back from its first competition.</p>`;
+        return;
+      }
+      const total = PLANS[adminPlan].weeks;
+      const weeks = planWeeks(first.date, total);
+      const today = new Date().toLocaleDateString('en-CA');
+      const current = weeks.find((w) => today >= w.start && today <= w.end)?.number || (today < weeks[0].start ? 0 : total + 1);
+      const settings = planSettings();
+      const removed = new Set(settings.removed || []);
+      const template = planTemplate(adminPlan);
+      const group = adminPlan === 'roleplay' ? 'roleplay' : 'prepared';
+      const items = advisorItems(settings.items || [], weeks, { group });
+      const who = PLAN_STUDENTS[adminPlan];
+      const overdueStudents = planStudents().filter((s) => planOf(s).overdue.length).length;
+      const GROUP = { roleplay: 'Role play students', prepared: 'Prepared event students', everyone: 'Everyone' };
+      const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} text-xs hover:underline">${label}</button>`);
+
+      const catchup = !viewOnly && !settings[CATCHUP_KEY[adminPlan]] && current >= 2 && overdueStudents ? `
+        <div class="mb-4 rounded-xl border border-tan-200 bg-tan-50 px-4 py-3 text-tan-700">
+          <p><strong>Your ${who} are in week ${Math.min(current, total)} of their plan.</strong> ${overdueStudents} student${overdueStudents === 1 ? ' has' : 's have'} overdue items from earlier weeks.
+          You can excuse them so students start fresh, or keep them as catch-up work.</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button type="button" data-catchup-all class="rounded-lg bg-ink-900 text-cream-50 px-3 py-1.5 text-sm font-medium">Excuse all past items</button>
+            <button type="button" data-catchup-choose class="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-sm font-medium">Choose items</button>
+            <button type="button" data-catchup-keep class="rounded-lg px-3 py-1.5 text-sm text-tan-700 underline">Keep them</button>
+          </div>
+        </div>` : '';
+
+      const weekBlocks = weeks.map((w) => {
+        const tasks = template.filter((t) => t.week === w.number);
+        const notes = items.filter((it) => it.week === w.number);
+        const isNow = w.number === current;
+        return `
+          <div class="py-3 flex gap-6 ${isNow ? 'bg-blue-100 border-l-4 border-blue-600 -mx-3 pl-2 pr-3 rounded-r-lg' : ''}">
+            <div class="w-32 shrink-0">
+              <p class="text-xs font-semibold uppercase tracking-[0.12em] ${isNow ? 'text-blue-800' : 'text-ink-500'}">Week ${w.number}${isNow ? '<span class="sr-only"> (this week)</span>' : ''}</p>
+              <p class="text-xs ${isNow ? 'text-blue-800' : 'text-ink-500'}">${esc(planShortDate(w.start))}–${esc(planShortDate(w.end))}</p>
+            </div>
+            <ul class="flex-1 min-w-0 space-y-1">
+              ${tasks.map((t) => `<li class="flex items-baseline justify-between gap-3 ${removed.has(t.id) ? 'text-ink-400 line-through' : ''}">
+                <span>${esc(t.label)}${t.kind === 'link' ? ' <span class="text-xs text-blue-600">· link</span>' : ''}</span>${removed.has(t.id) ? btn(`data-restore-task="${esc(t.id)}"`, 'Restore') : btn(`data-remove-task="${esc(t.id)}"`, 'Remove', 'text-rose-600')}</li>`).join('')}
+              ${notes.map((it) => `<li class="flex items-baseline justify-between gap-3 text-blue-800">
+                <span>${esc(it.text)} <span class="text-xs text-blue-600">· ${esc(GROUP[it.group])}${it.date ? ` · ${esc(planShortDate(it.date))}` : ''}</span></span>${btn(`data-delete-item="${esc(it.id)}"`, 'Delete', 'text-rose-600')}</li>`).join('')}
+            </ul>
+          </div>`;
+      }).join('');
+
+      box.innerHTML = `${tabs}${catchup}
+        <p>${current === 0 ? `Plan starts Monday, ${esc(planShortDate(weeks[0].start))}.` : current <= total ? `Your ${who} are in <strong>week ${current} of ${total}</strong>.` : `The ${total} weeks are done.`}
+          ${planStudents().length} ${who.replace(/s$/, planStudents().length === 1 ? '' : 's')} · ${overdueStudents} with overdue items.
+          ${viewOnly || current < 2 ? '' : '<button type="button" data-catchup-choose class="ml-1 text-blue-600 underline">Excuse past items…</button>'}</p>
+        <details data-plan-weeks class="mt-3" ${planAdminOpen ? 'open' : ''}>
+          <summary class="cursor-pointer font-semibold text-blue-600">See the plan, remove tasks, or add your own items</summary>
+          <div class="mt-3 divide-y divide-ink-100">${weekBlocks}</div>
+          <p class="mt-2 text-xs text-ink-500">Removing a task hides it for all your ${who}. Exam names vary by cluster, so each student sees their own cluster's exam.</p>
+          ${viewOnly ? '' : `
+          <form data-add-item class="mt-4 rounded-xl border border-ink-200 p-4 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
+            <label class="sm:col-span-6 block"><span class="font-semibold">Add an item</span> <span class="text-ink-500">(shows on students' plans as information, with no checkbox)</span>
+              <input name="text" required maxlength="200" placeholder="e.g. Chapter mock competition after school in Room 204" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">For</span>
+              <select name="group" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
+                ${['roleplay', 'prepared', 'everyone'].map((g) => `<option value="${g}" ${g === group ? 'selected' : ''}>${GROUP[g]}</option>`).join('')}
+              </select></label>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">Week of this plan</span>
+              <select name="week" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
+                <option value="">Pick a week…</option>${weeks.map((w) => `<option value="${w.number}">Week ${w.number} (${esc(planShortDate(w.start))})</option>`).join('')}
+              </select></label>
+            <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">…or a date</span>
+              <input name="date" type="date" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+            <div class="sm:col-span-6 flex flex-wrap items-center gap-3">
+              <button class="rounded-lg bg-ink-900 text-cream-50 px-4 py-2 text-sm font-medium hover:bg-ink-800">Add to plan</button>
+              <span data-add-error class="text-sm text-rose-600"></span>
+            </div>
+          </form>`}
+        </details>`;
+    }
+
+    $('[data-students]').addEventListener('toggle', (e) => {
+      if (e.target.matches('[data-all-exams]')) {
+        if (e.target.open) openAllExams.add(e.target.dataset.allExams); else openAllExams.delete(e.target.dataset.allExams);
+      }
+      if (e.target.matches('[data-archived]')) archivedOpen = e.target.open;
+    }, true);
+
+    $('[data-plan-admin]').addEventListener('toggle', (e) => {
+      if (e.target.matches('[data-plan-weeks]')) planAdminOpen = e.target.open;
+    }, true);
+
+    $('[data-plan-admin]').addEventListener('click', async (e) => {
+      const t = e.target;
+      const settings = planSettings();
+      const tab = t.closest('[data-plan-tab]');
+      if (tab) { adminPlan = tab.dataset.planTab; renderPlanAdmin(); return; }
+      if (t.matches('[data-remove-task]')) await saveSettings({ removed: [...new Set([...(settings.removed || []), t.dataset.removeTask])] });
+      else if (t.matches('[data-restore-task]')) await saveSettings({ removed: (settings.removed || []).filter((id) => id !== t.dataset.restoreTask) });
+      else if (t.matches('[data-delete-item]')) {
+        if (confirm('Delete this item from everyone\'s plan?')) await saveSettings({ items: (settings.items || []).filter((it) => it.id !== t.dataset.deleteItem) });
+      } else if (t.matches('[data-catchup-keep]')) await saveSettings({ [CATCHUP_KEY[adminPlan]]: true });
+      else if (t.matches('[data-catchup-all]')) {
+        if (!confirm(`Excuse every overdue item from earlier weeks for all ${PLAN_STUDENTS[adminPlan]}?`)) return;
+        for (const s of planStudents()) await excuseFor(s, planOf(s).overdue.map((x) => x.id));
+        await saveSettings({ [CATCHUP_KEY[adminPlan]]: true });
+      } else if (t.matches('[data-catchup-choose]')) openExcuseModal();
+    });
+
+    $('[data-plan-admin]').addEventListener('submit', async (e) => {
+      if (!e.target.matches('[data-add-item]')) return;
+      e.preventDefault();
+      const f = e.target;
+      const text = f.text.value.trim();
+      const week = Number(f.week.value) || null;
+      const date = f.date.value || null;
+      const error = f.querySelector('[data-add-error]');
+      if (!text) { error.textContent = 'Type the item first.'; return; }
+      if (!week && !date) { error.textContent = 'Pick a week or a date.'; return; }
+      // A week item keeps its week's Monday, so plans with different weeks place it on the same date.
+      const weekStart = week ? planWeeks(chapterFirst().date, PLANS[adminPlan].weeks)[week - 1].start : null;
+      const item = { id: Math.random().toString(36).slice(2, 10), text, group: f.group.value, ...(date ? { date } : { week, weekStart }), createdBy: advisor.name || user.email };
+      await saveSettings({ items: [...(planSettings().items || []), item] });
+    });
+
+    // ---------- Excuse past items (choose) ----------
+    const excuseModal = $('[data-excuse-modal]');
+    function openExcuseModal() {
+      const first = chapterFirst();
+      if (!first?.date) return;
+      const today = new Date().toLocaleDateString('en-CA');
+      const weeks = planWeeks(first.date, PLANS[adminPlan].weeks);
+      const pastIds = planTemplate(adminPlan).filter((t) => weeks[t.week - 1].end < today && t.kind !== 'cards');
+      const overdueCount = (id) => planStudents().filter((s) => planOf(s).overdue.some((x) => x.id === id)).length;
+      excuseModal.querySelector('[data-excuse-intro]').textContent = `Checked items are hidden from all your ${PLAN_STUDENTS[adminPlan]} who haven't done them yet, and stop counting toward the stoplight. You can undo this for any student from their panel.`;
+      excuseModal.querySelector('[data-excuse-list]').innerHTML = pastIds.map((t) => `
+        <li class="py-2"><label class="flex items-start gap-3">
+          <input type="checkbox" data-excuse-pick="${esc(t.id)}" ${overdueCount(t.id) ? 'checked' : ''} class="mt-0.5 w-4 h-4" />
+          <span class="flex-1">Week ${t.week}: ${esc(t.label)}<span class="block text-xs text-ink-500">Overdue for ${overdueCount(t.id)} student${overdueCount(t.id) === 1 ? '' : 's'}</span></span>
+        </label></li>`).join('') || '<li class="py-2 text-ink-500">No past items yet.</li>';
+      excuseModal.classList.remove('hidden');
+    }
+    excuseModal.addEventListener('click', async (e) => {
+      if (e.target === excuseModal || e.target.matches('[data-excuse-close]')) { excuseModal.classList.add('hidden'); return; }
+      if (!e.target.matches('[data-excuse-apply]')) return;
+      const ids = [...excuseModal.querySelectorAll('[data-excuse-pick]:checked')].map((b) => b.dataset.excusePick);
+      e.target.disabled = true;
+      try {
+        for (const s of planStudents()) await excuseFor(s, ids);
+        excuseModal.classList.add('hidden');
+        await saveSettings({ [CATCHUP_KEY[adminPlan]]: true });
+      } finally {
+        e.target.disabled = false;
+      }
+    });
+
+
+    // ---------- Teams ----------
+    function updateTeamBar() {
+      const chosen = [...selected].map((id) => students.find((s) => s.id === id)).filter(Boolean);
+      show($('[data-team-bar]'), chosen.length > 0);
+      if (!chosen.length) return;
+      const codes = new Set(chosen.map((s) => s.eventCode));
+      const code = chosen[0].eventCode;
+      const max = maxTeamSize(code);
+      const problem =
+        codes.size > 1 ? 'Teammates must be in the same event.'
+        : chosen.length < 2 ? 'Pick at least 2 students.'
+        : chosen.length > max ? `${eventOf(code).event} teams have at most ${max} students.`
+        : '';
+      $('[data-team-summary]').textContent = `${chosen.length} selected: ${chosen.map((s) => s.firstName).join(', ')}`;
+      $('[data-team-problem]').textContent = problem;
+      $('[data-team-make]').disabled = !!problem;
+    }
+
+    $('[data-team-make]').addEventListener('click', async () => {
+      const chosen = [...selected].map((id) => students.find((s) => s.id === id));
+      // The team starts with everything its members already did on their own.
+      const progress = mergeProgress(chosen, sharedTaskIds(chosen[0].eventCode));
+      await addDoc(collection(db, 'teams'), {
+        schoolId, eventCode: chosen[0].eventCode, memberUids: chosen.map((s) => s.id),
+        planChecks: progress.planChecks, planLinks: progress.planLinks,
+        createdBy: user.email, createdAt: serverTimestamp(),
+      });
+      selected.clear();
+      await load();
+    });
+    $('[data-team-clear]').addEventListener('click', () => { selected.clear(); render(); });
+
+    $('[data-copy-emails]').addEventListener('click', () => {
+      const emails = students.filter((x) => visibleIds.has(x.id)).map((x) => x.email).filter(Boolean);
+      if (!emails.length) { $('[data-emails-note]').textContent = 'No students showing.'; return; }
+      copy(emails.join(', '), '[data-emails-note]', `✓ Copied ${emails.length} email${emails.length === 1 ? '' : 's'}. Paste them into the To: line.`);
+    });
+
+    // ---------- Suggested email draft ----------
+    const draftModal = $('[data-draft-modal]');
+    let draftVersion = 0;
+    let draftEmails = [];
+    const GROUP_NAMES = { all: 'all students', green: 'students on track', yellow: 'students who are slipping', red: 'students who need a nudge', gray: 'students not tracked yet' };
+
+    // The upcoming first competitions for the students showing, soonest first.
+    function upcomingFor(group) {
+      const seen = new Map();
+      group.forEach((st) => {
+        const first = firstCompetition(st.eventCode, school.competitionDates);
+        if (first?.date && daysUntil(first.date) >= 0) seen.set(first.date + first.label, { label: first.label, date: first.date, daysAway: daysUntil(first.date) });
+      });
+      return [...seen.values()].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function fillDraft() {
+      const group = students.filter((x) => visibleIds.has(x.id));
+      const draft = buildDraft({ group: statusFilter, version: draftVersion, competitions: upcomingFor(group), advisorName: advisor.name });
+      $('[data-draft-subject]').value = draft.subject;
+      $('[data-draft-body]').value = draft.body;
+    }
+
+    $('[data-draft]').addEventListener('click', () => {
+      const group = students.filter((x) => visibleIds.has(x.id));
+      draftEmails = group.map((x) => x.email).filter(Boolean);
+      if (!draftEmails.length) { $('[data-emails-note]').textContent = 'No students showing.'; return; }
+      draftVersion = 0;
+      $('[data-draft-to]').textContent = `To ${draftEmails.length} ${GROUP_NAMES[statusFilter]}${$('[data-search]').value.trim() ? ' matching your search' : ''} (BCC)`;
+      fillDraft();
+      $('[data-draft-note]').textContent = '';
+      show(draftModal, true);
+    });
+    $('[data-draft-another]').addEventListener('click', () => { draftVersion += 1; fillDraft(); });
+    $('[data-draft-close]').addEventListener('click', () => show(draftModal, false));
+    draftModal.addEventListener('click', (e) => { if (e.target === draftModal) show(draftModal, false); });
+
+    const subject = () => $('[data-draft-subject]').value;
+    const body = () => $('[data-draft-body]').value;
+    $('[data-draft-gmail]').addEventListener('click', () => {
+      const url = `https://mail.google.com/mail/?view=cm&fs=1&bcc=${encodeURIComponent(draftEmails.join(','))}&su=${encodeURIComponent(subject())}&body=${encodeURIComponent(body())}`;
+      window.open(url, '_blank', 'noopener');
+    });
+    $('[data-draft-mailto]').addEventListener('click', () => {
+      location.href = `mailto:?bcc=${encodeURIComponent(draftEmails.join(','))}&subject=${encodeURIComponent(subject())}&body=${encodeURIComponent(body())}`;
+    });
+    $('[data-draft-copy]').addEventListener('click', () => copy(`${subject()}\n\n${body()}`, '[data-draft-note]', '✓ Message copied. Paste it into Remind, Google Classroom, or an email.'));
+
+    // ---------- Events ----------
+    $('[data-search]').addEventListener('input', render);
+    $('[data-filters]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-filter]');
+      if (b) { statusFilter = b.dataset.filter; rememberView(); render(); }
+    });
+    $('[data-students]').addEventListener('change', (e) => {
+      const box = e.target.closest('[data-select]');
+      if (!box) return;
+      if (box.checked) selected.add(box.dataset.select); else selected.delete(box.dataset.select);
+      updateTeamBar();
+    });
+    $('[data-students]').addEventListener('click', async (e) => {
+      const planButton = e.target.closest('[data-excuse], [data-excuse-all], [data-unexcuse], [data-excuse-late], [data-keep-late]');
+      if (planButton) {
+        const d = planButton.dataset;
+        const s = students.find((x) => x.id === (d.excuse || d.excuseAll || d.unexcuse || d.excuseLate || d.keepLate));
+        const plan = planOf(s);
+        if (d.excuse) await excuseFor(s, [d.task]);
+        else if (d.excuseAll) await excuseFor(s, plan.overdue.map((t) => t.id));
+        else if (d.excuseLate) await excuseFor(s, lateJoin(s).tasks.map((t) => t.id), { lateHandled: true });
+        else if (d.keepLate) { await updateDoc(doc(db, 'users', s.id), { planLateHandled: true }); s.planLateHandled = true; }
+        else if (d.unexcuse) await unexcuseFor(s, d.task);
+        render();
+        return;
+      }
+      const sortButton = e.target.closest('[data-sort]');
+      if (sortButton) {
+        if (sortButton.dataset.sort === sortKey) sortDir = -sortDir;
+        else { sortKey = sortButton.dataset.sort; sortDir = 1; }
+        rememberView();
+        render();
+        return;
+      }
+      const toggle = e.target.closest('[data-toggle]');
+      if (toggle) {
+        const id = toggle.dataset.toggle;
+        if (open.has(id)) open.delete(id); else open.add(id);
+        render();
+        return;
+      }
+      const openResults = e.target.closest('[data-open-results]');
+      if (openResults) {
+        // The student's My Results, view only, with a way back here.
+        startViewingAs(openResults.dataset.openResults, 'advisor.html');
+        location.href = 'results.html';
+        return;
+      }
+      const viewAs = e.target.closest('[data-view-as]');
+      if (viewAs) {
+        startViewingAs(viewAs.dataset.viewAs, 'advisor.html');
+        location.href = 'eventhub.html';
+        return;
+      }
+      const exportButton = e.target.closest('[data-export]');
+      if (exportButton) {
+        const s = students.find((x) => x.id === exportButton.dataset.export);
+        const name = `${s.firstName} ${s.lastName}`;
+        await downloadResults({
+          studentName: name, attempts: attempts.filter((a) => a.uid === s.id), fileName: exportFileName(name),
+          rolePlays: rolePlayRows(allLogsOf(s), name),
+        });
+        return;
+      }
+      const archive = e.target.closest('[data-archive-student]');
+      if (archive) {
+        const s = students.find((x) => x.id === archive.dataset.archiveStudent);
+        if (teams.some((t) => t.memberUids.includes(s.id))) {
+          alert(`${s.firstName} is on a team. Break up the team first, then archive this account.`);
+          return;
+        }
+        if (confirm(`Archive ${s.firstName} ${s.lastName} (${s.email || 'no email'})?\n\nThe account moves to "Archived students" at the bottom and stops counting on the dashboard. Nothing is deleted, and you can restore it anytime.`)) await setArchived(s, true);
+        return;
+      }
+      const restore = e.target.closest('[data-restore-student]');
+      if (restore) {
+        await setArchived(archivedStudents.find((x) => x.id === restore.dataset.restoreStudent), false);
+        return;
+      }
+      const breakTeam = e.target.closest('[data-break-team]');
+      if (breakTeam && confirm('Break up this team? The students stay on the dashboard; they just won\'t be grouped. Each keeps a copy of the team\'s plan progress.')) {
+        // Each member keeps a copy of the team's plan progress on their own account.
+        const team = teams.find((t) => t.id === breakTeam.dataset.breakTeam);
+        const members = students.filter((x) => team.memberUids.includes(x.id));
+        await Promise.all(members.map((m) => {
+          const kept = mergeProgress([m, team], sharedTaskIds(team.eventCode));
+          const ownOnly = Object.fromEntries(Object.entries(m.planChecks || {}).filter(([id]) => !sharedTaskIds(team.eventCode).has(id)));
+          return updateDoc(doc(db, 'users', m.id), { planChecks: { ...ownOnly, ...kept.planChecks }, planLinks: { ...(m.planLinks || {}), ...kept.planLinks } });
+        }));
+        await deleteDoc(doc(db, 'teams', breakTeam.dataset.breakTeam));
+        await load();
+        return;
+      }
+      const triesButton = e.target.closest('[data-tries]');
+      if (triesButton) {
+        const id = triesButton.dataset.tries;
+        if (openTries.has(id)) openTries.delete(id); else openTries.add(id);
+        await fillPanel(students.find((x) => x.id === triesButton.dataset.student));
+        return;
+      }
+      const del = e.target.closest('[data-delete-attempt]');
+      if (del && confirm(`Delete this ${del.dataset.label} try?\n\nIt's removed from the student's results and the site averages.`)) {
+        await call('deleteAttempt', { attemptId: del.dataset.deleteAttempt });
+        await load();
+      }
+    });
+
+    await load();
+  </script>
+  <script data-goatcounter="https://bowtiegoat.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

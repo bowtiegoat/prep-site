@@ -19,7 +19,7 @@ const examFile = process.argv[2] || join(homedir(), 'Downloads/Marketing Exam Tr
 const zipGradeFile = process.argv[3] || join(homedir(), 'Downloads/quiz-Marketing 1322- D-standard20180510.xlsx');
 
 rmSync(out, { recursive: true, force: true });
-cpSync(join(root, 'docs'), out, { recursive: true });
+cpSync(join(root, 'docs'), out, { recursive: true, filter: (src) => !src.startsWith(join(root, 'docs/demo')) }); // the public demo isn't part of the preview
 cpSync(join(root, 'preview/mock'), join(out, 'mock'), { recursive: true });
 mkdirSync(join(out, 'mock/data'), { recursive: true });
 

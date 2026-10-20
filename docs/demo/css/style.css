@@ -1,0 +1,71 @@
+/* Fonts (same as thebowtiegoat.com): Montserrat headings, Open Sans body, Archivo for the BowtieGOAT name */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Open+Sans:wght@400;500;600;700&family=Archivo:wght@800&display=swap');
+
+body {
+  font-family: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Heading weights: page titles extra bold, smaller headings bold. */
+h1.font-serif, h2.font-serif { font-weight: 800; letter-spacing: -0.01em; }
+
+/* The BowtieGOAT name in the header. */
+.wordmark { font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; }
+
+/* Answer sheet bubbles */
+.bubble input { position: absolute; opacity: 0; pointer-events: none; }
+.bubble span {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+  border: 1.5px solid #a1afc7; font-weight: 600; font-size: 0.875rem;
+  color: #425071; cursor: pointer; user-select: none;
+  transition: background-color 0.1s, color 0.1s, border-color 0.1s;
+}
+.bubble:hover span { border-color: #175a80; }
+.bubble input:checked + span { background: #141a2e; border-color: #141a2e; color: #fdfaf0; }
+.bubble input:focus-visible + span { outline: 2px solid #2f8cc2; outline-offset: 2px; }
+
+/* Montserrat is about 16% wider than the old serif headings, so the larger
+   heading sizes are scaled to 88% (with slightly tighter letter spacing) to
+   keep headlines about as long as before. Balanced wrapping avoids a single
+   word alone on the last line. */
+:is(h1, h2, h3).font-serif { text-wrap: balance; }
+:is(h1, h2, h3).font-serif:is(.text-2xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl) { letter-spacing: -0.015em; line-height: 1.2; }
+:is(h1, h2, h3).font-serif.text-2xl { font-size: 1.32rem; }
+:is(h1, h2, h3).font-serif.text-3xl { font-size: 1.65rem; }
+:is(h1, h2, h3).font-serif.text-4xl { font-size: 1.98rem; }
+:is(h1, h2, h3).font-serif.text-5xl { font-size: 2.64rem; }
+@media (min-width: 640px) {
+  :is(h1, h2, h3).font-serif.sm\:text-2xl { font-size: 1.32rem; }
+  :is(h1, h2, h3).font-serif.sm\:text-3xl { font-size: 1.65rem; }
+  :is(h1, h2, h3).font-serif.sm\:text-4xl { font-size: 1.98rem; }
+  :is(h1, h2, h3).font-serif.sm\:text-5xl { font-size: 2.64rem; }
+}
+@media (min-width: 1024px) {
+  :is(h1, h2, h3).font-serif.lg\:text-6xl { font-size: 3.3rem; }
+}
+
+/* Drawers: hide the browser's default triangle on <summary>. */
+details.drawer > summary { list-style: none; }
+details.drawer > summary::-webkit-details-marker { display: none; }
+details.drawer > summary:focus-visible { outline: 2px solid #2f8cc2; outline-offset: 2px; }
+
+/* Role play levels: one blue, light (Novice) to dark (Exemplary). The letter keeps it readable without color. */
+.lv-N { background: #eaf3fa; color: #124563; }
+.lv-D { background: #93c7e6; color: #124563; }
+.lv-P { background: #2f8cc2; color: #fff; }
+.lv-E { background: #124563; color: #fff; }
+.level-btn[aria-pressed="true"].N { background: #eaf3fa; color: #124563; border-color: #124563; }
+.level-btn[aria-pressed="true"].D { background: #93c7e6; color: #124563; border-color: #124563; }
+.level-btn[aria-pressed="true"].P { background: #2f8cc2; color: #fff; border-color: #2f8cc2; }
+.level-btn[aria-pressed="true"].E { background: #124563; color: #fff; border-color: #124563; }
+
+/* PI flashcards: both faces share one grid cell; the card turns over to show the back. */
+.flashcard { perspective: 1200px; }
+.flashcard-inner { display: grid; transition: transform 0.45s ease; transform-style: preserve-3d; }
+.flashcard-face { grid-area: 1 / 1; min-height: 17rem; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* Laptops and larger: a bigger card that fills more of the screen. */
+@media (min-width: 1024px) { .flashcard-face { min-height: 28rem; } }
+.flashcard-back { transform: rotateY(180deg); }
+.flashcard.is-flipped .flashcard-inner { transform: rotateY(180deg); }
+.flashcard:focus-visible { outline: 2px solid #2f8cc2; outline-offset: 4px; border-radius: 1rem; }
+@media (prefers-reduced-motion: reduce) { .flashcard-inner { transition: none; } }

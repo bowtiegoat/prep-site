@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile | BowtieGOAT · GOATS get GLASS</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" href="images/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <header data-header class="bg-cream-50/90 border-b border-ink-200"></header>
+
+  <main class="max-w-lg mx-auto px-4 py-10">
+    <h1 class="font-serif text-3xl font-bold">Profile</h1>
+
+    <dl data-info class="mt-6 bg-white rounded-2xl border border-ink-200 p-6 space-y-3 text-sm"></dl>
+
+    <form data-form class="mt-8 bg-white rounded-2xl border border-ink-200 p-6 space-y-4">
+      <h2 class="font-semibold text-lg">Change your event</h2>
+      <select name="eventCode" required class="w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+      <p data-cluster-note class="hidden text-sm text-ink-700 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3"></p>
+
+      <p data-choices class="hidden rounded-lg bg-ink-50 border border-ink-200 px-4 py-3 text-sm text-ink-700">
+        <strong>Your results stay.</strong> <span data-keep-detail></span> You can retake any exam 3 days after your last try.
+      </p>
+      <p data-error class="hidden rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
+      <button type="submit" class="w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-3 font-medium hover:bg-ink-800 disabled:opacity-60">Change event</button>
+    </form>
+  </main>
+
+  <script type="module">
+    import { requireUser, renderHeader, call, esc, show, isViewingAs } from './js/app.js';
+    import { eventOptionsHtml } from './js/event-picker.js';
+    import { EVENTS, takesExam } from './js/events.js';
+
+    const { user, profile } = await requireUser();
+    renderHeader({ user, profile, active: 'profile' });
+
+    const rows = [
+      ['Name', `${profile.firstName} ${profile.lastName}`],
+      ['Email', profile.email || user.email],
+      ['School', profile.schoolName],
+      ['Event', `${profile.eventName} (${profile.eventCode})`],
+      ['Cluster exam', takesExam(profile.eventCode) ? profile.cluster : 'None for this event'],
+    ];
+    document.querySelector('[data-info]').innerHTML = rows.map(([label, value]) => `
+      <div class="flex justify-between gap-4"><dt class="text-ink-500">${label}</dt><dd class="font-medium text-right">${esc(value)}</dd></div>`).join('');
+
+    const form = document.querySelector('[data-form]');
+    const errorBox = form.querySelector('[data-error]');
+    form.eventCode.innerHTML = eventOptionsHtml(profile.eventCode);
+
+    // Explain what happens for the chosen event, based on whether its cluster
+    // exam is the same as the current one.
+    function updateChoices() {
+      const event = EVENTS.find((e) => e.code === form.eventCode.value);
+      const changing = event && event.code !== profile.eventCode;
+      show(form.querySelector('[data-cluster-note]'), changing);
+      show(form.querySelector('[data-choices]'), changing);
+      if (!changing) return;
+      const same = event.cluster === profile.cluster;
+      form.querySelector('[data-cluster-note]').innerHTML = !takesExam(event.code)
+        ? `<strong>${esc(event.event)}</strong> doesn't take a cluster exam, so exams won't appear on your Event Hub.`
+        : same
+          ? `<strong>${esc(event.event)}</strong> uses the same <strong>${esc(event.cluster)}</strong> exam as your current event.`
+          : `<strong>${esc(event.event)}</strong> uses the <strong>${esc(event.cluster)}</strong> exam instead of <strong>${esc(profile.cluster)}</strong>.`;
+      form.querySelector('[data-keep-detail]').textContent = same
+        ? "Exams you've already taken stay on your Event Hub and in My Results."
+        : `Your ${profile.cluster} exams move to the bottom of your Event Hub under "${profile.eventName}," and they stay in My Results.`;
+    }
+    form.eventCode.addEventListener('change', updateChoices);
+    updateChoices();
+
+    if (isViewingAs()) {
+      form.querySelectorAll('select, input, button').forEach((el) => { el.disabled = true; });
+      form.insertAdjacentHTML('afterbegin', '<p class="text-sm rounded-lg bg-tan-50 border border-tan-200 px-4 py-3 text-tan-700">View only: changing events is turned off while viewing as a student.</p>');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      show(errorBox, false);
+      const button = form.querySelector('button[type=submit]');
+      button.disabled = true;
+      try {
+        await call('changeEvent', { eventCode: form.eventCode.value });
+        location.replace('eventhub.html');
+      } catch (err) {
+        errorBox.textContent = err.message;
+        show(errorBox, true);
+        button.disabled = false;
+      }
+    });
+  </script>
+  <script data-goatcounter="https://bowtiegoat.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

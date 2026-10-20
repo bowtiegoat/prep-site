@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advisor Demo | BowtieGOAT · GOATS get GLASS</title>
+  <meta name="description" content="Explore the BowtieGOAT prep site's Advisor Dashboard with a sample DECA chapter." />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/png" href="images/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-cream-50 text-ink-900 antialiased min-h-screen">
+  <main class="max-w-3xl mx-auto px-4 py-12 sm:py-16">
+    <div class="flex items-center gap-3">
+      <img src="images/logo.png" alt="BowtieGOAT logo" class="w-12 h-12" />
+      <span class="flex flex-col leading-tight">
+        <span class="wordmark text-2xl text-ink-900">BowtieGOAT</span>
+        <span class="text-xs font-semibold tracking-[0.08em] text-blue-600">GOATS get GLASS</span>
+      </span>
+    </div>
+
+    <p class="mt-10 text-xs font-semibold uppercase tracking-[0.15em] text-blue-600">Advisor demo</p>
+    <h1 class="mt-2 font-serif text-3xl sm:text-4xl font-bold">See your chapter's competition prep at a glance</h1>
+    <p class="mt-4 text-lg text-ink-700">Explore the Advisor Dashboard for <strong>GOAT Academy</strong>, a sample DECA chapter in week 4 of its 8-week District prep plan.</p>
+
+    <ul class="mt-8 space-y-3 text-ink-700">
+      <li class="flex gap-3"><span class="mt-2 w-2 h-2 shrink-0 rounded-full bg-blue-600" aria-hidden="true"></span><span><strong class="text-ink-900">Who's on track, and who's doing the work.</strong> Every student's prep plan progress, what they did this week, and who is working ahead.</span></li>
+      <li class="flex gap-3"><span class="mt-2 w-2 h-2 shrink-0 rounded-full bg-blue-600" aria-hidden="true"></span><span><strong class="text-ink-900">Open any student.</strong> See what's missing from their plan, their exam trend, their latest role play feedback, and their PI card study, then open their full My Results page.</span></li>
+      <li class="flex gap-3"><span class="mt-2 w-2 h-2 shrink-0 rounded-full bg-blue-600" aria-hidden="true"></span><span><strong class="text-ink-900">Role play, written, and selling events.</strong> Teams that share one plan, written entries with shared links, and plans counted back from your competition dates.</span></li>
+    </ul>
+
+    <a href="advisor.html" data-enter class="mt-10 inline-block rounded-lg bg-ink-900 text-cream-50 px-6 py-3 text-lg font-semibold hover:bg-ink-800">Open the demo dashboard →</a>
+    <p class="mt-4 text-sm text-ink-500">Every student is pretend. Try anything: nothing you change is saved, and refreshing the page starts the demo over.</p>
+
+    <!-- Who built it: the photo is a circle on phones and a rectangle beside the text on wider screens. -->
+    <section class="mt-14 rounded-2xl bg-white border border-ink-200 p-6 sm:p-8 flex flex-col sm:flex-row gap-6 items-center sm:items-stretch">
+      <img src="images/justin-headshot.jpg" alt="Justin Staub, the BowtieGOAT" class="sm:hidden w-32 h-32 shrink-0 rounded-full object-cover object-top border-4 border-cream-100" />
+      <img src="images/justin-headshot.jpg" alt="Justin Staub, the BowtieGOAT" class="hidden sm:block w-44 shrink-0 self-start aspect-[4/5] rounded-xl object-cover object-top" />
+      <div class="sm:self-center">
+        <h2 class="font-serif text-2xl font-bold">I built the tools my chapter used to win</h2>
+        <p class="mt-3 text-ink-700">For ten years, I advised Pennsylvania's most successful DECA chapter. My students earned <strong>44 ICDC finalist spots</strong> as individuals and teams, including <strong>six ICDC first-place wins</strong>. Now I work on BowtieGOAT full time, so every advisor can run their chapter's prep the way we did.</p>
+        <p class="mt-3 font-semibold">Justin Staub <span class="font-normal text-ink-500">· The BowtieGOAT</span></p>
+      </div>
+    </section>
+    <p class="mt-6 text-center text-xs text-ink-400">Built by BowtieGOAT · Coded with Claude</p>
+  </main>
+
+  <script type="module">
+    import { setSignedIn, previewBar } from './mock/store.js';
+    previewBar();
+    document.querySelector('[data-enter]').addEventListener('click', () => setSignedIn(true));
+  </script>
+</body>
+</html>
