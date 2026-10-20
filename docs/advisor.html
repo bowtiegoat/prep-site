@@ -711,6 +711,7 @@
             <button data-toggle="${esc(s.id)}" class="text-left font-medium text-ink-900 hover:text-blue-600" aria-expanded="${isOpen}">
               ${esc(s.lastName)}, ${esc(s.firstName)} <span class="text-ink-400 text-xs">${isOpen ? '▾' : '▸'}</span>
             </button>
+            ${isOpen ? `<button type="button" data-view-as="${esc(s.id)}" class="mt-1 block text-xs font-medium text-blue-600 underline hover:text-blue-800">View as ${esc(s.firstName)}</button>` : ''}
           </td>
           <td class="py-3 px-3 align-top">${esc(event?.event || s.eventCode)} <span class="text-xs text-ink-500">${esc(s.eventCode)}</span>
             ${!inTeam && minTeamSize(s.eventCode) > 1 ? '<span class="ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-[11px] font-medium px-2 py-0.5">Needs a teammate</span>' : ''}
