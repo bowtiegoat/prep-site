@@ -3,6 +3,27 @@ import { ready, save, table, keys, timestamp, DEMO_USER } from './store.js';
 import { grade, summarize, addToStats } from './grading.js';
 import { EVENTS } from '/js/events.js';
 
+// Same as the real server: SBE Chapter Certification students share one team per school.
+function updateSbeTeam(user, joining) {
+  const id = `sbe-${user.schoolId}`;
+  const team = table('teams')[id];
+  if (!joining) {
+    if (team) team.memberUids = team.memberUids.filter((u) => u !== DEMO_USER.uid);
+    return;
+  }
+  const pick = (map = {}) => Object.fromEntries(Object.entries(map).filter(([k]) => k.startsWith('sbe-')));
+  if (team) {
+    team.memberUids = [...new Set([...team.memberUids, DEMO_USER.uid])];
+    team.planChecks = { ...pick(user.planChecks), ...(team.planChecks || {}) };
+    team.planLinks = { ...pick(user.planLinks), ...(team.planLinks || {}) };
+  } else {
+    table('teams')[id] = {
+      schoolId: user.schoolId, eventCode: 'SBEC', memberUids: [DEMO_USER.uid],
+      planChecks: pick(user.planChecks), planLinks: pick(user.planLinks), createdBy: 'automatic (SBE chapter team)', createdAt: timestamp(new Date()),
+    };
+  }
+}
+
 const fail = (message) => { throw Object.assign(new Error(message), { code: 'functions/failed-precondition' }); };
 
 const handlers = {
@@ -17,6 +38,7 @@ const handlers = {
       eventCode: event.code, eventName: event.event, cluster: event.cluster, track: 1,
       eventHistory: [{ eventCode: event.code, track: 1, at: timestamp(new Date()) }],
     };
+    if (event.code === 'SBEC') updateSbeTeam(table('users')[DEMO_USER.uid], true);
     save();
     return { ok: true };
   },
@@ -25,6 +47,7 @@ const handlers = {
     const user = table('users')[DEMO_USER.uid];
     const event = EVENTS.find((e) => e.code === eventCode) || fail('Please pick your event.');
     if (user.eventCode === event.code) fail("That's already your event.");
+    if (user.eventCode === 'SBEC' || event.code === 'SBEC') updateSbeTeam(user, event.code === 'SBEC');
     Object.assign(user, { eventCode: event.code, eventName: event.event, cluster: event.cluster });
     user.eventHistory = [...(user.eventHistory || []), { eventCode: event.code, track: user.track, keptResults: true, at: timestamp(new Date()) }];
     save();

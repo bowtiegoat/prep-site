@@ -10,6 +10,8 @@ export const CLUSTER_COLORS = {
   'Personal Financial Literacy': { bg: '#52913A' },
   // Principles events. Site navy until a cluster color is chosen.
   'Business Administration Core': { bg: '#141a2e' },
+  // SBE certification: the site's tan.
+  'School-based Enterprise': { bg: '#7d5c33' },
 };
 
 export function clusterColor(cluster) {

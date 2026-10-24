@@ -16,6 +16,14 @@ import {
 } from './prep-plan.js';
 
 const PLAN_NAME = { district: 'Districts', state: 'States' };
+// Text for task links to DECA's SBE pages (keys in SBE_LINKS, sbe.js).
+const LINK_TEXT = {
+  sample: 'Open sample paper', submitInstructions: 'Open instructions', submit: 'Go to DECA submission',
+  instructions: 'Open instructions', studyGuide: 'Open study guide', exam: 'Go to the exam',
+};
+
+// Which advisor items a plan shows: role play, prepared, or (SBE) only items for everyone.
+export const planGroup = (type) => (type === 'roleplay' ? 'roleplay' : type.startsWith('sbe') ? 'sbe' : 'prepared');
 
 // An advisor's info-only item on a student's plan.
 function noteRow(n, { showWeek = false } = {}) {
@@ -55,7 +63,9 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
   const weekCount = PLANS[type].weeks;
 
   if (!first?.date) {
-    body.innerHTML = `<p class="mt-4 text-sm text-ink-600">Your advisor hasn't set your ${first?.label || 'District'} date yet. Your ${weekCount}-week plan will appear here once they do.</p>`;
+    body.innerHTML = first?.level === 'sbe'
+      ? `<p class="mt-4 text-sm text-ink-600">This year's SBE date isn't set yet. Your ${weekCount}-week plan will appear here once BowtieGOAT adds it.</p>`
+      : `<p class="mt-4 text-sm text-ink-600">Your advisor hasn't set your ${first?.label || 'District'} date yet. Your ${weekCount}-week plan will appear here once they do.</p>`;
     return;
   }
 
@@ -104,6 +114,8 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     roleplay: `An 8-week plan to get you ready for ${PLAN_NAME[first.level] || first.label}. Each week runs Monday to Sunday; finish that week's list by Sunday. Exams and role plays check off by themselves.`,
     written: `A 16-week plan for your written entry and presentation, ready for ${PLAN_NAME[first.level] || first.label}. Each week runs Monday to Sunday; finish that week's list by Sunday. Tasks with a link box check off when you share the link with your advisor.`,
     selling: `An 8-week plan to get you ready for ${PLAN_NAME[first.level] || first.label}: your cluster exams, plus building and practicing your presentation. Each week runs Monday to Sunday; finish that week's list by Sunday. Exams check off by themselves.`,
+    sbeChapter: `A ${weekCount}-week plan for your SBE chapter certification manual, due to DECA ${shortDate(first.date)}. Every SBE student at your school is on one team and shares this plan. Each week runs Monday to Sunday; finish that week's list by Sunday.`,
+    sbeIndividual: `A ${weekCount}-week plan to get you ready for DECA's SBE individual certification exam by ${shortDate(first.date)}. Each week runs Monday to Sunday; finish that week's list by Sunday.`,
   };
   const teamNote = team
     ? `<p class="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800">Your team shares this plan. When one of you checks off a team task or shares a link, it counts for everyone.${takesExam(profile.eventCode) ? ' Exams and studying are your own.' : ''}</p>`
@@ -115,13 +127,14 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
       checks: effectiveChecks(), links: effectiveLinks(), removed: settings.removed || [], excused: profile.planExcused || {},
       cardDays: cardInfo?.days || null, cardsSince: cardInfo?.since || null,
     });
-    const notes = advisorItems(settings.items, plan.weeks, { group: type === 'roleplay' ? 'roleplay' : 'prepared' });
+    const notes = advisorItems(settings.items, plan.weeks, { group: planGroup(type) });
     const pct = plan.totalCount ? Math.round((plan.doneCount / plan.totalCount) * 100) : 0;
     $('[data-plan-count]').textContent = `${plan.doneCount} of ${plan.totalCount} done`;
     $('[data-plan-bar]').style.width = `${pct}%`;
 
     const linkFor = (t) => (t.link === 'guidelines' && eventLinks.guidelines
       ? `<a href="${esc(eventLinks.guidelines)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">Open guidelines</a>`
+      : t.link && LINK_TEXT[t.link] && eventLinks[t.link] ? `<a href="${esc(eventLinks[t.link])}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">${LINK_TEXT[t.link]}</a>`
       : t.link === 'results' ? '<a href="results.html" class="text-blue-600 underline">My Results</a> · <a href="insights.html" class="text-blue-600 underline">Exam Deep Dive</a>'
         : t.kind === 'cards' && t.state !== 'soon' && t.state !== 'done' ? '<a href="flashcards.html" class="text-blue-600 underline">Study PI cards</a>'
         : t.kind === 'exam' && t.state !== 'done' ? `<a href="exam.html?id=${encodeURIComponent(t.examId)}" class="text-blue-600 underline">Go to exam</a>` : '');

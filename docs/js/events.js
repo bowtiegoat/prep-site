@@ -60,33 +60,45 @@ export const EVENTS = [
   {"code":"VBCPF","event":"Virtual Business Challenge- Personal Finance","cluster":"Personal Financial Literacy","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-personal-finance"},
   {"code":"VBCRS","event":"Virtual Business Challenge- Restaurant","cluster":"Hospitality and Tourism","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-restaurant"},
   {"code":"VBCRT","event":"Virtual Business Challenge- Retail","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-retail"},
-  {"code":"VBCSP","event":"Virtual Business Challenge- Sports","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-sports"}
+  {"code":"VBCSP","event":"Virtual Business Challenge- Sports","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-sports"},
+  {"code":"SBEC","event":"SBE Chapter Certification","cluster":"School-based Enterprise","type":"SBE","competitors":"chapter","url":"https://www.deca.org/sbe"},
+  {"code":"SBEI","event":"SBE Individual Certification","cluster":"School-based Enterprise","type":"SBE","competitors":"1","url":"https://www.deca.org/sbe"}
 ];
 
 export const CLUSTERS = [...new Set(EVENTS.map((e) => e.cluster))].sort();
 
 // Events that don't take a cluster exam: Virtual Business Challenges, Stock Market
-// Game, Operations Research, Project Management, and the Entrepreneurship plans.
+// Game, Operations Research, Project Management, the Entrepreneurship plans, and
+// School-based Enterprise (SBE) certification.
 // Keep in sync with functions/events.js.
 export const NO_EXAM_EVENTS = new Set([
   'VBCAC', 'VBCEN', 'VBCFA', 'VBCHM', 'VBCPF', 'VBCRS', 'VBCRT', 'VBCSP', 'SMG',
   'BOR', 'BMOR', 'FOR', 'HTOR', 'SEOR',
   'PMBS', 'PMCD', 'PMCA', 'PMCG', 'PMFL', 'PMSP',
   'EBG', 'EFB', 'EIB', 'EIP', 'ESB', 'IBP',
+  'SBEC', 'SBEI',
 ]);
 
 export function takesExam(code) {
   return !NO_EXAM_EVENTS.has(code);
 }
 
+// SBE Chapter Certification: every student at a school who picks it is on
+// one chapter team, joined automatically (no size limit, no advisor pairing).
+export const SBE_CHAPTER = 'SBEC';
+export const isChapterTeamEvent = (code) => code === SBE_CHAPTER;
+export const chapterTeamId = (schoolId) => `sbe-${schoolId}`;
+
 // Most students a team in this event can have (1 = individual event).
 export function maxTeamSize(code) {
+  if (isChapterTeamEvent(code)) return Infinity;
   const event = EVENTS.find((e) => e.code === code);
   return event ? Math.max(...String(event.competitors).split("-").map(Number)) : 1;
 }
 
 // Fewest students who can compete in this event (2 = must be on a team).
 export function minTeamSize(code) {
+  if (isChapterTeamEvent(code)) return 1;
   const event = EVENTS.find((e) => e.code === code);
   return event ? Math.min(...String(event.competitors).split("-").map(Number)) : 1;
 }

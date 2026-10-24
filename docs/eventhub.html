@@ -184,6 +184,7 @@
     import { EVENT_LINKS } from './js/event-links.js';
     import { clusterColor } from './js/clusters.js';
     import { firstCompetition } from './js/competitions.js';
+    import { SBE_LINKS, loadSbeDates } from './js/sbe.js';
     import { initRolePlayDrawer } from './js/roleplay-drawer.js';
     import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
     import { planApplies } from './js/prep-plan.js';
@@ -206,13 +207,13 @@
 
     // ---------- Event banner ----------
     const event = EVENTS.find((e) => e.code === profile.eventCode);
-    const links = EVENT_LINKS[profile.eventCode] || {};
+    const links = EVENT_LINKS[profile.eventCode] || SBE_LINKS[profile.eventCode] || {};
     const color = clusterColor(profile.cluster);
     const banner = document.querySelector('[data-banner]');
     banner.style.background = color.bg;
     banner.classList.toggle('text-cream-50', !color.darkText);
     banner.classList.toggle('text-ink-900', !!color.darkText);
-    document.querySelector('[data-greeting]').textContent = `Hi, ${profile.firstName} · ${profile.cluster} cluster`;
+    document.querySelector('[data-greeting]').textContent = `Hi, ${profile.firstName} · ${event?.type === 'SBE' ? profile.cluster : `${profile.cluster} cluster`}`;
     document.querySelector('[data-event-title]').textContent = profile.eventName;
     document.querySelector('[data-event]').innerHTML =
       `${esc(profile.eventCode)} · <a href="profile.html" class="underline hover:opacity-100">Change event</a>`;
@@ -241,8 +242,8 @@
     });
 
     // ---------- Prep plan (counts back from the first competition) ----------
-    getDoc(doc(db, 'schools', profile.schoolId)).then((snap) => {
-      const first = firstCompetition(profile.eventCode, snap.exists() ? snap.data().competitionDates : null);
+    Promise.all([getDoc(doc(db, 'schools', profile.schoolId)), loadSbeDates()]).then(([snap, sbe]) => {
+      const first = firstCompetition(profile.eventCode, snap.exists() ? snap.data().competitionDates : null, sbe);
       const settings = (snap.exists() && snap.data().planSettings) || {};
       if (planApplies(profile.eventCode)) {
         initPrepPlan({ user, profile, first, links, attemptFilters, settings }).catch((err) => console.error(err));

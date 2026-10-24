@@ -36,7 +36,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['competitionDates', 'planSettings'])
         && (!('planSettings' in request.resource.data)
           || (request.resource.data.planSettings is map
-            && request.resource.data.planSettings.keys().hasOnly(['removed', 'items', 'catchupHandled', 'catchupHandledWritten', 'catchupHandledSelling'])
+            && request.resource.data.planSettings.keys().hasOnly(['removed', 'items', 'catchupHandled', 'catchupHandledWritten', 'catchupHandledSelling', 'catchupHandledSbeChapter', 'catchupHandledSbeIndividual'])
             && (!('removed' in request.resource.data.planSettings) || request.resource.data.planSettings.removed.size() <= 150)
             && (!('items' in request.resource.data.planSettings) || request.resource.data.planSettings.items.size() <= 100)));
     }

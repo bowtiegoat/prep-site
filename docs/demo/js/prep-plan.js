@@ -8,6 +8,10 @@
 //             also take the cluster exams.
 // - selling:  8 weeks for Professional Selling and Consulting events (no
 //             paper): the cluster exams plus building and practicing the presentation.
+// - sbeChapter / sbeIndividual: School-based Enterprise certification, counting
+//             back to the dates the admin sets (see competitions.js). The chapter
+//             team shares one plan. FIRST DRAFT: placeholder tasks until the
+//             BowtieGOAT SBE timeline is written.
 //
 // - Weeks run Monday to Sunday. The last week ends on the Sunday before the
 //   student's first competition; the days after are their own review time.
@@ -17,7 +21,7 @@
 // - A task is overdue once its week has ended. Advisors' stoplight:
 //   green = caught up, yellow = 1-2 overdue, red = 3+.
 
-import { EVENTS, takesExam } from './events.js';
+import { EVENTS, isChapterTeamEvent, takesExam } from './events.js';
 import { studyDaysBetween } from './flashcards.js';
 
 const DAY = 86400000;
@@ -32,6 +36,8 @@ export const PLANS = {
   roleplay: { weeks: 8, name: 'Role play events', examWeeks: [1, 3, 5, 6, 7, 8] },
   written: { weeks: 16, name: 'Written events', examWeeks: [3, 5, 7, 9, 11, 13] },
   selling: { weeks: 8, name: 'Selling events', examWeeks: [1, 3, 5, 6, 7, 8] },
+  sbeChapter: { weeks: 10, name: 'SBE chapter', examWeeks: [] },
+  sbeIndividual: { weeks: 6, name: 'SBE individual', examWeeks: [] },
 };
 
 const ymd = (date) => date.toLocaleDateString('en-CA');
@@ -46,6 +52,7 @@ export function shortDate(day) {
 export function planType(eventCode) {
   const event = EVENTS.find((e) => e.code === eventCode);
   if (event?.type === 'Role Play') return 'roleplay';
+  if (event?.type === 'SBE') return isChapterTeamEvent(eventCode) ? 'sbeChapter' : 'sbeIndividual';
   if (event?.type !== 'Prepared') return null;
   return SELLING_EVENTS.has(eventCode) ? 'selling' : 'written';
 }
@@ -171,12 +178,39 @@ function sellingTasks({ cluster, exams }, add) {
   add(8, 's-retake-weakest', 'retake', 'Retake your weakest exam');
 }
 
+// SBE chapter certification: the whole chapter team shares every task.
+// link: a key in SBE_LINKS (sbe.js) for the task's DECA link.
+// PLACEHOLDER tasks until the BowtieGOAT SBE timeline is written.
+function sbeChapterTasks(add) {
+  const s = { shared: true };
+  add(1, 'sbe-guidelines', 'check', 'Read the chapter certification guidelines (or the re-certification guidelines if your SBE is renewing)', { link: 'guidelines', ...s });
+  add(1, 'sbe-sample', 'check', "Look over DECA's sample Gold-level certification paper", { link: 'sample', ...s });
+  add(1, 'sbe-split', 'check', 'Split the certification standards among your team', s);
+  add(2, 'sbe-outline', 'link', 'Create an outline of your SBE manual and share the link', { linkLabel: 'Outline', ...s });
+  add(5, 'sbe-draft', 'link', 'Finish a full rough draft and share the link', { linkLabel: 'Rough draft', ...s });
+  add(6, 'sbe-advisor-review', 'check', "Review your advisor's comments and make changes", s);
+  add(8, 'sbe-final', 'link', 'Share the final PDF of your SBE manual', { linkLabel: 'Final manual (PDF)', ...s });
+  add(9, 'sbe-submit-instructions', 'check', "Read DECA's online submission instructions", { link: 'submitInstructions', ...s });
+  add(10, 'sbe-submit', 'check', 'Submit your SBE manual to DECA', { link: 'submit', ...s });
+}
+
+// SBE individual certification: each student's own online exam.
+// PLACEHOLDER tasks until the BowtieGOAT SBE timeline is written.
+function sbeIndividualTasks(add) {
+  add(1, 'sbi-guidelines', 'check', 'Read the individual certification guidelines', { link: 'guidelines' });
+  add(1, 'sbi-instructions', 'check', 'Read the exam instructions and FAQ', { link: 'instructions' });
+  [2, 3, 4, 5].forEach((week) => add(week, `sbi-study-${week}`, 'check', 'Study the SBE exam study guide', { link: 'studyGuide' }));
+  add(6, 'sbi-exam', 'check', 'Take the SBE individual certification exam', { link: 'exam' });
+}
+
 // All tasks in the plan, before checking what's done. shared = the team
 // shares it (one check-off counts for everyone).
 export function planTasks({ eventCode, cluster, exams, type = planType(eventCode) }) {
   const tasks = [];
   const add = (week, id, kind, label, extra = {}) => tasks.push({ week, id, kind, label, shared: false, ...extra });
-  if (type === 'written') writtenTasks({ eventCode, cluster, exams }, add);
+  if (type === 'sbeChapter') sbeChapterTasks(add);
+  else if (type === 'sbeIndividual') sbeIndividualTasks(add);
+  else if (type === 'written') writtenTasks({ eventCode, cluster, exams }, add);
   else if (type === 'selling') sellingTasks({ eventCode, cluster, exams }, add);
   else rolePlayTasks({ eventCode, cluster, exams }, add);
   // Suggested order within a week: exams, role plays, links, then the rest.
@@ -298,7 +332,7 @@ export function planStatus({
 // because each cluster has its own exams). Written events show IMC's exams.
 export function planTemplate(type = 'roleplay') {
   const exams = EXAM_YEARS.map((year) => ({ id: `template-${year}`, cluster: 'template', level: 'Districts', year, label: `20${year}`, subtitle: 'District cluster exam' }));
-  const sample = { roleplay: 'STDM', written: 'IMCP', selling: 'PSE' }[type];
+  const sample = { roleplay: 'STDM', written: 'IMCP', selling: 'PSE', sbeChapter: 'SBEC', sbeIndividual: 'SBEI' }[type];
   const examWeeks = PLANS[type].examWeeks;
   return planTasks({ eventCode: sample, cluster: 'template', exams, type })
     .map((t) => (t.kind === 'exam'

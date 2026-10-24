@@ -60,7 +60,9 @@ module.exports = [
   {"code":"VBCPF","event":"Virtual Business Challenge- Personal Finance","cluster":"Personal Financial Literacy","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-personal-finance"},
   {"code":"VBCRS","event":"Virtual Business Challenge- Restaurant","cluster":"Hospitality and Tourism","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-restaurant"},
   {"code":"VBCRT","event":"Virtual Business Challenge- Retail","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-retail"},
-  {"code":"VBCSP","event":"Virtual Business Challenge- Sports","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-sports"}
+  {"code":"VBCSP","event":"Virtual Business Challenge- Sports","cluster":"Marketing","type":"Virtual","competitors":"1-3","url":"https://www.deca.org/compete/virtual-business-challenge-sports"},
+  {"code":"SBEC","event":"SBE Chapter Certification","cluster":"School-based Enterprise","type":"SBE","competitors":"chapter","url":"https://www.deca.org/sbe"},
+  {"code":"SBEI","event":"SBE Individual Certification","cluster":"School-based Enterprise","type":"SBE","competitors":"1","url":"https://www.deca.org/sbe"}
 ];
 
 // Events that don't take a cluster exam. Keep in sync with docs/js/events.js.
@@ -69,4 +71,5 @@ module.exports.NO_EXAM_EVENTS = new Set([
   'BOR', 'BMOR', 'FOR', 'HTOR', 'SEOR',
   'PMBS', 'PMCD', 'PMCA', 'PMCG', 'PMFL', 'PMSP',
   'EBG', 'EFB', 'EIB', 'EIP', 'ESB', 'IBP',
+  'SBEC', 'SBEI',
 ]);

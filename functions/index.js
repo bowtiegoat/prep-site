@@ -50,6 +50,38 @@ function normalizeCode(value) {
   return typeof value === 'string' ? value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
 }
 
+// SBE Chapter Certification: every student at a school who picks it is on one
+// team (teams/sbe-{schoolId}), joined and left automatically. Joining brings
+// along any SBE plan progress the student saved on their own. Keep in sync
+// with docs/js/events.js (SBE_CHAPTER, chapterTeamId).
+const SBE_CHAPTER = 'SBEC';
+const SBE_TASK = /^sbe-/;
+
+function pickSbe(map = {}) {
+  return Object.fromEntries(Object.entries(map || {}).filter(([id]) => SBE_TASK.test(id)));
+}
+
+// Adds or removes a student on their school's SBE team, inside a transaction
+// (all reads must already be done: teamSnap is the team doc's snapshot).
+function updateSbeTeam(tx, teamRef, teamSnap, { uid, schoolId, user, joining }) {
+  if (!joining) {
+    if (teamSnap.exists) tx.update(teamRef, { memberUids: FieldValue.arrayRemove(uid) });
+    return;
+  }
+  const team = teamSnap.exists ? teamSnap.data() : {};
+  // The team's own check-offs and links win; the student's fill in the rest.
+  const planChecks = { ...pickSbe(user.planChecks), ...(team.planChecks || {}) };
+  const planLinks = { ...pickSbe(user.planLinks), ...(team.planLinks || {}) };
+  if (teamSnap.exists) {
+    tx.update(teamRef, { memberUids: FieldValue.arrayUnion(uid), planChecks, planLinks });
+  } else {
+    tx.set(teamRef, {
+      schoolId, eventCode: SBE_CHAPTER, memberUids: [uid], planChecks, planLinks,
+      createdBy: 'automatic (SBE chapter team)', createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+}
+
 // First visit: student enters name, school, school code, and event.
 exports.joinSchool = onCall(CALLABLE, async (req) => {
   const auth = requireUser(req);
@@ -73,7 +105,7 @@ exports.joinSchool = onCall(CALLABLE, async (req) => {
     throw new HttpsError('permission-denied', "That code doesn't match your school. Check with your advisor.");
   }
 
-  await userRef.set({
+  const profile = {
     role: 'student',
     firstName: first,
     lastName: last,
@@ -86,6 +118,16 @@ exports.joinSchool = onCall(CALLABLE, async (req) => {
     track: 1,
     eventHistory: [{ eventCode: event.code, track: 1, at: new Date() }],
     createdAt: FieldValue.serverTimestamp(),
+  };
+  if (event.code !== SBE_CHAPTER) {
+    await userRef.set(profile);
+    return { ok: true };
+  }
+  const teamRef = db.doc(`teams/sbe-${schoolId}`);
+  await db.runTransaction(async (tx) => {
+    const teamSnap = await tx.get(teamRef);
+    tx.set(userRef, profile);
+    updateSbeTeam(tx, teamRef, teamSnap, { uid: auth.uid, schoolId, user: {}, joining: true });
   });
   return { ok: true };
 });
@@ -104,6 +146,10 @@ exports.changeEvent = onCall(CALLABLE, async (req) => {
     if (!snap.exists) throw new HttpsError('failed-precondition', 'Finish signing up first.');
     const user = snap.data();
     if (user.eventCode === event.code) throw invalid("That's already your event.");
+    // Moving onto or off the SBE chapter team.
+    const sbeChange = user.eventCode === SBE_CHAPTER || event.code === SBE_CHAPTER;
+    const teamRef = db.doc(`teams/sbe-${user.schoolId}`);
+    const teamSnap = sbeChange ? await tx.get(teamRef) : null;
     const track = user.track || 1;
     tx.update(userRef, {
       eventCode: event.code,
@@ -112,6 +158,9 @@ exports.changeEvent = onCall(CALLABLE, async (req) => {
       track,
       eventHistory: FieldValue.arrayUnion({ eventCode: event.code, track, keptResults: true, at: new Date() }),
     });
+    if (sbeChange) {
+      updateSbeTeam(tx, teamRef, teamSnap, { uid: auth.uid, schoolId: user.schoolId, user, joining: event.code === SBE_CHAPTER });
+    }
     return { ok: true, track };
   });
 });

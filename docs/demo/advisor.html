@@ -216,9 +216,11 @@
       db, requireUser, renderHeader, call, esc, show, formatDate, today, loadIcdc,
       percentile, percentileText, startViewingAs, stopViewingHub,
     } from './js/app.js';
-    import { EVENTS, maxTeamSize, minTeamSize, takesExam } from './js/events.js';
+    import { EVENTS, isChapterTeamEvent, maxTeamSize, minTeamSize, takesExam } from './js/events.js';
     import { downloadResults, exportFileName } from './js/missed.js';
     import { firstCompetition } from './js/competitions.js';
+    import { loadSbeDates } from './js/sbe.js';
+    import { planGroup } from './js/prep-plan-card.js';
     import { buildDraft } from './js/email-drafts.js';
     import { byExam, latestAttempts } from './js/attempts.js';
     import {
@@ -345,7 +347,9 @@
     if (viewOnly) $('[data-draft]').disabled = true;
 
     // ---------- Competition dates ----------
-    const icdc = await loadIcdc();
+    const [icdc, sbeDates] = await Promise.all([loadIcdc(), loadSbeDates()]);
+    // A student's first competition (SBE plans count back to the admin's SBE dates instead).
+    const firstOf = (code) => firstCompetition(code, school.competitionDates, sbeDates);
     const datesForm = $('[data-dates-form]');
     const dates = school.competitionDates || {};
     const prettyDate = (ymd) => new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
@@ -520,7 +524,7 @@
     // The student's prep plan, or null (virtual event, or no date set).
     function planOf(s) {
       if (!planApplies(s.eventCode)) return null;
-      const first = firstCompetition(s.eventCode, school.competitionDates);
+      const first = firstOf(s.eventCode);
       if (!first?.date) return null;
       const { checks, links } = progressOf(s);
       return planStatus({
@@ -641,7 +645,7 @@
     function render() {
       renderPlanAdmin();
       // With competition dates set, every non-virtual student follows a prep plan.
-      const datesSet = !!firstCompetition('AAM', school.competitionDates)?.date;
+      const datesSet = !!firstOf('AAM')?.date;
       const search = $('[data-search]').value.trim().toLowerCase();
       const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
       const bucket = (s) => (['virtual', 'noExam'].includes(statusOf(s)) ? 'gray' : statusOf(s));
@@ -711,10 +715,10 @@
           <td colspan="4" class="py-2 px-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span class="font-semibold text-blue-700">👥 Team · ${esc(event?.event || team.eventCode)}</span>
-              <span class="text-xs text-ink-500">${unit.students.length} of ${maxTeamSize(team.eventCode)} students</span>
+              <span class="text-xs text-ink-500">${isChapterTeamEvent(team.eventCode) ? `${unit.students.length} student${unit.students.length === 1 ? '' : 's'} · every SBE student joins automatically` : `${unit.students.length} of ${maxTeamSize(team.eventCode)} students`}</span>
               ${writtenSummary(unit.students[0])}
               ${mismatch ? '<span class="text-xs text-rose-600">⚠️ A member changed events</span>' : ''}
-              ${viewOnly ? '' : `<button data-break-team="${esc(team.id)}" class="ml-auto text-xs text-ink-500 underline hover:text-rose-600">Break up team</button>`}
+              ${viewOnly || isChapterTeamEvent(team.eventCode) ? '' : `<button data-break-team="${esc(team.id)}" class="ml-auto text-xs text-ink-500 underline hover:text-rose-600">Break up team</button>`}
             </div>
           </td>
         </tr>
@@ -724,7 +728,7 @@
     function studentRows(s, inTeam, faded = false) {
       const status = STATUS[statusOf(s)];
       const event = eventOf(s.eventCode);
-      const canTeam = !inTeam && maxTeamSize(s.eventCode) > 1 && !viewOnly;
+      const canTeam = !inTeam && maxTeamSize(s.eventCode) > 1 && !isChapterTeamEvent(s.eventCode) && !viewOnly;
       const isOpen = open.has(s.id);
       return `
         <tr class="border-t border-ink-100 ${inTeam ? 'bg-blue-50/30' : ''} ${isOpen ? 'bg-cream-100/50' : ''} ${faded && !isOpen ? 'opacity-50' : ''}">
@@ -973,12 +977,18 @@
     const planSettings = () => school.planSettings || {};
     // The plan the chapter card is showing: roleplay, written, or selling.
     let adminPlan = 'roleplay';
-    const SAMPLE_EVENT = { roleplay: 'AAM', written: 'BOR', selling: 'PSE' };
-    const chapterFirst = (type = adminPlan) => firstCompetition(SAMPLE_EVENT[type], school.competitionDates);
+    const SAMPLE_EVENT = { roleplay: 'AAM', written: 'BOR', selling: 'PSE', sbeChapter: 'SBEC', sbeIndividual: 'SBEI' };
+    const chapterFirst = (type = adminPlan) => firstOf(SAMPLE_EVENT[type]);
     const planStudents = (type = adminPlan) => students.filter((s) => planOf(s)?.type === type);
-    const PLAN_STUDENTS = { roleplay: 'role play students', written: 'written event students', selling: 'selling event students' };
+    const PLAN_STUDENTS = {
+      roleplay: 'role play students', written: 'written event students', selling: 'selling event students',
+      sbeChapter: 'SBE chapter students', sbeIndividual: 'SBE individual students',
+    };
     // Whether advisors already answered the catch-up prompt for a plan.
-    const CATCHUP_KEY = { roleplay: 'catchupHandled', written: 'catchupHandledWritten', selling: 'catchupHandledSelling' };
+    const CATCHUP_KEY = {
+      roleplay: 'catchupHandled', written: 'catchupHandledWritten', selling: 'catchupHandledSelling',
+      sbeChapter: 'catchupHandledSbeChapter', sbeIndividual: 'catchupHandledSbeIndividual',
+    };
     let planAdminOpen = false;
 
     async function saveSettings(changes) {
@@ -1047,10 +1057,12 @@
           roleplay: 'All role play events. Counts back 8 weeks from your first competition.',
           written: 'Prepared events with a written entry, including Integrated Marketing Campaign (which also gets the cluster exams). Counts back 16 weeks from the first prepared event competition. Teams share one plan.',
           selling: 'Professional Selling, Financial Consulting, and Hospitality and Tourism Professional Selling. Counts back 8 weeks from the first prepared event competition.',
+          sbeChapter: `School-based Enterprise chapter certification. Counts back ${PLANS.sbeChapter.weeks} weeks from DECA's deadline${sbeDates.chapterDue ? ` (${planShortDate(sbeDates.chapterDue)})` : ''}. Every student who picks SBE Chapter Certification is on one team and shares this plan.`,
+          sbeIndividual: `School-based Enterprise individual certification (DECA's online exam). Counts back ${PLANS.sbeIndividual.weeks} weeks from ${sbeDates.individualTarget ? planShortDate(sbeDates.individualTarget) : 'the chapter certification deadline'}.`,
         }[adminPlan]}</p>`;
       const first = chapterFirst();
       if (!first?.date) {
-        box.innerHTML = `${tabs}<p class="text-ink-500">Set your competition dates above. Each plan counts back from its first competition.</p>`;
+        box.innerHTML = `${tabs}<p class="text-ink-500">${first?.level === 'sbe' ? "This year's SBE date isn't set yet. BowtieGOAT adds it for every chapter." : 'Set your competition dates above. Each plan counts back from its first competition.'}</p>`;
         return;
       }
       const total = PLANS[adminPlan].weeks;
@@ -1060,11 +1072,11 @@
       const settings = planSettings();
       const removed = new Set(settings.removed || []);
       const template = planTemplate(adminPlan);
-      const group = adminPlan === 'roleplay' ? 'roleplay' : 'prepared';
+      const group = planGroup(adminPlan);
       const items = advisorItems(settings.items || [], weeks, { group });
       const who = PLAN_STUDENTS[adminPlan];
       const overdueStudents = planStudents().filter((s) => planOf(s).overdue.length).length;
-      const GROUP = { roleplay: 'Role play students', prepared: 'Prepared event students', everyone: 'Everyone' };
+      const GROUP = { roleplay: 'Role play students', prepared: 'Prepared event students', sbe: 'SBE students', everyone: 'Everyone' };
       const btn = (attrs, label, tone = 'text-blue-600') => (viewOnly ? '' : `<button type="button" ${attrs} class="${tone} text-xs hover:underline">${label}</button>`);
 
       const catchup = !viewOnly && !settings[CATCHUP_KEY[adminPlan]] && current >= 2 && overdueStudents ? `
@@ -1111,7 +1123,7 @@
               <input name="text" required maxlength="200" placeholder="e.g. Chapter mock competition after school in Room 204" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
             <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">For</span>
               <select name="group" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
-                ${['roleplay', 'prepared', 'everyone'].map((g) => `<option value="${g}" ${g === group ? 'selected' : ''}>${GROUP[g]}</option>`).join('')}
+                ${['roleplay', 'prepared', 'sbe', 'everyone'].map((g) => `<option value="${g}" ${g === group ? 'selected' : ''}>${GROUP[g]}</option>`).join('')}
               </select></label>
             <label class="sm:col-span-2 block"><span class="text-xs font-semibold text-ink-700">Week of this plan</span>
               <select name="week" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2">
@@ -1251,7 +1263,7 @@
     function upcomingFor(group) {
       const seen = new Map();
       group.forEach((st) => {
-        const first = firstCompetition(st.eventCode, school.competitionDates);
+        const first = firstOf(st.eventCode);
         if (first?.date && daysUntil(first.date) >= 0) seen.set(first.date + first.label, { label: first.label, date: first.date, daysAway: daysUntil(first.date) });
       });
       return [...seen.values()].sort((a, b) => a.date.localeCompare(b.date));

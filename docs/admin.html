@@ -40,6 +40,17 @@
           <input name="icdcLocation" required maxlength="60" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
         <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Save ICDC</button>
       </form>
+      <form data-sbe-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[auto_auto_1fr] gap-3 items-end">
+        <p class="sm:col-span-3 text-sm text-ink-600"><strong>SBE certification dates</strong> set every chapter's SBE plans. Update them each year from <a href="https://www.deca.org/sbe" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">deca.org/sbe</a>.</p>
+        <label class="block"><span class="text-sm font-medium text-ink-700">Chapter certification due</span>
+          <input name="chapterDue" type="date" required class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <label class="block"><span class="text-sm font-medium text-ink-700">Individual plan's goal date</span>
+          <input name="individualTarget" type="date" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
+        <div class="flex flex-wrap items-center gap-3">
+          <button class="rounded-lg bg-ink-900 text-cream-50 px-5 py-2 font-medium">Save SBE dates</button>
+          <span class="text-xs text-ink-500">Leave the goal date blank to use the chapter deadline. DECA's individual exam is open Oct 1 to June 30.</span>
+        </div>
+      </form>
       <form data-school-form class="bg-white rounded-2xl border border-ink-200 p-5 grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-3 items-end">
         <label class="block"><span class="text-sm font-medium text-ink-700">School name</span>
           <input name="schoolName" required maxlength="100" class="mt-1 w-full rounded-lg border border-ink-300 px-3 py-2" /></label>
@@ -151,6 +162,7 @@
     } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, call, esc, show, formatDate, compareExams, startViewingAs, startViewingHub, loadIcdc } from './js/app.js';
     import { CLUSTERS } from './js/events.js';
+    import { loadSbeDates } from './js/sbe.js';
     import { parseExamRows } from './js/exam-import.js';
     import { downloadResults, exportFileName } from './js/missed.js';
     import { parseZipGradeRows } from './js/score-import.js';
@@ -285,8 +297,21 @@
       if (icdcForm.icdcEnd.value < icdcForm.icdcStart.value) { flash('ICDC should end on or after its start date.', false); return; }
       await setDoc(doc(db, 'settings', 'site'), {
         icdc: { start: icdcForm.icdcStart.value, end: icdcForm.icdcEnd.value, location: icdcForm.icdcLocation.value.trim() },
-      });
+      }, { merge: true });
       flash('ICDC dates saved.');
+    });
+
+    // ---------- SBE certification dates ----------
+    const sbeForm = $('[data-sbe-form]');
+    const sbe = await loadSbeDates();
+    sbeForm.chapterDue.value = sbe.chapterDue;
+    sbeForm.individualTarget.value = sbe.individualTarget || '';
+    sbeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await setDoc(doc(db, 'settings', 'site'), {
+        sbe: { chapterDue: sbeForm.chapterDue.value, individualTarget: sbeForm.individualTarget.value || '' },
+      }, { merge: true });
+      flash('SBE dates saved.');
     });
 
     // ---------- Advisors ----------
@@ -324,7 +349,7 @@
 
     // ---------- Exams ----------
     const uploadForm = $('[data-upload-form]');
-    uploadForm.cluster.innerHTML = CLUSTERS.map((c) => `<option ${c === 'Marketing' ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    uploadForm.cluster.innerHTML = CLUSTERS.filter((c) => c !== 'School-based Enterprise').map((c) => `<option ${c === 'Marketing' ? 'selected' : ''}>${esc(c)}</option>`).join('');
     let pending = null;
 
     uploadForm.addEventListener('submit', async (e) => {
