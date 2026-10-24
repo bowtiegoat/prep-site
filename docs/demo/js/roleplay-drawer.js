@@ -8,6 +8,7 @@ import {
   addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where,
 } from '../mock/firebase-firestore.js';
 import { db, esc, isViewingAs, today } from './app.js';
+import { EVENTS } from './events.js';
 import {
   DECA_PAGE, GOAT_PAGE, decaTitle, INSTRUCTIONAL_AREAS, JUDGES, LEVELS, gridHtml, latestSummary, loadGoatRolePlays,
   logListHtml, rubricRows, rubricTypeFor, shortDate, sortLogs,
@@ -15,7 +16,9 @@ import {
 
 const linkClass = 'font-semibold text-blue-600 underline decoration-blue-300 underline-offset-2 hover:decoration-blue-600';
 
-export async function initRolePlayDrawer({ user, profile, event }) {
+// codes: the student's role play events (more than one when their school lets
+// students sign up for several). Each log belongs to one event, picked here.
+export async function initRolePlayDrawer({ user, profile: baseProfile, codes = [baseProfile.eventCode] }) {
   const drawer = document.querySelector('[data-roleplay-drawer]');
   const $ = (sel) => drawer.querySelector(sel);
   const modal = document.querySelector('[data-log-modal]');
@@ -23,28 +26,61 @@ export async function initRolePlayDrawer({ user, profile, event }) {
   drawer.classList.remove('hidden');
 
   const viewOnly = isViewingAs();
-  const rubric = rubricTypeFor(profile.eventCode);
-  const isTeamEvent = Number(String(event.competitors).split('-').pop()) > 1;
-  const [prep, present] = isTeamEvent ? [30, 15] : [10, 10];
-  document.querySelector('[data-timed-hint]').textContent = `(${prep} minutes to prepare, ${present} to present)`;
+  // The event being logged: the student's details with that event in place.
+  let profile = baseProfile;
+  let event = null;
+  let rubric = null;
+  let isTeamEvent = false;
+  let team = null;
+  let teams = [];
+  try {
+    const teamSnap = await getDocs(query(collection(db, 'teams'), where('schoolId', '==', baseProfile.schoolId), where('memberUids', 'array-contains', user.uid)));
+    teams = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {}
 
-  $('[data-rp-steps]').innerHTML = [
-    ['Pick a role play', `Use a <a href="${GOAT_PAGE}" target="_blank" rel="noopener noreferrer" class="${linkClass}">GOAT role play</a> or a sample from <a href="${DECA_PAGE}" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA's resources page</a>.`],
-    ['Practice with a judge', `${prep} minutes to prepare, ${present} minutes to present. A classmate, teacher, or parent judges with the rubric.`],
-    ['Log how it went', 'Record a level for each rubric row and your judge\'s feedback.'],
-  ].map(([title, text], i) => `
-    <li class="flex gap-3">
-      <span class="shrink-0 w-7 h-7 rounded-full bg-ink-900 text-cream-50 grid place-items-center font-bold text-xs" aria-hidden="true">${i + 1}</span>
-      <span><strong class="block text-ink-900">${title}</strong>${text}</span>
-    </li>`).join('');
+  function useEvent(code) {
+    event = EVENTS.find((e) => e.code === code);
+    profile = { ...baseProfile, eventCode: code, eventName: event?.event || code, cluster: event?.cluster || baseProfile.cluster };
+    rubric = rubricTypeFor(code);
+    isTeamEvent = Number(String(event?.competitors || '1').split('-').pop()) > 1;
+    // The student's team for this event, if their advisor made one.
+    team = teams.find((t) => t.eventCode === code) || null;
+    $m('[data-team-note]').textContent = team ? 'This log is shared with your teammates. Any of you can edit it.' : '';
+    const [prep, present] = isTeamEvent ? [30, 15] : [10, 10];
+    document.querySelector('[data-timed-hint]').textContent = `(${prep} minutes to prepare, ${present} to present)`;
+    $('[data-rp-steps]').innerHTML = [
+      ['Pick a role play', `Use a <a href="${GOAT_PAGE}" target="_blank" rel="noopener noreferrer" class="${linkClass}">GOAT role play</a> or a sample from <a href="${DECA_PAGE}" target="_blank" rel="noopener noreferrer" class="${linkClass}">DECA's resources page</a>.`],
+      ['Practice with a judge', `${prep} minutes to prepare, ${present} minutes to present. A classmate, teacher, or parent judges with the rubric.`],
+      ['Log how it went', 'Record a level for each rubric row and your judge\'s feedback.'],
+    ].map(([title, text], i) => `
+      <li class="flex gap-3">
+        <span class="shrink-0 w-7 h-7 rounded-full bg-ink-900 text-cream-50 grid place-items-center font-bold text-xs" aria-hidden="true">${i + 1}</span>
+        <span><strong class="block text-ink-900">${title}</strong>${text}</span>
+      </li>`).join('');
+  }
+  useEvent(codes[0]);
   $('[data-rp-new]').classList.toggle('hidden', viewOnly);
 
-  // The student's team for this event, if their advisor made one.
-  let team = null;
-  try {
-    const teamSnap = await getDocs(query(collection(db, 'teams'), where('schoolId', '==', profile.schoolId), where('memberUids', 'array-contains', user.uid)));
-    team = teamSnap.docs.map((d) => ({ id: d.id, ...d.data() })).find((t) => t.eventCode === profile.eventCode) || null;
-  } catch {}
+  // More than one role play event: pick which one the logs and new runs are for.
+  if (codes.length > 1) {
+    $('[data-rp-steps]').insertAdjacentHTML('beforebegin', `
+      <div data-rp-events class="mt-4 flex flex-wrap items-center gap-2 text-sm" role="tablist" aria-label="Role play event">
+        <span class="text-ink-500">Logging for:</span>
+        ${codes.map((c, i) => `<button type="button" role="tab" data-rp-event="${esc(c)}" aria-selected="${i === 0}"
+          class="rounded-full border px-3 py-1.5 ${i === 0 ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}">${esc(EVENTS.find((e) => e.code === c)?.event || c)} <span class="opacity-70">${esc(c)}</span></button>`).join('')}
+      </div>`);
+    $('[data-rp-events]').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-rp-event]');
+      if (!btn || btn.dataset.rpEvent === profile.eventCode) return;
+      $('[data-rp-events]').querySelectorAll('[data-rp-event]').forEach((b) => {
+        const on = b === btn;
+        b.setAttribute('aria-selected', on);
+        b.className = `rounded-full border px-3 py-1.5 ${on ? 'bg-ink-900 text-cream-50 border-ink-900' : 'bg-white border-ink-200 text-ink-700 hover:border-ink-400'}`;
+      });
+      useEvent(btn.dataset.rpEvent);
+      load();
+    });
+  }
 
   // The schoolId filter lets an advisor's "View as" pass the database rules.
   let logs = [];
@@ -79,7 +115,6 @@ export async function initRolePlayDrawer({ user, profile, event }) {
   $m('[data-ia]').innerHTML = `<option value="">Choose the instructional area on page 1…</option>${
     Object.entries(INSTRUCTIONAL_AREAS).map(([group, areas]) => `<optgroup label="${esc(group)}">${areas.map((a) => `<option>${esc(a)}</option>`).join('')}</optgroup>`).join('')}`;
   $m('[data-judge]').innerHTML = `<option value="">Choose one…</option>${JUDGES.map((j) => `<option>${esc(j)}</option>`).join('')}`;
-  $m('[data-team-note]').textContent = team ? 'This log is shared with your teammates. Any of you can edit it.' : '';
 
   function fillGoatPicker(selectedFile = '') {
     const showAll = $m('[data-show-all]').checked;

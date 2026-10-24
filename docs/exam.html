@@ -73,7 +73,8 @@
     import { collection, doc, getDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
     import { db, requireUser, renderHeader, call, esc, show, EXAM_MINUTES, isViewingAs } from './js/app.js';
     import { draftKey, loadDraft, saveDraft, clearDraft } from './js/drafts.js';
-    import { takesExam } from './js/events.js';
+    import { EVENTS, takesExam } from './js/events.js';
+    import { studentEventCodes } from './js/student-events.js';
     import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
 
     const $ = (sel) => document.querySelector(sel);
@@ -118,11 +119,13 @@
       await new Promise(() => {});
     }
     const exam = examSnap.data();
-    if (!takesExam(profile.eventCode)) {
+    // Students with more than one event can take any of their events' cluster exams.
+    const examCodes = studentEventCodes(profile).filter(takesExam);
+    if (!examCodes.length) {
       fail("Your event doesn't take a cluster exam.");
       await new Promise(() => {});
     }
-    if (exam.cluster !== profile.cluster) {
+    if (!examCodes.some((c) => EVENTS.find((e) => e.code === c)?.cluster === exam.cluster)) {
       fail("That exam isn't part of your event's cluster.");
       await new Promise(() => {});
     }

@@ -14,6 +14,7 @@ import { deckIdFor } from './flashcards.js';
 import {
   PLANS, advisorItems, planStatus, planType, sharedTaskIds, shortDate,
 } from './prep-plan.js';
+import { progressKey } from './student-events.js';
 
 const PLAN_NAME = { district: 'Districts', state: 'States' };
 // Text for task links to DECA's SBE pages (keys in SBE_LINKS, sbe.js).
@@ -52,8 +53,14 @@ export function showAdvisorNotes({ settings }) {
   box.classList.remove('hidden');
 }
 
-export async function initPrepPlan({ user, profile, first, links: eventLinks, attemptFilters, settings = {} }) {
-  const card = document.querySelector('[data-plan-card]');
+// profile: the student shaped for one event (eventView in student-events.js),
+// so a student with more than one event gets one card per event. card: that
+// event's plan card (the main event's card by default).
+export async function initPrepPlan({
+  user, profile, first, links: eventLinks, attemptFilters, settings = {}, card = document.querySelector('[data-plan-card]'),
+}) {
+  // A student's own progress on an extra event is saved under "CODE__taskId".
+  const myKey = (id) => progressKey(profile.eventCode, id, profile.isMainEvent !== false);
   const $ = (sel) => card.querySelector(sel);
   const body = $('[data-plan-body]');
   $('[data-plan-placeholder]').classList.add('hidden');
@@ -87,7 +94,8 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     cardDaysQuery,
   ]);
   const exams = (examSnap?.docs || []).map((d) => ({ id: d.id, ...d.data() })).filter((e) => e.active !== false);
-  const attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.track === profile.track);
+  // Only this event's cluster counts (a student with two events has two sets of exams).
+  const attempts = attemptSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.track === profile.track && (!a.cluster || a.cluster === profile.cluster));
   // The student's team for this event, if their advisor paired them.
   const teamDoc = (teamSnap?.docs || []).find((d) => d.data().eventCode === profile.eventCode);
   const team = teamDoc ? { id: teamDoc.id, ...teamDoc.data() } : null;
@@ -231,7 +239,7 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     if (onTeam(id)) teamChecks = apply(teamChecks); else myChecks = apply(myChecks);
     render();
     try {
-      await updateDoc(target(id), { [`planChecks.${id}`]: checked ? today() : deleteField() });
+      await updateDoc(target(id), { [`planChecks.${onTeam(id) ? id : myKey(id)}`]: checked ? today() : deleteField() });
     } catch {
       ({ myChecks, teamChecks } = saved);
       render();
@@ -257,7 +265,7 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
     const button = form.querySelector('button');
     button.disabled = true;
     try {
-      await updateDoc(target(id), { [`planLinks.${id}`]: arrayUnion(entry) });
+      await updateDoc(target(id), { [`planLinks.${onTeam(id) ? id : myKey(id)}`]: arrayUnion(entry) });
       const add = (map) => ({ ...map, [id]: [...(map[id] || []), entry] });
       if (onTeam(id)) teamLinks = add(teamLinks); else myLinks = add(myLinks);
       replacing.delete(id);

@@ -35,6 +35,17 @@
           <button data-qr-open class="rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium hover:border-ink-500 disabled:opacity-50">Show QR code</button>
         </div>
         <p data-copy-note class="mt-2 text-xs text-green-700 min-h-4"></p>
+        <form data-multi-form class="mt-3 border-t border-ink-100 pt-3 text-sm">
+          <label class="flex items-start gap-2">
+            <input type="checkbox" name="multi" class="mt-1" />
+            <span><strong>Students can sign up for more than one event</strong>
+              <span class="block text-xs text-ink-500">For districts or states that allow it. Each event gets its own prep plan and its own row below.</span></span>
+          </label>
+          <label data-multi-max class="hidden mt-2 ml-6 flex items-center gap-2 text-sm">Up to
+            <select name="max" class="rounded-lg border border-ink-300 px-2 py-1"><option value="2">2 events</option><option value="3">3 events</option></select>
+            per student</label>
+          <p data-multi-note class="mt-1 ml-6 text-xs text-green-700 min-h-4"></p>
+        </form>
       </section>
 
       <!-- Competition dates -->
@@ -221,6 +232,7 @@
     import { firstCompetition } from './js/competitions.js';
     import { loadSbeDates } from './js/sbe.js';
     import { planGroup } from './js/prep-plan-card.js';
+    import { SEP, eventView, multiEventSettings, withProgress } from './js/student-events.js';
     import { buildDraft } from './js/email-drafts.js';
     import { byExam, latestAttempts } from './js/attempts.js';
     import {
@@ -350,6 +362,33 @@
     const [icdc, sbeDates] = await Promise.all([loadIcdc(), loadSbeDates()]);
     // A student's first competition (SBE plans count back to the admin's SBE dates instead).
     const firstOf = (code) => firstCompetition(code, school.competitionDates, sbeDates);
+
+    // ---------- More than one event per student ----------
+    const multiForm = $('[data-multi-form]');
+    function showMulti() {
+      const { multi, max } = multiEventSettings(school);
+      multiForm.multi.checked = multi;
+      multiForm.max.value = String(max);
+      show(multiForm.querySelector('[data-multi-max]'), multi);
+    }
+    showMulti();
+    if (viewOnly) multiForm.querySelectorAll('input, select').forEach((el) => { el.disabled = true; });
+    multiForm.addEventListener('change', async () => {
+      const eventSettings = { multi: multiForm.multi.checked, max: Number(multiForm.max.value) === 3 ? 3 : 2 };
+      const note = multiForm.querySelector('[data-multi-note]');
+      try {
+        await updateDoc(doc(db, 'schools', schoolId), { eventSettings });
+        school.eventSettings = eventSettings;
+        note.className = 'mt-1 ml-6 text-xs text-green-700 min-h-4';
+        note.textContent = eventSettings.multi
+          ? `Saved. Students can add events from their Profile page, up to ${eventSettings.max} each.`
+          : 'Saved. Students keep the events they already added, but can\'t add more.';
+      } catch {
+        note.className = 'mt-1 ml-6 text-xs text-rose-700 min-h-4';
+        note.textContent = "Couldn't save that. Please try again.";
+      }
+      showMulti();
+    });
     const datesForm = $('[data-dates-form]');
     const dates = school.competitionDates || {};
     const prettyDate = (ymd) => new Date(`${ymd}T12:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
@@ -494,6 +533,42 @@
       render();
     }
 
+    // ---------- One row per student per event ----------
+    // A student's main event is the student record itself. Each extra event
+    // (when the school allows more than one) is a copy carrying that event's
+    // name, cluster, and plan progress; saveProgress writes it back under the
+    // event's "CODE__taskId" keys (see js/student-events.js).
+    let rows = [];
+    const keyOf = (r) => (r.extraEvent ? `${r.id}${SEP}${r.eventCode}` : r.id);
+    const rowByKey = (key) => rows.find((r) => keyOf(r) === key);
+    function buildRows() {
+      rows = students.flatMap((s) => [s, ...(s.extraEvents || []).filter((c) => c !== s.eventCode).map((code) => {
+        const view = eventView(s, code);
+        const added = (s.eventHistory || []).filter((h) => h.eventCode === code && h.added).pop();
+        return Object.assign(Object.create(s), {
+          eventCode: code, eventName: view.eventName, cluster: view.cluster,
+          planChecks: view.planChecks, planLinks: view.planLinks, planExcused: view.planExcused, planLateHandled: view.planLateHandled,
+          createdAt: added?.at || s.createdAt, extraEvent: true, base: s,
+        });
+      })]);
+    }
+    // Same people, each once (for emails and counts of students).
+    const peopleIn = (list) => [...new Map(list.map((r) => [r.id, r.base || r])).values()];
+    async function saveProgress(row, changes) {
+      if (!row.extraEvent) {
+        await updateDoc(doc(db, 'users', row.id), changes);
+        Object.assign(row, changes);
+        return;
+      }
+      const base = row.base;
+      const out = {};
+      ['planChecks', 'planLinks', 'planExcused'].forEach((f) => { if (f in changes) out[f] = withProgress(base[f], row.eventCode, false, changes[f]); });
+      if ('planLateHandled' in changes) out.planLateHandledEvents = { ...(base.planLateHandledEvents || {}), [row.eventCode]: changes.planLateHandled };
+      await updateDoc(doc(db, 'users', base.id), out);
+      Object.assign(base, out);
+      Object.assign(row, changes);
+    }
+
     // Current results only (not attempts from before a student started over).
     const attemptsOf = (s) => attempts
       .filter((a) => a.uid === s.id && a.track === s.track)
@@ -529,7 +604,7 @@
       const { checks, links } = progressOf(s);
       return planStatus({
         eventCode: s.eventCode, cluster: s.cluster, exams: allExams, competitionDate: first.date,
-        attempts: attemptsOf(s), logs: logsOf(s), checks, links,
+        attempts: attemptsOf(s).filter((a) => !a.cluster || a.cluster === s.cluster), logs: logsOf(s), checks, links,
         removed: planSettings().removed || [], excused: s.planExcused || {},
         cardDays: decks.has(deckIdFor(s.eventCode)) ? cardProgress.get(s.id)?.studyDays || {} : null,
         cardsSince: (decks.get(deckIdFor(s.eventCode))?.publishedAt || '').slice(0, 10) || null,
@@ -622,16 +697,17 @@
 
     // A team sorts by its member who comes first (or needs the most help).
     function unitsToShow(visible) {
+      // A student can be on a team in each of their events.
       const teamOf = new Map();
-      teams.forEach((t) => t.memberUids.forEach((uid) => teamOf.set(uid, t)));
+      teams.forEach((t) => t.memberUids.forEach((uid) => teamOf.set(`${uid}|${t.eventCode}`, t)));
       const units = [];
       const seenTeams = new Set();
       for (const s of visible) {
-        const team = teamOf.get(s.id);
+        const team = teamOf.get(`${s.id}|${s.eventCode}`);
         if (!team) { units.push({ students: [s] }); continue; }
         if (seenTeams.has(team.id)) continue;
         seenTeams.add(team.id);
-        const members = team.memberUids.map((uid) => students.find((x) => x.id === uid)).filter(Boolean);
+        const members = team.memberUids.map((uid) => rows.find((x) => x.id === uid && x.eventCode === team.eventCode)).filter(Boolean);
         units.push({ team, students: members });
       }
       const key = (unit) => unit.students.map(SORTS[sortKey]).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))[0];
@@ -643,13 +719,14 @@
     }
 
     function render() {
+      buildRows();
       renderPlanAdmin();
       // With competition dates set, every non-virtual student follows a prep plan.
       const datesSet = !!firstOf('AAM')?.date;
       const search = $('[data-search]').value.trim().toLowerCase();
-      const counts = { all: students.length, green: 0, yellow: 0, red: 0, gray: 0 };
+      const counts = { all: rows.length, green: 0, yellow: 0, red: 0, gray: 0 };
       const bucket = (s) => (['virtual', 'noExam'].includes(statusOf(s)) ? 'gray' : statusOf(s));
-      students.forEach((s) => { counts[bucket(s)] += 1; });
+      rows.forEach((s) => { counts[bucket(s)] += 1; });
       $('[data-count]').textContent = `(${students.length})`;
       // The chapter's work this week, then a key that fits whether dates are set.
       const week = students.map(workThisWeek);
@@ -668,12 +745,12 @@
           ${k === 'all' ? 'All' : k === 'gray' ? `⚪ ${datesSet ? 'Virtual events' : 'Not tracked yet'}` : `${STATUS[k].dot} ${STATUS[k].label}`} <span class="opacity-70">${counts[k]}</span>
         </button>`).join('');
 
-      const visible = students.filter((s) =>
+      const visible = rows.filter((s) =>
         (statusFilter === 'all' || bucket(s) === statusFilter)
         && (!search || `${s.firstName} ${s.lastName} ${s.eventCode} ${eventOf(s.eventCode)?.event || ''}`.toLowerCase().includes(search)));
       const units = unitsToShow(visible);
-      visibleIds = new Set(visible.map((x) => x.id));
-      $('[data-copy-emails]').textContent = `📋 Copy emails (${visible.length})`;
+      visibleIds = new Set(visible.map(keyOf));
+      $('[data-copy-emails]').textContent = `📋 Copy emails (${peopleIn(visible).length})`;
       const head = (key, label) => `
         <th class="py-3 px-3">
           <button data-sort="${key}" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-ink-900 ${key === sortKey ? 'text-ink-900' : ''}">
@@ -698,8 +775,8 @@
       $('[data-students]').insertAdjacentHTML('beforeend', archivedHtml());
       updateTeamBar();
       fillReportStudents();
-      open.forEach((id) => {
-        const s = students.find((x) => x.id === id);
+      open.forEach((key) => {
+        const s = rowByKey(key);
         if (s) fillPanel(s);
       });
     }
@@ -722,30 +799,31 @@
             </div>
           </td>
         </tr>
-        ${unit.students.map((s) => studentRows(s, true, !visibleIds.has(s.id))).join('')}`;
+        ${unit.students.map((s) => studentRows(s, true, !visibleIds.has(keyOf(s)))).join('')}`;
     }
 
     function studentRows(s, inTeam, faded = false) {
       const status = STATUS[statusOf(s)];
       const event = eventOf(s.eventCode);
       const canTeam = !inTeam && maxTeamSize(s.eventCode) > 1 && !isChapterTeamEvent(s.eventCode) && !viewOnly;
-      const isOpen = open.has(s.id);
+      const isOpen = open.has(keyOf(s));
       return `
         <tr class="border-t border-ink-100 ${inTeam ? 'bg-blue-50/30' : ''} ${isOpen ? 'bg-cream-100/50' : ''} ${faded && !isOpen ? 'opacity-50' : ''}">
-          <td class="py-3 pl-4 align-top">${canTeam ? `<input type="checkbox" data-select="${esc(s.id)}" ${selected.has(s.id) ? 'checked' : ''} aria-label="Select ${esc(s.firstName)} for a team" />` : ''}</td>
+          <td class="py-3 pl-4 align-top">${canTeam ? `<input type="checkbox" data-select="${esc(keyOf(s))}" ${selected.has(keyOf(s)) ? 'checked' : ''} aria-label="Select ${esc(s.firstName)} for a team" />` : ''}</td>
           <td class="py-3 px-3 align-top ${inTeam ? 'pl-6 border-l-4 border-blue-300' : ''}">
-            <button data-toggle="${esc(s.id)}" class="text-left font-medium text-ink-900 hover:text-blue-600" aria-expanded="${isOpen}">
+            <button data-toggle="${esc(keyOf(s))}" class="text-left font-medium text-ink-900 hover:text-blue-600" aria-expanded="${isOpen}">
               ${esc(s.lastName)}, ${esc(s.firstName)} <span class="text-ink-400 text-xs">${isOpen ? '▾' : '▸'}</span>
             </button>
             ${isOpen ? `<button type="button" data-view-as="${esc(s.id)}" class="mt-1 block text-xs font-medium text-blue-600 underline hover:text-blue-800">View as ${esc(s.firstName)}</button>` : ''}
           </td>
           <td class="py-3 px-3 align-top">${esc(event?.event || s.eventCode)} <span class="text-xs text-ink-500">${esc(s.eventCode)}</span>
             ${!inTeam && minTeamSize(s.eventCode) > 1 ? '<span class="ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-[11px] font-medium px-2 py-0.5">Needs a teammate</span>' : ''}
-            ${lateJoin(s) ? '<span class="ml-1 inline-block rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium px-2 py-0.5">Joined late</span>' : ''}</td>
+            ${lateJoin(s) ? '<span class="ml-1 inline-block rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium px-2 py-0.5">Joined late</span>' : ''}
+            ${s.extraEvent ? '<span class="ml-1 inline-block rounded-full bg-ink-100 text-ink-600 text-[11px] font-medium px-2 py-0.5">Second event</span>' : (s.extraEvents || []).length ? '<span class="ml-1 inline-block rounded-full bg-ink-100 text-ink-600 text-[11px] font-medium px-2 py-0.5">Main event</span>' : ''}</td>
           <td class="py-3 px-3 align-top">${weekHtml(s)}</td>
           <td class="py-3 px-3 align-top"><span class="whitespace-nowrap">${status.dot} ${status.label}</span>${aheadHtml(s)}</td>
         </tr>
-        ${isOpen ? `<tr><td colspan="5" class="px-4 pb-5 pt-1 ${inTeam ? 'bg-blue-50/30' : 'bg-cream-100/50'}"><div data-panel="${esc(s.id)}"></div></td></tr>` : ''}`;
+        ${isOpen ? `<tr><td colspan="5" class="px-4 pb-5 pt-1 ${inTeam ? 'bg-blue-50/30' : 'bg-cream-100/50'}"><div data-panel="${esc(keyOf(s))}"></div></td></tr>` : ''}`;
     }
 
     // A student's role play logs for their current event (team logs included).
@@ -858,7 +936,7 @@
     // at a glance. The full picture is the student's own My Results page.
     const openAllExams = new Set(); // students whose "All exams and tries" list is open
     async function fillPanel(s) {
-      const box = document.querySelector(`[data-panel="${CSS.escape(s.id)}"]`);
+      const box = document.querySelector(`[data-panel="${CSS.escape(keyOf(s))}"]`);
       if (!box) return;
       const mine = attemptsOf(s);
       await Promise.all([...new Set(mine.map((a) => a.examId))].filter((id) => !statsCache.has(id)).map(async (id) => {
@@ -876,7 +954,7 @@
         return `
           <tr class="border-t border-ink-100 ${latest ? '' : 'bg-ink-50/60 text-ink-600'}">
             <td class="py-2 pr-2 w-7">${latest && count > 1 ? `
-              <button type="button" data-tries="${esc(a.examId)}" data-student="${esc(s.id)}" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Hide' : 'Show'} all ${count} tries"
+              <button type="button" data-tries="${esc(a.examId)}" data-student="${esc(keyOf(s))}" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Hide' : 'Show'} all ${count} tries"
                 class="grid place-items-center w-6 h-6 rounded-full border border-ink-200 text-ink-600 hover:border-ink-400 transition-transform ${isOpen ? 'rotate-90' : ''}">
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>` : ''}</td>
@@ -927,15 +1005,15 @@
         ${sectionHead('Prep plan', `<p class="text-sm"><strong>${esc(when)}</strong> · ${plan.doneCount} of ${plan.totalCount} tasks done</p>`)}
         ${late && !viewOnly ? `<div class="mt-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
           Joined in week ${late.week}. Excuse the ${late.tasks.length} item${late.tasks.length === 1 ? '' : 's'} from before they joined?
-          <span class="block mt-1 space-x-3">${btn(`data-excuse-late="${esc(s.id)}"`, 'Excuse them', 'font-semibold text-blue-700')}${btn(`data-keep-late="${esc(s.id)}"`, 'Keep them', 'text-ink-600')}</span></div>` : ''}
+          <span class="block mt-1 space-x-3">${btn(`data-excuse-late="${esc(keyOf(s))}"`, 'Excuse them', 'font-semibold text-blue-700')}${btn(`data-keep-late="${esc(keyOf(s))}"`, 'Keep them', 'text-ink-600')}</span></div>` : ''}
         ${plan.overdue.length ? `
-          <div class="mt-2 flex items-baseline justify-between"><p class="text-sm font-semibold text-rose-700">Missing (${plan.overdue.length})</p>${btn(`data-excuse-all="${esc(s.id)}"`, 'Excuse all')}</div>
+          <div class="mt-2 flex items-baseline justify-between"><p class="text-sm font-semibold text-rose-700">Missing (${plan.overdue.length})</p>${btn(`data-excuse-all="${esc(keyOf(s))}"`, 'Excuse all')}</div>
           <ul class="mt-1 divide-y divide-ink-100 text-sm">${plan.overdue.map((t) => `
-            <li class="flex items-baseline gap-3 py-1.5"><span class="w-14 shrink-0 text-xs text-ink-500">Week ${t.week}</span><span class="flex-1">${esc(t.label)}</span>${btn(`data-excuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Excuse')}</li>`).join('')}</ul>`
+            <li class="flex items-baseline gap-3 py-1.5"><span class="w-14 shrink-0 text-xs text-ink-500">Week ${t.week}</span><span class="flex-1">${esc(t.label)}</span>${btn(`data-excuse="${esc(keyOf(s))}" data-task="${esc(t.id)}"`, 'Excuse')}</li>`).join('')}</ul>`
           : '<p class="mt-2 text-sm text-green-700">Nothing missing.</p>'}
         ${due.length ? `<p class="mt-2 text-xs text-ink-500">This week (week ${plan.currentWeek}): ${due.map((t) => esc(t.label)).join(' · ')}</p>` : ''}
         ${plan.excusedTasks.length ? `<details class="mt-2 text-xs"><summary class="cursor-pointer text-ink-500">Excused (${plan.excusedTasks.length})</summary>
-          <ul class="mt-1 space-y-1 text-ink-500">${plan.excusedTasks.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-unexcuse="${esc(s.id)}" data-task="${esc(t.id)}"`, 'Undo')}</li>`).join('')}</ul></details>` : ''}`;
+          <ul class="mt-1 space-y-1 text-ink-500">${plan.excusedTasks.map((t) => `<li>Week ${t.week}: ${esc(t.label)} ${btn(`data-unexcuse="${esc(keyOf(s))}" data-task="${esc(t.id)}"`, 'Undo')}</li>`).join('')}</ul></details>` : ''}`;
     }
 
     // The links a written-event team (or student) shared, for the advisor to open.
@@ -979,7 +1057,7 @@
     let adminPlan = 'roleplay';
     const SAMPLE_EVENT = { roleplay: 'AAM', written: 'BOR', selling: 'PSE', sbeChapter: 'SBEC', sbeIndividual: 'SBEI' };
     const chapterFirst = (type = adminPlan) => firstOf(SAMPLE_EVENT[type]);
-    const planStudents = (type = adminPlan) => students.filter((s) => planOf(s)?.type === type);
+    const planStudents = (type = adminPlan) => rows.filter((s) => planOf(s)?.type === type);
     const PLAN_STUDENTS = {
       roleplay: 'role play students', written: 'written event students', selling: 'selling event students',
       sbeChapter: 'SBE chapter students', sbeIndividual: 'SBE individual students',
@@ -1006,13 +1084,11 @@
       const picked = ids.filter((id) => notDone.has(id));
       const team = teamOfStudent(s);
       const shared = sharedTaskIds(s.eventCode);
-      const mates = team ? students.filter((x) => x.id !== s.id && team.memberUids.includes(x.id)) : [];
+      const mates = team ? rows.filter((x) => x.id !== s.id && x.eventCode === s.eventCode && team.memberUids.includes(x.id)) : [];
       const write = async (who, list, extra = {}) => {
         const next = { ...(who.planExcused || {}) };
         list.forEach((id) => { next[id] = true; });
-        const changes = { planExcused: next, ...extra };
-        await updateDoc(doc(db, 'users', who.id), changes);
-        Object.assign(who, changes);
+        await saveProgress(who, { planExcused: next, ...extra });
       };
       await write(s, picked, lateHandled ? { planLateHandled: true } : {});
       const teamIds = picked.filter((id) => shared.has(id));
@@ -1022,12 +1098,11 @@
     // Undo an excuse (for the whole team when the team shares the task).
     async function unexcuseFor(s, id) {
       const team = teamOfStudent(s);
-      const who = team && sharedTaskIds(s.eventCode).has(id) ? students.filter((x) => team.memberUids.includes(x.id)) : [s];
+      const who = team && sharedTaskIds(s.eventCode).has(id) ? rows.filter((x) => x.eventCode === s.eventCode && team.memberUids.includes(x.id)) : [s];
       await Promise.all(who.map(async (x) => {
         const next = { ...(x.planExcused || {}) };
         delete next[id];
-        await updateDoc(doc(db, 'users', x.id), { planExcused: next });
-        x.planExcused = next;
+        await saveProgress(x, { planExcused: next });
       }));
     }
 
@@ -1217,7 +1292,7 @@
 
     // ---------- Teams ----------
     function updateTeamBar() {
-      const chosen = [...selected].map((id) => students.find((s) => s.id === id)).filter(Boolean);
+      const chosen = [...selected].map(rowByKey).filter(Boolean);
       show($('[data-team-bar]'), chosen.length > 0);
       if (!chosen.length) return;
       const codes = new Set(chosen.map((s) => s.eventCode));
@@ -1234,7 +1309,7 @@
     }
 
     $('[data-team-make]').addEventListener('click', async () => {
-      const chosen = [...selected].map((id) => students.find((s) => s.id === id));
+      const chosen = [...selected].map(rowByKey);
       // The team starts with everything its members already did on their own.
       const progress = mergeProgress(chosen, sharedTaskIds(chosen[0].eventCode));
       await addDoc(collection(db, 'teams'), {
@@ -1248,7 +1323,7 @@
     $('[data-team-clear]').addEventListener('click', () => { selected.clear(); render(); });
 
     $('[data-copy-emails]').addEventListener('click', () => {
-      const emails = students.filter((x) => visibleIds.has(x.id)).map((x) => x.email).filter(Boolean);
+      const emails = peopleIn(rows.filter((x) => visibleIds.has(keyOf(x)))).map((x) => x.email).filter(Boolean);
       if (!emails.length) { $('[data-emails-note]').textContent = 'No students showing.'; return; }
       copy(emails.join(', '), '[data-emails-note]', `✓ Copied ${emails.length} email${emails.length === 1 ? '' : 's'}. Paste them into the To: line.`);
     });
@@ -1270,14 +1345,14 @@
     }
 
     function fillDraft() {
-      const group = students.filter((x) => visibleIds.has(x.id));
+      const group = rows.filter((x) => visibleIds.has(keyOf(x)));
       const draft = buildDraft({ group: statusFilter, version: draftVersion, competitions: upcomingFor(group), advisorName: advisor.name });
       $('[data-draft-subject]').value = draft.subject;
       $('[data-draft-body]').value = draft.body;
     }
 
     $('[data-draft]').addEventListener('click', () => {
-      const group = students.filter((x) => visibleIds.has(x.id));
+      const group = peopleIn(rows.filter((x) => visibleIds.has(keyOf(x))));
       draftEmails = group.map((x) => x.email).filter(Boolean);
       if (!draftEmails.length) { $('[data-emails-note]').textContent = 'No students showing.'; return; }
       draftVersion = 0;
@@ -1317,12 +1392,12 @@
       const planButton = e.target.closest('[data-excuse], [data-excuse-all], [data-unexcuse], [data-excuse-late], [data-keep-late]');
       if (planButton) {
         const d = planButton.dataset;
-        const s = students.find((x) => x.id === (d.excuse || d.excuseAll || d.unexcuse || d.excuseLate || d.keepLate));
+        const s = rowByKey(d.excuse || d.excuseAll || d.unexcuse || d.excuseLate || d.keepLate);
         const plan = planOf(s);
         if (d.excuse) await excuseFor(s, [d.task]);
         else if (d.excuseAll) await excuseFor(s, plan.overdue.map((t) => t.id));
         else if (d.excuseLate) await excuseFor(s, lateJoin(s).tasks.map((t) => t.id), { lateHandled: true });
-        else if (d.keepLate) { await updateDoc(doc(db, 'users', s.id), { planLateHandled: true }); s.planLateHandled = true; }
+        else if (d.keepLate) await saveProgress(s, { planLateHandled: true });
         else if (d.unexcuse) await unexcuseFor(s, d.task);
         render();
         return;
@@ -1384,11 +1459,11 @@
       if (breakTeam && confirm('Break up this team? The students stay on the dashboard; they just won\'t be grouped. Each keeps a copy of the team\'s plan progress.')) {
         // Each member keeps a copy of the team's plan progress on their own account.
         const team = teams.find((t) => t.id === breakTeam.dataset.breakTeam);
-        const members = students.filter((x) => team.memberUids.includes(x.id));
+        const members = rows.filter((x) => x.eventCode === team.eventCode && team.memberUids.includes(x.id));
         await Promise.all(members.map((m) => {
           const kept = mergeProgress([m, team], sharedTaskIds(team.eventCode));
           const ownOnly = Object.fromEntries(Object.entries(m.planChecks || {}).filter(([id]) => !sharedTaskIds(team.eventCode).has(id)));
-          return updateDoc(doc(db, 'users', m.id), { planChecks: { ...ownOnly, ...kept.planChecks }, planLinks: { ...(m.planLinks || {}), ...kept.planLinks } });
+          return saveProgress(m, { planChecks: { ...ownOnly, ...kept.planChecks }, planLinks: { ...(m.planLinks || {}), ...kept.planLinks } });
         }));
         await deleteDoc(doc(db, 'teams', breakTeam.dataset.breakTeam));
         await load();
@@ -1398,7 +1473,7 @@
       if (triesButton) {
         const id = triesButton.dataset.tries;
         if (openTries.has(id)) openTries.delete(id); else openTries.add(id);
-        await fillPanel(students.find((x) => x.id === triesButton.dataset.student));
+        await fillPanel(rowByKey(triesButton.dataset.student));
         return;
       }
       const del = e.target.closest('[data-delete-attempt]');

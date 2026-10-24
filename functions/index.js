@@ -4,7 +4,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore');
 const EVENTS = require('./events');
 const {
   grade, summarize, addToStats, removeFromStats, batchFromScores, applyBatch, correctFlags, applyQuestionCounts,
@@ -55,10 +55,12 @@ function normalizeCode(value) {
 // along any SBE plan progress the student saved on their own. Keep in sync
 // with docs/js/events.js (SBE_CHAPTER, chapterTeamId).
 const SBE_CHAPTER = 'SBEC';
-const SBE_TASK = /^sbe-/;
+// The student's own SBE task progress: "sbe-..." on their main event, or
+// "SBEC__sbe-..." when SBE is one of their extra events.
+const SBE_TASK = /^(SBEC__)?(sbe-.+)$/;
 
 function pickSbe(map = {}) {
-  return Object.fromEntries(Object.entries(map || {}).filter(([id]) => SBE_TASK.test(id)));
+  return Object.fromEntries(Object.entries(map || {}).map(([id, v]) => [SBE_TASK.exec(id)?.[2], v]).filter(([id]) => id));
 }
 
 // Adds or removes a student on their school's SBE team, inside a transaction
@@ -146,6 +148,7 @@ exports.changeEvent = onCall(CALLABLE, async (req) => {
     if (!snap.exists) throw new HttpsError('failed-precondition', 'Finish signing up first.');
     const user = snap.data();
     if (user.eventCode === event.code) throw invalid("That's already your event.");
+    if ((user.extraEvents || []).includes(event.code)) throw invalid("That's already one of your events. Make it your main event instead.");
     // Moving onto or off the SBE chapter team.
     const sbeChange = user.eventCode === SBE_CHAPTER || event.code === SBE_CHAPTER;
     const teamRef = db.doc(`teams/sbe-${user.schoolId}`);
@@ -162,6 +165,115 @@ exports.changeEvent = onCall(CALLABLE, async (req) => {
       updateSbeTeam(tx, teamRef, teamSnap, { uid: auth.uid, schoolId: user.schoolId, user, joining: event.code === SBE_CHAPTER });
     }
     return { ok: true, track };
+  });
+});
+
+// ---------- More than one event ----------
+// An advisor can let students at their school sign up for more than one event
+// (schools/{id}.eventSettings = { multi: true, max: 2 or 3 }). The main event
+// stays in eventCode/eventName/cluster; the others are in extraEvents. Plan
+// progress for an extra event is kept under "CODE__taskId" keys in the same
+// maps. Keep in sync with docs/js/student-events.js.
+const SEP = '__';
+const PROGRESS_FIELDS = ['planChecks', 'planLinks', 'planExcused'];
+const isPrefixed = (key) => /^[A-Z]+__/.test(key);
+
+function multiSettings(school) {
+  const s = (school && school.eventSettings) || {};
+  return { multi: !!s.multi, max: s.max === 3 ? 3 : 2 };
+}
+
+// Within a transaction: read the user, their school, and (when SBE Chapter is
+// involved) the school's SBE team, before any writes.
+async function readForEvents(tx, uid, sbeInvolved) {
+  const userRef = db.doc(`users/${uid}`);
+  const userSnap = await tx.get(userRef);
+  if (!userSnap.exists) throw new HttpsError('failed-precondition', 'Finish signing up first.');
+  const user = userSnap.data();
+  const schoolSnap = await tx.get(db.doc(`schools/${user.schoolId}`));
+  const teamRef = db.doc(`teams/sbe-${user.schoolId}`);
+  const teamSnap = sbeInvolved ? await tx.get(teamRef) : null;
+  return { userRef, user, school: schoolSnap.exists ? schoolSnap.data() : {}, teamRef, teamSnap };
+}
+
+exports.addEvent = onCall(CALLABLE, async (req) => {
+  const auth = requireUser(req);
+  const event = EVENTS.find((e) => e.code === (req.data || {}).eventCode);
+  if (!event) throw invalid('Please pick your event.');
+  return db.runTransaction(async (tx) => {
+    const { userRef, user, school, teamRef, teamSnap } = await readForEvents(tx, auth.uid, event.code === SBE_CHAPTER);
+    const { multi, max } = multiSettings(school);
+    if (!multi) throw new HttpsError('permission-denied', "Your advisor hasn't turned on more than one event.");
+    const extras = user.extraEvents || [];
+    if (user.eventCode === event.code || extras.includes(event.code)) throw invalid("That's already one of your events.");
+    if (1 + extras.length >= max) throw new HttpsError('failed-precondition', `Your school allows ${max} events per student.`);
+    tx.update(userRef, {
+      extraEvents: [...extras, event.code],
+      eventHistory: FieldValue.arrayUnion({ eventCode: event.code, added: true, at: new Date() }),
+    });
+    if (event.code === SBE_CHAPTER) {
+      updateSbeTeam(tx, teamRef, teamSnap, { uid: auth.uid, schoolId: user.schoolId, user, joining: true });
+    }
+    return { ok: true };
+  });
+});
+
+exports.removeEvent = onCall(CALLABLE, async (req) => {
+  const auth = requireUser(req);
+  const code = (req.data || {}).eventCode;
+  return db.runTransaction(async (tx) => {
+    const { userRef, user, teamRef, teamSnap } = await readForEvents(tx, auth.uid, code === SBE_CHAPTER);
+    const extras = user.extraEvents || [];
+    if (user.eventCode === code) throw invalid("That's your main event. Make another event your main one first.");
+    if (!extras.includes(code)) throw invalid("That isn't one of your events.");
+    // Drop that event's saved progress along with it.
+    const changes = [new FieldPath('extraEvents'), extras.filter((c) => c !== code)];
+    PROGRESS_FIELDS.forEach((field) => {
+      Object.keys(user[field] || {}).filter((k) => k.startsWith(`${code}${SEP}`)).forEach((k) => {
+        changes.push(new FieldPath(field, k), FieldValue.delete());
+      });
+    });
+    tx.update(userRef, ...changes);
+    if (code === SBE_CHAPTER) updateSbeTeam(tx, teamRef, teamSnap, { uid: auth.uid, joining: false });
+    return { ok: true };
+  });
+});
+
+// Makes one of the student's extra events their main event (the old main
+// becomes an extra). Progress moves with each event.
+exports.setMainEvent = onCall(CALLABLE, async (req) => {
+  const auth = requireUser(req);
+  const event = EVENTS.find((e) => e.code === (req.data || {}).eventCode);
+  if (!event) throw invalid('Please pick your event.');
+  return db.runTransaction(async (tx) => {
+    const { userRef, user } = await readForEvents(tx, auth.uid, false);
+    const extras = user.extraEvents || [];
+    if (user.eventCode === event.code) throw invalid("That's already your main event.");
+    if (!extras.includes(event.code)) throw invalid("That isn't one of your events.");
+    const oldMain = user.eventCode;
+    const newPrefix = `${event.code}${SEP}`;
+    const swap = (map = {}) => Object.fromEntries(Object.entries(map).map(([k, v]) => {
+      if (k.startsWith(newPrefix)) return [k.slice(newPrefix.length), v];
+      if (!isPrefixed(k)) return [`${oldMain}${SEP}${k}`, v];
+      return [k, v];
+    }));
+    const late = { ...(user.planLateHandledEvents || {}) };
+    const newMainLate = !!late[event.code];
+    delete late[event.code];
+    if (user.planLateHandled) late[oldMain] = true;
+    tx.update(userRef, {
+      eventCode: event.code,
+      eventName: event.event,
+      cluster: event.cluster,
+      extraEvents: [oldMain, ...extras.filter((c) => c !== event.code)],
+      planChecks: swap(user.planChecks),
+      planLinks: swap(user.planLinks),
+      planExcused: swap(user.planExcused),
+      planLateHandled: newMainLate,
+      planLateHandledEvents: late,
+      eventHistory: FieldValue.arrayUnion({ eventCode: event.code, track: user.track || 1, madeMain: true, at: new Date() }),
+    });
+    return { ok: true };
   });
 });
 
@@ -184,8 +296,11 @@ exports.submitAttempt = onCall(CALLABLE, async (req) => {
   if (!examSnap.exists || !keySnap.exists) throw new HttpsError('not-found', 'That exam is no longer available.');
   const user = userSnap.data();
   const exam = examSnap.data();
-  if (exam.cluster !== user.cluster) throw new HttpsError('permission-denied', "That exam isn't part of your event's cluster.");
-  if (EVENTS.NO_EXAM_EVENTS.has(user.eventCode)) throw new HttpsError('permission-denied', "Your event doesn't take a cluster exam.");
+  // Students with more than one event can take any of their events' cluster exams.
+  const examEvents = [user.eventCode, ...(user.extraEvents || [])].filter((code) => !EVENTS.NO_EXAM_EVENTS.has(code));
+  if (!examEvents.length) throw new HttpsError('permission-denied', "Your event doesn't take a cluster exam.");
+  const clusters = new Set(examEvents.map((code) => EVENTS.find((e) => e.code === code)?.cluster));
+  if (!clusters.has(exam.cluster)) throw new HttpsError('permission-denied', "That exam isn't part of your event's cluster.");
   const key = keySnap.data().questions;
   if (answers.length !== key.length) throw invalid(`Expected ${key.length} answers.`);
 

@@ -18,8 +18,21 @@
 
     <dl data-info class="mt-6 bg-white rounded-2xl border border-ink-200 p-6 space-y-3 text-sm"></dl>
 
+    <!-- More than one event (when the advisor turns it on). -->
+    <section data-events class="hidden mt-8 bg-white rounded-2xl border border-ink-200 p-6">
+      <h2 class="font-semibold text-lg">Your events</h2>
+      <p data-events-note class="mt-1 text-sm text-ink-600"></p>
+      <ul data-events-list class="mt-3 divide-y divide-ink-100"></ul>
+      <form data-add-form class="hidden mt-4 space-y-3 border-t border-ink-100 pt-4">
+        <label class="block text-sm font-medium text-ink-700" for="add-event">Add another event</label>
+        <select id="add-event" name="eventCode" required class="w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+        <button type="submit" class="w-full rounded-lg bg-ink-900 text-cream-50 px-4 py-2.5 font-medium hover:bg-ink-800 disabled:opacity-60">Add event</button>
+      </form>
+      <p data-events-error class="hidden mt-3 rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700"></p>
+    </section>
+
     <form data-form class="mt-8 bg-white rounded-2xl border border-ink-200 p-6 space-y-4">
-      <h2 class="font-semibold text-lg">Change your event</h2>
+      <h2 data-change-title class="font-semibold text-lg">Change your event</h2>
       <select name="eventCode" required class="w-full rounded-lg border border-ink-300 px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
       <p data-cluster-note class="hidden text-sm text-ink-700 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3"></p>
 
@@ -32,18 +45,23 @@
   </main>
 
   <script type="module">
-    import { requireUser, renderHeader, call, esc, show, isViewingAs } from './js/app.js';
+    import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { db, requireUser, renderHeader, call, esc, show, isViewingAs } from './js/app.js';
     import { eventOptionsHtml } from './js/event-picker.js';
     import { EVENTS, takesExam } from './js/events.js';
+    import { multiEventSettings, studentEventCodes } from './js/student-events.js';
 
     const { user, profile } = await requireUser();
     renderHeader({ user, profile, active: 'profile' });
+    const extras = studentEventCodes(profile).slice(1);
+    const eventName = (code) => EVENTS.find((e) => e.code === code)?.event || code;
 
     const rows = [
       ['Name', `${profile.firstName} ${profile.lastName}`],
       ['Email', profile.email || user.email],
       ['School', profile.schoolName],
       ['Event', `${profile.eventName} (${profile.eventCode})`],
+      ...(extras.length ? [['Other events', extras.map((c) => `${eventName(c)} (${c})`).join(', ')]] : []),
       ['Cluster exam', takesExam(profile.eventCode) ? profile.cluster : 'None for this event'],
     ];
     document.querySelector('[data-info]').innerHTML = rows.map(([label, value]) => `
@@ -78,6 +96,59 @@
       form.querySelectorAll('select, input, button').forEach((el) => { el.disabled = true; });
       form.insertAdjacentHTML('afterbegin', '<p class="text-sm rounded-lg bg-tan-50 border border-tan-200 px-4 py-3 text-tan-700">View only: changing events is turned off while viewing as a student.</p>');
     }
+
+    // ---------- More than one event ----------
+    const schoolSnap = await getDoc(doc(db, 'schools', profile.schoolId)).catch(() => null);
+    const { multi, max } = multiEventSettings(schoolSnap?.exists() ? schoolSnap.data() : null);
+    const eventsBox = document.querySelector('[data-events]');
+    const eventsError = eventsBox.querySelector('[data-events-error]');
+    const addForm = eventsBox.querySelector('[data-add-form]');
+    const viewOnly = isViewingAs();
+    if (multi || extras.length) {
+      show(eventsBox, true);
+      const all = studentEventCodes(profile);
+      eventsBox.querySelector('[data-events-note]').textContent = multi
+        ? `Your school lets you sign up for up to ${max} events. Your main event leads your Event Hub; each event gets its own prep plan.`
+        : "Your advisor turned off more than one event. You can still remove an event or pick your main one.";
+      eventsBox.querySelector('[data-events-list]').innerHTML = all.map((code, i) => `
+        <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-sm">
+          <span class="flex-1 min-w-0"><span class="font-medium">${esc(eventName(code))}</span> <span class="text-ink-500">${esc(code)}</span></span>
+          ${i === 0 ? '<span class="rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5">Main event</span>' : viewOnly ? '' : `
+            <button type="button" data-make-main="${esc(code)}" class="text-blue-600 underline">Make main event</button>
+            <button type="button" data-remove-event="${esc(code)}" class="text-ink-500 underline hover:text-rose-600">Remove</button>`}
+        </li>`).join('');
+      if (multi && all.length < max && !viewOnly) {
+        addForm.eventCode.innerHTML = eventOptionsHtml('');
+        // Events they already have can't be added again.
+        all.forEach((code) => { const opt = addForm.eventCode.querySelector(`option[value="${CSS.escape(code)}"]`); if (opt) opt.disabled = true; });
+        show(addForm, true);
+      }
+      if (all.length > 1) form.querySelector('[data-change-title]').textContent = 'Change your main event';
+    }
+    async function eventsCall(name, data, button) {
+      show(eventsError, false);
+      button.disabled = true;
+      try {
+        await call(name, data);
+        location.reload();
+      } catch (err) {
+        eventsError.textContent = err.message;
+        show(eventsError, true);
+        button.disabled = false;
+      }
+    }
+    addForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      eventsCall('addEvent', { eventCode: addForm.eventCode.value }, addForm.querySelector('button'));
+    });
+    eventsBox.addEventListener('click', (e) => {
+      const main = e.target.closest('[data-make-main]');
+      const remove = e.target.closest('[data-remove-event]');
+      if (main) eventsCall('setMainEvent', { eventCode: main.dataset.makeMain }, main);
+      if (remove && confirm(`Remove ${eventName(remove.dataset.removeEvent)}? Its prep plan check-offs go with it. Exams and role plays you logged stay.`)) {
+        eventsCall('removeEvent', { eventCode: remove.dataset.removeEvent }, remove);
+      }
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

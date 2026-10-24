@@ -54,6 +54,57 @@ const handlers = {
     return { ok: true, track: user.track };
   },
 
+  // More than one event (same rules as the real server).
+  async addEvent({ eventCode }) {
+    const user = table('users')[DEMO_USER.uid];
+    const event = EVENTS.find((e) => e.code === eventCode) || fail('Please pick your event.');
+    const settings = table('schools')[user.schoolId]?.eventSettings || {};
+    if (!settings.multi) fail("Your advisor hasn't turned on more than one event.");
+    const max = settings.max === 3 ? 3 : 2;
+    const extras = user.extraEvents || [];
+    if (user.eventCode === event.code || extras.includes(event.code)) fail("That's already one of your events.");
+    if (1 + extras.length >= max) fail(`Your school allows ${max} events per student.`);
+    user.extraEvents = [...extras, event.code];
+    user.eventHistory = [...(user.eventHistory || []), { eventCode: event.code, added: true, at: timestamp(new Date()) }];
+    if (event.code === 'SBEC') updateSbeTeam(user, true);
+    save();
+    return { ok: true };
+  },
+
+  async removeEvent({ eventCode }) {
+    const user = table('users')[DEMO_USER.uid];
+    if (user.eventCode === eventCode) fail("That's your main event. Make another event your main one first.");
+    if (!(user.extraEvents || []).includes(eventCode)) fail("That isn't one of your events.");
+    user.extraEvents = user.extraEvents.filter((c) => c !== eventCode);
+    ['planChecks', 'planLinks', 'planExcused'].forEach((f) => {
+      Object.keys(user[f] || {}).filter((k) => k.startsWith(`${eventCode}__`)).forEach((k) => delete user[f][k]);
+    });
+    if (eventCode === 'SBEC') updateSbeTeam(user, false);
+    save();
+    return { ok: true };
+  },
+
+  async setMainEvent({ eventCode }) {
+    const user = table('users')[DEMO_USER.uid];
+    const event = EVENTS.find((e) => e.code === eventCode) || fail('Please pick your event.');
+    if (!(user.extraEvents || []).includes(event.code)) fail("That isn't one of your events.");
+    const oldMain = user.eventCode;
+    const swap = (map = {}) => Object.fromEntries(Object.entries(map).map(([k, v]) => (k.startsWith(`${event.code}__`) ? [k.slice(event.code.length + 2), v]
+      : /^[A-Z]+__/.test(k) ? [k, v] : [`${oldMain}__${k}`, v])));
+    const late = { ...(user.planLateHandledEvents || {}) };
+    const newLate = !!late[event.code];
+    delete late[event.code];
+    if (user.planLateHandled) late[oldMain] = true;
+    Object.assign(user, {
+      eventCode: event.code, eventName: event.event, cluster: event.cluster,
+      extraEvents: [oldMain, ...user.extraEvents.filter((c) => c !== event.code)],
+      planChecks: swap(user.planChecks), planLinks: swap(user.planLinks), planExcused: swap(user.planExcused),
+      planLateHandled: newLate, planLateHandledEvents: late,
+    });
+    save();
+    return { ok: true };
+  },
+
   // Same rules as the real server: a retake 3 days after the last try, every try counts, flag after 5.
   async submitAttempt({ examId, answers, startedAt }) {
     const user = table('users')[DEMO_USER.uid];

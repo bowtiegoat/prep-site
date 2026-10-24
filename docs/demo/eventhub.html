@@ -28,6 +28,7 @@
       <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div class="flex items-center gap-3">
           <div>
+            <p data-plan-event class="hidden text-xs font-semibold uppercase tracking-[0.15em] text-blue-700"></p>
             <h2 class="font-serif text-xl sm:text-2xl font-bold">Your Prep Plan <span data-plan-soon class="align-middle ml-1 inline-block rounded-full bg-tan-100 text-tan-700 text-xs font-sans font-semibold px-2 py-0.5">Coming soon</span></h2>
             <p data-countdown class="mt-0.5 text-sm text-ink-500"></p>
           </div>
@@ -189,6 +190,7 @@
     import { byExam, retakeAvailableAt, shortDay } from './js/attempts.js';
     import { planApplies } from './js/prep-plan.js';
     import { initPrepPlan, showAdvisorNotes } from './js/prep-plan-card.js';
+    import { eventView, studentEventCodes } from './js/student-events.js';
     import { initCardsDrawer } from './js/cards-drawer.js';
 
     const { user, profile } = await requireUser();
@@ -215,8 +217,12 @@
     banner.classList.toggle('text-ink-900', !!color.darkText);
     document.querySelector('[data-greeting]').textContent = `Hi, ${profile.firstName} · ${event?.type === 'SBE' ? profile.cluster : `${profile.cluster} cluster`}`;
     document.querySelector('[data-event-title]').textContent = profile.eventName;
-    document.querySelector('[data-event]').innerHTML =
-      `${esc(profile.eventCode)} · <a href="profile.html" class="underline hover:opacity-100">Change event</a>`;
+    // Students with more than one event: the main one leads; the others get their own plan cards below.
+    const myCodes = studentEventCodes(profile);
+    const extraCodes = myCodes.slice(1);
+    const eventLabel = (code) => EVENTS.find((e) => e.code === code)?.event || code;
+    document.querySelector('[data-event]').innerHTML = `${esc(profile.eventCode)}${extraCodes.length ? ' · Main event' : ''} · <a href="profile.html" class="underline hover:opacity-100">${extraCodes.length ? 'Manage events' : 'Change event'}</a>`
+      + (extraCodes.length ? `<span class="block mt-1">Also: ${extraCodes.map((c) => `${esc(eventLabel(c))} (${esc(c)})`).join(' · ')}</span>` : '');
 
     // Quick links for the student's event: DECA page, guidelines, DECA+.
     const outline = color.darkText ? 'border-ink-900/40 bg-white/30 hover:bg-white/50' : 'border-white/40 bg-white/15 hover:bg-white/25';
@@ -231,8 +237,9 @@
         ${esc(r.title)} <span aria-hidden="true">↗</span>
       </a>`).join('');
 
-    // ---------- Role play practice (role play events only) ----------
-    if (event?.type === 'Role Play') initRolePlayDrawer({ user, profile, event }).catch(() => {
+    // ---------- Role play practice (role play events only; one log per event) ----------
+    const rolePlayCodes = myCodes.filter((c) => EVENTS.find((e) => e.code === c)?.type === 'Role Play');
+    if (rolePlayCodes.length) initRolePlayDrawer({ user, profile, codes: rolePlayCodes }).catch(() => {
       document.querySelector('[data-rp-summary]').textContent = "Your role play logs couldn't load. Refresh to try again.";
     });
 
@@ -243,22 +250,63 @@
 
     // ---------- Prep plan (counts back from the first competition) ----------
     Promise.all([getDoc(doc(db, 'schools', profile.schoolId)), loadSbeDates()]).then(([snap, sbe]) => {
-      const first = firstCompetition(profile.eventCode, snap.exists() ? snap.data().competitionDates : null, sbe);
+      const dates = snap.exists() ? snap.data().competitionDates : null;
       const settings = (snap.exists() && snap.data().planSettings) || {};
-      if (planApplies(profile.eventCode)) {
-        initPrepPlan({ user, profile, first, links, attemptFilters, settings }).catch((err) => console.error(err));
-      } else {
-        showAdvisorNotes({ settings });
-      }
-      const box = document.querySelector('[data-countdown]');
-      if (!first) { box.textContent = "Your advisor hasn't set your competition dates yet."; return; }
-      if (!first.date) { box.textContent = first.label; return; }
+      const mainCard = document.querySelector('[data-plan-card]');
+      // One plan card per event: the main event's card first, then the others.
+      myCodes.forEach((code, i) => {
+        const card = i === 0 ? mainCard : extraPlanCard(code, mainCard);
+        if (extraCodes.length) {
+          const tag = card.querySelector('[data-plan-event]');
+          tag.textContent = `${eventLabel(code)} (${code})${i === 0 ? ' · Main event' : ''}`;
+          tag.classList.remove('hidden');
+        }
+        const first = firstCompetition(code, dates, sbe);
+        const eventLinksFor = EVENT_LINKS[code] || SBE_LINKS[code] || {};
+        if (planApplies(code)) {
+          initPrepPlan({ user, profile: eventView(profile, code), first, links: eventLinksFor, attemptFilters, settings, card }).catch((err) => console.error(err));
+        } else if (i === 0) {
+          showAdvisorNotes({ settings });
+        }
+        card.querySelector('[data-countdown]').textContent = countdownText(first);
+      });
+    }).catch(() => {});
+
+    function countdownText(first) {
+      if (!first) return "Your advisor hasn't set your competition dates yet.";
+      if (!first.date) return first.label;
       const days = Math.round((new Date(`${first.date}T12:00`) - new Date(`${new Date().toLocaleDateString('en-CA')}T12:00`)) / 86400000);
       const when = new Date(`${first.date}T12:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-      box.textContent = days >= 0
+      return days >= 0
         ? `${first.label} · ${when} · ${days >= 14 ? `${Math.floor(days / 7)} weeks away` : days === 0 ? 'today!' : `${days} day${days === 1 ? '' : 's'} away`}`
         : `${first.label} was ${when}`;
-    }).catch(() => {});
+    }
+
+    // A plan card for one of the student's other events, placed after the last plan card.
+    function extraPlanCard(code, mainCard) {
+      const card = document.createElement('section');
+      card.dataset.planCard = code;
+      card.className = mainCard.className;
+      card.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div>
+            <p data-plan-event class="hidden text-xs font-semibold uppercase tracking-[0.15em] text-blue-700"></p>
+            <h2 class="font-serif text-xl sm:text-2xl font-bold">Your Prep Plan <span data-plan-soon class="hidden"></span></h2>
+            <p data-countdown class="mt-0.5 text-sm text-ink-500"></p>
+          </div>
+          <div class="w-full sm:w-48">
+            <div class="flex justify-between text-xs text-ink-500"><span>Progress</span><span data-plan-count></span></div>
+            <div class="mt-1 h-2 rounded-full bg-ink-100"><div data-plan-bar class="h-2 w-0 rounded-full bg-green-600"></div></div>
+          </div>
+        </div>
+        <div data-plan-body class="hidden"></div>
+        <div data-plan-placeholder>
+          <p class="mt-4 text-sm text-ink-600">${planApplies(code) ? 'Loading your plan…' : "This event doesn't have a prep plan."}</p>
+        </div>`;
+      const cards = document.querySelectorAll('[data-plan-card]');
+      cards[cards.length - 1].after(card);
+      return card;
+    }
 
     // ---------- Cluster exams (events that take one) ----------
     if (takesExam(profile.eventCode)) {
