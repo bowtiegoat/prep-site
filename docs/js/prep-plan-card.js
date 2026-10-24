@@ -173,6 +173,7 @@ export async function initPrepPlan({ user, profile, first, links: eventLinks, at
           <span class="flex-1 min-w-0 text-sm">
             <span class="${t.state === 'done' ? 'line-through' : 'text-ink-900'}">${esc(t.label)}</span>
             ${extra ? `<span class="block text-xs text-ink-500">${extra}</span>` : ''}
+            ${t.detail?.length && t.state !== 'done' ? `<ul class="mt-1 list-disc pl-4 space-y-0.5 text-xs text-ink-600">${t.detail.map((d) => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}
             ${t.kind === 'link' ? linkBox(t) : ''}
           </span>
           <span class="shrink-0 flex items-center gap-2 text-xs text-ink-500">${BADGE[t.state] || ''}${showWeek ? `Week ${t.week}` : ''}</span>

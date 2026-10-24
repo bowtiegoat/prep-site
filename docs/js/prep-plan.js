@@ -8,10 +8,11 @@
 //             also take the cluster exams.
 // - selling:  8 weeks for Professional Selling and Consulting events (no
 //             paper): the cluster exams plus building and practicing the presentation.
-// - sbeChapter / sbeIndividual: School-based Enterprise certification, counting
-//             back to the dates the admin sets (see competitions.js). The chapter
-//             team shares one plan. FIRST DRAFT: placeholder tasks until the
-//             BowtieGOAT SBE timeline is written.
+// - sbeChapter: 12 weeks for School-based Enterprise chapter certification
+//             (Gold), counting back to DECA's deadline the admin sets (see
+//             competitions.js). The chapter team shares one plan.
+// - sbeIndividual: SBE individual certification exam. FIRST DRAFT: placeholder
+//             tasks until the BowtieGOAT timeline is written.
 //
 // - Weeks run Monday to Sunday. The last week ends on the Sunday before the
 //   student's first competition; the days after are their own review time.
@@ -36,7 +37,7 @@ export const PLANS = {
   roleplay: { weeks: 8, name: 'Role play events', examWeeks: [1, 3, 5, 6, 7, 8] },
   written: { weeks: 16, name: 'Written events', examWeeks: [3, 5, 7, 9, 11, 13] },
   selling: { weeks: 8, name: 'Selling events', examWeeks: [1, 3, 5, 6, 7, 8] },
-  sbeChapter: { weeks: 10, name: 'SBE chapter', examWeeks: [] },
+  sbeChapter: { weeks: 12, name: 'SBE chapter', examWeeks: [] },
   sbeIndividual: { weeks: 6, name: 'SBE individual', examWeeks: [] },
 };
 
@@ -178,20 +179,82 @@ function sellingTasks({ cluster, exams }, add) {
   add(8, 's-retake-weakest', 'retake', 'Retake your weakest exam');
 }
 
-// SBE chapter certification: the whole chapter team shares every task.
-// link: a key in SBE_LINKS (sbe.js) for the task's DECA link.
-// PLACEHOLDER tasks until the BowtieGOAT SBE timeline is written.
+// SBE chapter certification, planned for Gold (every performance indicator,
+// rated Proficient or above). Built from DECA's 2026-27 Chapter Certification
+// Guidelines and its sample Gold retail manual. The whole chapter team shares
+// every task. Weeks 6 and 10-11 are lighter (Thanksgiving, winter break).
+// link: a key in SBE_LINKS (sbe.js). detail: lines shown under the task.
+const SBE_EVIDENCE = 'For each indicator: what students decided and did, a real example, and a chart, photo, or record.';
+const SBE_STANDARDS = [
+  // [week, number, name, indicators, extra detail]
+  [4, 1, 'Financial Analysis', ['Role of finance in business', 'Need for financial information', 'Nature of budgets', 'Responsible financial decisions', 'Maintaining financial records', 'Technology for financial information'], 'Required: a copy of the SBE budget and copies of financial records.'],
+  [4, 2, 'Operations', ['Open/close register or terminal', 'Equipment, tools, and machinery', 'Health and safety regulations', 'Routine security precautions']],
+  [5, 3, 'Marketing-Information Management', ['Need for marketing data', 'Data monitored for marketing decisions', 'Tracking trends', 'Analyzing customer behavior']],
+  [5, 4, 'Market Planning', ['Customer profile (demographics and psychographics, average spend)', 'Market analysis', 'Linking performance measures to financial outcomes']],
+  [6, 5, 'Product/Service Management', ['Components of a retail image', 'Choosing vendors', 'Planning merchandise assortment', 'Stock turnover', 'Planning reductions (markdowns, discounts, shortages)']],
+  [6, 6, 'Pricing', ['Nature and scope of the pricing function', 'Factors affecting pricing decisions'], 'Show real break-even, ROI, and markup examples.'],
+  [7, 7, 'Distribution/Channel Management', ['Customer service and distribution', 'The receiving process', 'Inventory counts', 'Inventory shrinkage']],
+  [7, 8, 'Promotion', ['Promotional plan (objectives and budget)', 'Visual merchandising', 'Cross-merchandising', 'Special events', 'Tracking marketing-communications activities']],
+  [8, 9, 'Selling', ['Determining customer needs', 'Building customer relationships', 'Suggestion selling', 'Sales documentation (a typical transaction)', 'Returns and exchanges']],
+  [8, 10, 'Human Resources Management', ['Nature of HR management (hiring, training, motivating, keeping employees)', 'A positive environment for employees', 'Training staff', 'Assessing employee performance']],
+];
+
 function sbeChapterTasks(add) {
   const s = { shared: true };
-  add(1, 'sbe-guidelines', 'check', 'Read the chapter certification guidelines (or the re-certification guidelines if your SBE is renewing)', { link: 'guidelines', ...s });
-  add(1, 'sbe-sample', 'check', "Look over DECA's sample Gold-level certification paper", { link: 'sample', ...s });
-  add(1, 'sbe-split', 'check', 'Split the certification standards among your team', s);
-  add(2, 'sbe-outline', 'link', 'Create an outline of your SBE manual and share the link', { linkLabel: 'Outline', ...s });
-  add(5, 'sbe-draft', 'link', 'Finish a full rough draft and share the link', { linkLabel: 'Rough draft', ...s });
-  add(6, 'sbe-advisor-review', 'check', "Review your advisor's comments and make changes", s);
-  add(8, 'sbe-final', 'link', 'Share the final PDF of your SBE manual', { linkLabel: 'Final manual (PDF)', ...s });
-  add(9, 'sbe-submit-instructions', 'check', "Read DECA's online submission instructions", { link: 'submitInstructions', ...s });
-  add(10, 'sbe-submit', 'check', 'Submit your SBE manual to DECA', { link: 'submit', ...s });
+  // Week 1: kickoff
+  add(1, 'sbe-guidelines', 'check', "Read this year's chapter certification guidelines together", { link: 'guidelines', ...s });
+  add(1, 'sbe-sample', 'check', "Read DECA's sample Gold manual and note the evidence each standard uses", { link: 'sample', ...s });
+  add(1, 'sbe-category', 'check', 'Confirm your category: Food Operations or Retail Operations', { detail: ['Food: food or drinks are most of your items or sales.', 'Retail: merchandise or a service is most of your items or sales.'], ...s });
+  add(1, 'sbe-owners', 'check', 'Give each of the 10 standards an owner on your team', s);
+  // Week 2: set up
+  add(2, 'sbe-template', 'link', 'Set up your manual template and share the link', {
+    linkLabel: 'Manual template',
+    detail: ['Title page, one-page SBE description, table of contents.', 'Each standard as a heading, each performance indicator as a subheading.'],
+    ...s,
+  });
+  add(2, 'sbe-evidence-list', 'check', 'Start an evidence list: the photo, record, chart, or example that proves each indicator', s);
+  add(2, 'sbe-numbers', 'check', "Pull this year's numbers: sales and POS reports, budget, revenue to date, inventory counts", s);
+  // Week 3: evidence
+  add(3, 'sbe-description', 'check', 'Write the one-page SBE description', { detail: ['Target market, revenue, product mix, location, and strategic goals for the year.'], ...s });
+  add(3, 'sbe-photos', 'check', 'Take photos: the required SBE photo, displays, students at work, and equipment', s);
+  add(3, 'sbe-survey', 'check', 'Survey or interview customers (evidence for Standards 3 and 4)', s);
+  // Weeks 4-8: draft the standards
+  SBE_STANDARDS.forEach(([week, n, name, indicators, extra]) => {
+    add(week, `sbe-std-${n}`, 'check', `Draft Standard ${n}: ${name} (all ${indicators.length} indicators)`, {
+      detail: [...indicators, ...(extra ? [extra] : []), SBE_EVIDENCE],
+      ...s,
+    });
+  });
+  add(5, 'sbe-checkin', 'link', 'Share Standards 1-4 with your advisor for a check-in', { linkLabel: 'Standards 1-4', ...s });
+  add(8, 'sbe-draft', 'link', 'Share your full rough draft', { linkLabel: 'Full rough draft', ...s });
+  // Week 9: self-score and advisor review
+  add(9, 'sbe-self-score', 'check', "Rate every indicator with DECA's Novice-to-Exemplary scale; rewrite anything below Proficient", { link: 'guidelines', ...s });
+  add(9, 'sbe-student-roles', 'check', 'Check every indicator for student decisions, real examples, and evidence (what the top rating looks for)', s);
+  add(9, 'sbe-advisor-review', 'check', 'Your advisor reviews the full draft', s);
+  // Weeks 10-11: winter break, lighter
+  add(10, 'sbe-revise', 'check', "Work through your advisor's comments", s);
+  add(10, 'sbe-strengthen', 'check', 'Add charts, records, or photos where the evidence is thin', s);
+  add(11, 'sbe-format', 'check', 'Format check', {
+    link: 'guidelines',
+    detail: [
+      'Title page: certification program, level (Gold), chapter, advisor and email, date, Food or Retail Operations.',
+      'SBE description on page 2, then a table of contents listing every standard and its page.',
+      'Body is 50 pages or less, size 12 font for the main content.',
+      'Chapter name and state in the footer, with page numbers. Bibliography if you used outside sources.',
+    ],
+    ...s,
+  });
+  add(11, 'sbe-submit-instructions', 'check', "Read DECA's online submission instructions", { link: 'submitInstructions', ...s });
+  // Week 12: finish and hand off
+  add(12, 'sbe-proofread', 'check', 'Final proofread of the whole manual', s);
+  add(12, 'sbe-final', 'link', 'Share the final manual as a PDF', { linkLabel: 'Final manual (PDF)', ...s });
+  add(12, 'sbe-photo-jpg', 'check', 'Save the SBE photo as a JPG (or make sure it is in the manual)', s);
+  add(12, 'sbe-assurances', 'check', 'Review the Statement of Assurances together', { link: 'guidelines', ...s });
+  add(12, 'sbe-handoff', 'check', 'Hand off to your advisor to submit by 11:59 p.m. January 14', {
+    link: 'submit',
+    detail: ['The advisor submits at sbe.decaregistration.com; DECA emails a $25 invoice.'],
+    ...s,
+  });
 }
 
 // SBE individual certification: each student's own online exam.
@@ -214,8 +277,10 @@ export function planTasks({ eventCode, cluster, exams, type = planType(eventCode
   else if (type === 'selling') sellingTasks({ eventCode, cluster, exams }, add);
   else rolePlayTasks({ eventCode, cluster, exams }, add);
   // Suggested order within a week: exams, role plays, links, then the rest.
+  // SBE plans keep the order they're written in (each week's steps build on each other).
   const ORDER = { exam: 0, retake: 1, roleplay: 2, judge: 3, areas: 4, link: 5, check: 6, cards: 7 };
-  return tasks.sort((a, b) => a.week - b.week || ORDER[a.kind] - ORDER[b.kind]);
+  const byKind = !String(type).startsWith('sbe');
+  return tasks.sort((a, b) => a.week - b.week || (byKind ? ORDER[a.kind] - ORDER[b.kind] : 0));
 }
 
 // Ids of the tasks a team shares in this event's plan.
